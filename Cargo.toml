@@ -9,7 +9,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
-description = "enforce the cavekit SPEC format: lossless minify, structural check, CPU only"
+description = "mechanical operations on caveman SPEC.md: lossless minify, structural check, derived reports. CPU only, zero deps"
 readme = "README.md"
 # `cargo package` warns without one of these, and the warning is right: the
 # crates.io page and docs.rs both link back through it, so a crate without
@@ -18,15 +18,19 @@ readme = "README.md"
 # and two places claiming different homes would be worse than one claiming
 # a home that is not published yet.
 repository = "https://github.com/pr0d1r2/nanokit"
-keywords = ["spec", "markdown", "formatter", "agents", "cli"]
+# Five is the crates.io maximum. `cli` went because `categories`
+# already says command-line-utilities; `cavekit` earns its place as the
+# search term someone in that ecosystem would actually type.
+keywords = ["spec", "cavekit", "markdown", "formatter", "agents"]
 categories = ["command-line-utilities", "development-tools"]
 # What NOT to ship: the dev environment and CI machinery, which only mean
 # anything inside the git repo. A `.crate` is source a consumer builds, not
 # a clone of how it is developed.
 #
 # What deliberately STAYS, because excluding it would break something:
-#   FORMAT.md       normative, and V8 says it ships HERE -- a format living
-#                   in nobody's repo is unreadable exactly when needed
+#   FORMAT.md       cavekit's format, VENDORED VERBATIM. §V is what this
+#                   tool enforces; this ships so a reader can see the
+#                   format the rules are written against
 #   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
 #   .spec-records   the unpacked crate fails rather than dogfooding
 #   .context-limits the ceiling and the reasoning behind three raises
