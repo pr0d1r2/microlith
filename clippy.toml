@@ -1,11 +1,47 @@
-# V282/V283/V343: code limits, one file, root only (V294).
-# fn 15 / cognitive 7 (decision 2) — strictest tier that still lets an
-# exhaustive match over the verdict enum live in one function.
-too-many-arguments-threshold = 4   # Sandi params <=4, verbatim
-too-many-lines-threshold = 15      # Sandi method <=5 ported (V283)
+# Code limits. One file, repo root, no per-crate dialect.
+#
+# PROVENANCE, named rather than cited: these are Sandi Metz's rules, adapted.
+# They arrived here with the config that seeded this repo, carrying five
+# invariant numbers from the project that config came from -- numbers that
+# resolve in NO namespace this repo can reach, and read as authoritative
+# anyway. A citation to another repo must be QUALIFIED, and the reasoning
+# behind it restated locally, so nobody has to fetch anything to understand a
+# threshold (V19). Restated below.
+#
+# Every number here is a REVIEWED decision, not a default. Raising one to make
+# a build pass is the reflex these limits exist to catch (AGENTS.md).
+
+# Sandi's "four parameters", verbatim. Past four, the call site stops being
+# readable and the argument order starts being memorized.
+too-many-arguments-threshold = 4
+
+# Sandi's "five lines per method", adapted to 15 because Rust spends lines on
+# signatures, match arms and closing braces that Ruby does not.
+#
+# MEASURED, in this repo, today: this limit split `id::at_line_start` into
+# three named steps, split two test functions that were quietly testing three
+# things each, and hoisted the usage string into a const. Every one of those
+# ended better than the version that tripped the limit -- which is the case
+# for keeping a threshold that fires often.
+too-many-lines-threshold = 15
+
+# The companion to the line limit, and the more important half: 15 short lines
+# of straight-line code are fine, 15 lines of nested branching are not.
 cognitive-complexity-threshold = 7
-excessive-nesting-threshold = 4    # clippy default 0 = disabled
+
+# Clippy's own default here is 0, which DISABLES the lint rather than
+# forbidding all nesting -- worth stating, because 0 reads like the strictest
+# possible setting and is the opposite.
+excessive-nesting-threshold = 4
+
 type-complexity-threshold = 150
+
+# A bool parameter is a hidden mode switch: the call site reads `f(x, true)`
+# and says nothing about what is true. One is tolerable, two means the
+# function is really two functions.
 max-fn-params-bools = 1
 max-struct-bools = 3
-max-trait-bounds = 3               # SOLID.ISP (V311)
+
+# SOLID's interface-segregation principle: a caller should not have to satisfy
+# bounds it does not use.
+max-trait-bounds = 3
