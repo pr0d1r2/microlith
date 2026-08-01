@@ -636,7 +636,8 @@ fn task_num(s: &str) -> Option<u32> {
 /// One named record: the id that owns it, and a marker substring of it.
 pub type Record = (String, String);
 
-/// V16: considered-and-REJECTED records SURVIVE.
+/// V16: considered-and-CLOSED records SURVIVE -- rejected, or DEFERRED
+/// under a stated trigger.
 ///
 /// An option recorded with its rejection & the trigger that would reopen it
 /// is what makes a decision AUDITABLE rather than merely obeyable, and
@@ -665,8 +666,11 @@ pub fn records_survive(text: &str, expected: &[Record]) -> Vec<Violation> {
 /// away for bytes should feel like.
 fn lost_record(id: &str, marker: &str, line: usize) -> Violation {
     Violation::new("V16", format!("{id} lost its `{marker}` record"))
-        .why("a rejected option without its record is obeyable but not auditable")
-        .try_(Fix::Judgment, "restore the record, or record why the option no longer needs one")
+        .why("a closed option without its record is obeyable but not auditable")
+        .try_(
+            Fix::Judgment,
+            "restore the record, or record why the option no longer needs one",
+        )
         .at(line)
 }
 

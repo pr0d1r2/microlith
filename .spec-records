@@ -1,4 +1,5 @@
-# V16's baseline: the considered-and-REJECTED records that must SURVIVE.
+# V16's baseline: the considered-and-CLOSED records that must SURVIVE --
+# an option REJECTED, or DEFERRED under a stated trigger.
 #
 # `<id>` then whitespace then the marker, which runs to end of line and may
 # contain spaces. `#` comments and blank lines are skipped.
@@ -13,7 +14,12 @@
 # be specific, short enough that rewording the surrounding prose does not fire
 # it: what must survive is the DECISION, not the sentence.
 #
-# Adding a line here is how a new rejected option becomes load-bearing.
+# Adding a line here is how a newly closed option becomes load-bearing.
+#
+# A DEFERRAL needs this more than a rejection does: a rejection reads as a
+# closed decision, a deferral reads as an unbuilt feature, and a compaction
+# pass drops it thinking "not built = not needed". T10 and T14 are deferrals;
+# their rows name the condition that would reopen them.
 # Removing one is a reviewed decision -- it says the option is no longer worth
 # recording, which is exactly the trade V16 forbids making silently for bytes.
 
