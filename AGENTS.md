@@ -3,6 +3,25 @@
 For agents and humans. Read this before changing anything; read `SPEC.md`
 for what must hold and what to build next.
 
+## Start here: what is half-done
+
+`hk.pkl` and `.github/workflows/ci.yml` are **annotated drafts that have
+never run**. They are on disk instead of absent so the next session starts
+from a draft rather than a blank page, and they are **inert by
+construction**:
+
+- no git hooks are installed, so `hk` is never invoked on a commit
+- the workflow triggers on `workflow_dispatch` only, so it cannot fire
+
+Each carries a banner naming exactly what remains. That is the open half of
+**T6** in `SPEC.md`, and it is the next thing to build. Expect
+`hk check --all` to fail the first time it is run: fix the causes, and set
+the coverage floor from a fresh measurement rather than from the placeholder
+number in the file.
+
+Nothing else in the repo is half-done. `fmt` works, is tested, and gates
+this repo's own spec.
+
 ## The rule
 
 **Never bypass.** `--no-verify`, lowering a threshold, deleting a test, or
