@@ -1,0 +1,45 @@
+//! V10: nanokit's own `SPEC.md` is the first file it formats and caps.
+//!
+//! A rule this crate cannot pass is a rule it may not ship. These run
+//! against the library being built, so the spec and the code cannot drift
+//! apart without the gate noticing.
+
+use nanokit::format::{over_cap, MAX_LINE};
+use nanokit::format_spec;
+
+fn spec() -> String {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("SPEC.md");
+    let text = std::fs::read_to_string(p).unwrap_or_default();
+    assert!(!text.is_empty(), "SPEC.md is missing or empty");
+    text
+}
+
+/// The spec is already formatted: `fmt` is a no-op on it.
+#[test]
+fn our_own_spec_is_formatted() {
+    let text = spec();
+    let out = format_spec(&text).unwrap_or_default();
+    assert_eq!(out, text, "SPEC.md is not formatted -- run `nanokit fmt`");
+}
+
+/// V4/V8: and no line is over the cap.
+#[test]
+fn our_own_spec_is_under_the_cap() {
+    let over = over_cap(&spec(), MAX_LINE);
+    assert!(over.is_empty(), "lines over the {MAX_LINE} cap: {over:?}");
+}
+
+/// V8's evidence, kept honest: the cap is set ABOVE the measured maximum
+/// with real slack, so a legitimate addition is not a raise. If this fails
+/// the spec has grown into its ceiling and the number needs a REVIEW, not
+/// a reflex bump.
+#[test]
+fn the_cap_still_carries_real_slack() {
+    let longest = spec().split('\n').map(str::len).max().unwrap_or(0);
+    let slack = MAX_LINE.saturating_sub(longest);
+    assert!(
+        slack.saturating_mul(10) > MAX_LINE,
+        "longest line is {longest} of {MAX_LINE} -- under 10% slack, which \
+         is the ceiling-a-hair-above-current failure (V4)"
+    );
+}

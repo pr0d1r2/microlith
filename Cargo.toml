@@ -1,0 +1,41 @@
+# Self-specified, not workspace-inherited: nanokit is born standalone, so
+# it carries its own package metadata and lints from commit one (V6 --
+# a consumer depends on a registry crate, never a path that dangles).
+[package]
+name = "nanokit"
+# The ladder: 0.1 builds reproducibly anywhere. A minor is a level of
+# GUARANTEE, not a feature count.
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT"
+description = "enforce the cavekit SPEC format: lossless minify, structural check, CPU only"
+readme = "README.md"
+keywords = ["spec", "markdown", "formatter", "agents", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "nanokit"
+path = "src/main.rs"
+
+# Zero dependencies. Every operation here is CPU-derivable (V5), so a dep
+# would buy nothing and cost every consumer a transitive edge.
+[dependencies]
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+arithmetic_side_effects = "deny"
+too_many_lines = "deny"
+cognitive_complexity = "deny"
+excessive_nesting = "deny"
+fn_params_excessive_bools = "deny"
+struct_excessive_bools = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"

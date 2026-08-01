@@ -1,0 +1,13 @@
+# Per-path token ceilings, set from COMMIT ONE (V8).
+#
+# This is the lesson nanokit exists to carry, transplanted as a number:
+# itok set its first ceiling at 19,542 -- the size its SPEC.md ALREADY was
+# -- and then raised it four times, to 27,500. A ceiling that arrives after
+# the growth RATIFIES it; one that arrives first CATCHES it.
+#
+# 4k against a spec that currently costs ~2k: real slack, so a legitimate
+# addition is not a raise, and a raise stays a reviewed decision rather
+# than a reflex.
+#
+# Checked by `itok check` today. When T4 lands, nanokit checks it too.
+SPEC.md    4k
