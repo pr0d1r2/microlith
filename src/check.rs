@@ -42,6 +42,37 @@ pub const SECTIONS: [&str; 7] = [
     "## \u{a7}B BUGS",
 ];
 
+/// The word each canonical letter's header must CARRY (V27).
+///
+/// Singular stems, so `Bugs`, `bug log` and `— Bugs / Known Issues` all
+/// satisfy `B` -- the rule is about the concept being NAMED, not about
+/// matching a string. Qualifiers may follow freely.
+pub const CANONICAL_WORDS: [(char, &str); 7] = [
+    ('G', "goal"),
+    ('C', "constraint"),
+    ('I', "interface"),
+    ('R', "research"),
+    ('V', "invariant"),
+    ('T', "task"),
+    ('B', "bug"),
+];
+
+/// Labels that mean the canonical thing under another name.
+///
+/// AUDITED, one row per entry, and deliberately tiny. A label here is a
+/// SYNONYM: the section holds what the letter promises, so the repair is to
+/// write the canonical word and keep the old label in a migration note --
+/// mechanical, and lossless.
+///
+/// What is NOT here, and must not be added: `versioning`, `testing` and
+/// `build`. Those name DIFFERENT CONCEPTS, and the fleet repos using them for
+/// `\u{a7}V`, `\u{a7}T` and `\u{a7}B` mean them literally. No header rewrite
+/// can fix that, because the CONTENT has to move to another section, so they
+/// fail closed as judgement -- which is what "fails closed" has to mean here:
+/// absent from the table is treated as a collision, never as a synonym
+/// nobody got round to listing.
+pub const SYNONYMS: [(char, &str); 1] = [('I', "surface")];
+
 /// The kinds that DECLARE an addressable item, in report order.
 ///
 /// `G`, `C` and `I` are prose and bullets with no ids, so they appear in
@@ -269,6 +300,88 @@ fn misordered_section(header: &str) -> Violation {
     Violation::new("V11", format!("`{header}` is out of order"))
         .why("every §S.n address is read against the section order")
         .try_(Fix::Mechanical, "move the section into FORMAT.md order")
+}
+
+/// V27: a canonical LETTER carries its canonical MEANING.
+///
+/// The header must contain the canonical word; qualifiers may follow freely.
+/// FORMAT.md's ADDRESSING promises ZERO AMBIGUITY -- `\u{a7}V.2` has to mean
+/// the same kind of thing in every repo, or a citation that travels resolves
+/// to a different concept. A repo where `\u{a7}V` holds version pinning has
+/// broken that for everyone else, silently.
+///
+/// V11 asks only whether the section is THERE; this asks what it is called.
+/// Splitting them is what lets each say something true: before T15 the two
+/// were one rule, and a title-cased header was reported as a MISSING section.
+///
+/// LOW NOISE, measured before it was written: 236 of 261 canonical-letter
+/// headers across the fleet already carry the word. The 25 that do not split
+/// two ways, and the fix classification is where that split lives -- see
+/// `SYNONYMS`. This is why the table has a runner today rather than waiting
+/// for `migrate`: it decides what an agent may apply unattended.
+#[must_use]
+pub fn labels_canonical(text: &str) -> Vec<Violation> {
+    text.lines()
+        .enumerate()
+        .flat_map(|(i, line)| {
+            mislabelled(line).map(|v| v.at(i.saturating_add(1)))
+        })
+        .collect()
+}
+
+/// The violation this header carries, if any.
+fn mislabelled(line: &str) -> Option<Violation> {
+    let (kind, word) = CANONICAL_WORDS
+        .into_iter()
+        .find(|(kind, _)| is_header_for(line, *kind))?;
+    let label = label_of(line, kind).to_lowercase();
+    if label.contains(word) {
+        return None;
+    }
+    Some(wrong_label(kind, word, &label))
+}
+
+/// Everything after `## \u{a7}X` -- the label, whatever it is.
+fn label_of(line: &str, kind: char) -> &str {
+    line.trim_end()
+        .strip_prefix("## \u{a7}")
+        .and_then(|r| r.get(kind.len_utf8()..))
+        .unwrap_or("")
+        .trim()
+}
+
+fn wrong_label(kind: char, word: &str, label: &str) -> Violation {
+    let (fix, how) = repair(kind, word, label);
+    Violation::new("V27", format!("`\u{a7}{kind}` is not named `{word}`"))
+        .why("a citation that travels resolves to a different concept")
+        .try_(fix, how)
+}
+
+/// What can be done about this label, and whether a tool may do it alone.
+///
+/// V27's whole judgement lives here rather than in the rule, which is why
+/// `SYNONYMS` needs no `migrate` to justify its existence: this decides what
+/// an agent may apply unattended, today.
+fn repair(kind: char, word: &str, label: &str) -> (Fix, String) {
+    if label.is_empty() {
+        return (Fix::Mechanical, format!("name it `{word}`"));
+    }
+    if is_synonym(kind, label) {
+        let how =
+            format!("say `{word}`, keeping `{label}` as a migration note");
+        return (Fix::Mechanical, how);
+    }
+    let how = format!(
+        "`{label}` names a DIFFERENT concept, so the CONTENT must move; \
+         no header rewrite can do that"
+    );
+    (Fix::Judgment, how)
+}
+
+fn is_synonym(kind: char, label: &str) -> bool {
+    SYNONYMS
+        .into_iter()
+        .any(|(k, syn)| k == kind && label.contains(syn))
 }
 
 /// V12: ids are UNIQUE and never reused; a GAP is fine.
@@ -724,6 +837,81 @@ mod tests {
     fn a_heading_that_runs_into_the_letter_is_not_a_section() {
         let text = real().replace("## \u{a7}T TASKS", "## \u{a7}T55-PLAN");
         v11_says(&text, "no `##");
+    }
+
+    /// V27, planted with the case that motivated it: six fleet repos use the
+    /// canonical letters for other concepts. `§V VERSIONING` holds version
+    /// pinning, so `§V.2` means something different there than everywhere
+    /// else -- and FORMAT.md's ADDRESSING promises zero ambiguity.
+    ///
+    /// JUDGMENT, not mechanical: the content has to move to another section,
+    /// and no header rewrite can do that. An agent applying this unattended
+    /// would file version pinning under INVARIANTS and call it canonical.
+    #[test]
+    fn v27_rejects_a_letter_used_for_another_concept() {
+        for (canonical, wrong) in [
+            ("## \u{a7}V INVARIANTS", "## \u{a7}V VERSIONING"),
+            ("## \u{a7}T TASKS", "## \u{a7}T TESTING"),
+            ("## \u{a7}B BUGS", "## \u{a7}B BUILD"),
+        ] {
+            let got = labels_canonical(&real().replace(canonical, wrong));
+            assert_eq!(got.len(), 1, "{wrong}: {got:?}");
+            assert!(
+                got.first().is_some_and(|v| !v.is_mechanical()),
+                "{wrong} must be judgement -- the content moves: {got:?}"
+            );
+        }
+    }
+
+    /// A SYNONYM is still a violation, but a repairable one: the section
+    /// holds what the letter promises, so writing the canonical word and
+    /// keeping the old label as a note is lossless and computable.
+    #[test]
+    fn v27_calls_a_listed_synonym_mechanical() {
+        let text =
+            real().replace("## \u{a7}I INTERFACES", "## \u{a7}I SURFACES");
+        let got = labels_canonical(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got.first().is_some_and(Violation::is_mechanical), "{got:?}");
+    }
+
+    /// A BARE header names nothing at all, so appending the canonical word is
+    /// the single correct edit -- mechanical for the same reason.
+    #[test]
+    fn v27_calls_a_bare_header_mechanical() {
+        let text = real().replace("## \u{a7}V INVARIANTS", "## \u{a7}V");
+        let got = labels_canonical(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got.first().is_some_and(Violation::is_mechanical), "{got:?}");
+    }
+
+    /// The companion, and the reason this rule is worth having: 236 of 261
+    /// fleet headers ALREADY carry the word. A qualifier, a dash, a case
+    /// change and a parenthetical all pass, so the rule cannot satisfy itself
+    /// by rejecting every header that is not byte-identical to SECTIONS.
+    #[test]
+    fn v27_accepts_every_header_that_names_the_concept() {
+        for label in [
+            "## \u{a7}B BUGS",
+            "## \u{a7}B Bugs",
+            "## \u{a7}B \u{2014} Bugs / Known Issues",
+            "## \u{a7}B bug log",
+        ] {
+            let text = real().replace("## \u{a7}B BUGS", label);
+            assert_eq!(
+                labels_canonical(&text),
+                Vec::<Violation>::new(),
+                "{label}"
+            );
+        }
+    }
+
+    /// An UNKNOWN letter has no canonical word, so it is not this rule's
+    /// business -- same tolerance V11 grants it.
+    #[test]
+    fn v27_ignores_an_extension_section() {
+        let text = format!("{}\n## \u{a7}D DECISIONS\nprose.\n", real());
+        assert_eq!(labels_canonical(&text), Vec::<Violation>::new());
     }
 
     /// One misplaced section is ONE violation, and it names the section that

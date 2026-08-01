@@ -103,6 +103,7 @@ pub fn check_spec(
     records: &[check::Record],
 ) -> Vec<violation::Violation> {
     let mut out = check::sections_ordered(text);
+    out.extend(check::labels_canonical(text));
     out.extend(check::ids_unique(text));
     out.extend(check::citations_resolve(text));
     out.extend(check::rows_sorted(text));
