@@ -28,6 +28,8 @@ The path defaults to `SPEC.md` -- the one file [FORMAT.md](FORMAT.md) says every
 
 Exit codes are the same everywhere: `0` clean, `1` a violation the command gates on, `2` a usage error.
 
+Silence is success. Every command is quiet when there is nothing to report; `--verbose` opts out of that. What it prints differs by command: `fmt` and `check` are mute when clean, so it confirms what was examined; `derive` and `anchors` already speak, so it deepens -- per-statement sizes biggest first, and full text instead of a truncated gist.
+
 ### `fmt` -- one line per statement
 
 `fmt` joins hard wraps so each statement is one line, and refuses any line over the cap.
