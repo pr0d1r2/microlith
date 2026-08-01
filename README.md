@@ -22,6 +22,8 @@ cavespec fmt              # rewrite: one line per statement
 cavespec check            # gate: the structural rules
 cavespec derive           # report: sizes, citations, orphans
 cavespec anchors          # report: the section address of every item
+cavespec migrate --check  # report which headers and rows would convert
+cavespec migrate          # rewrite: canonical 4.1.0 headers, dialects converted
 ```
 
 The path defaults to `SPEC.md` -- the one file [FORMAT.md](FORMAT.md) says every command reads -- so run from a project root and omit it. Pass a path for anything else.
@@ -84,7 +86,9 @@ for v in &violations {
 
 ## Status
 
-`0.1.0`, unpublished. All four commands are built and gate this repo's own spec.
+`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder; `0.5` is the public rung.
+
+All five commands are built and gate this repo's own spec.
 
 `SPEC.md` records what remains, what was deliberately dropped, and every bug found so far with the rule that now catches it.
 
