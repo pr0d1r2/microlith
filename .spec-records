@@ -27,3 +27,4 @@ T6   DROPPED
 # out of the shell you need to fix it.
 V24  a built package
 T20  REJECTED: nanokit writing an inline markdownlint directive
+T23  REJECTED: auto-writing a single `complete all tasks` milestone
