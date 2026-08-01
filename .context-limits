@@ -5,6 +5,25 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
+# RAISED A THIRD TIME, 5100 -> 5800, when T9 and B4 were specced and the
+# ceiling fired at 5,187. Procedure as recorded below; the compaction pass
+# found only 20 tokens this time, because T9's row was already dense.
+#
+# THE PATTERN IS NOW THE INTERESTING PART, so read it before raising a fourth
+# time. 4,000 -> 4,500 -> 5,100 -> 5,800, each about +12%, all in one day.
+# The ceiling has never REFUSED an addition; it has only ever delayed one by
+# the length of a duplication pass.
+#
+# That is not nothing -- the pass found real duplication twice, and each raise
+# forced its reasoning into a commit rather than a reflex. But a ceiling that
+# always ends up ~12% above current is TRACKING the file, not binding it, and
+# a reader should know that is what this number now does.
+#
+# The honest test for a fourth raise: did the duplication pass find anything?
+# If it keeps finding nothing, the ceiling has become a ritual, and the
+# decision to make is whether to size it for the remaining tasks in one go or
+# to admit it is a tripwire for SUDDEN growth rather than a budget.
+#
 # RAISED TWICE IN ONE DAY. 4500 -> 5100 when T4 landed and the ceiling fired
 # again at 4,587. Same procedure as below, in the same order: cut duplication
 # first (V13 and §I each restated B3's record; -58), re-measure (4,529), then
@@ -44,4 +63,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    5100
+SPEC.md    5800
