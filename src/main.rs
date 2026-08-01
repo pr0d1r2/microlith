@@ -3,7 +3,8 @@
 //! a process -- and so a consumer can call the same code instead of
 //! re-porting it (V7). `main` does only the I/O the core avoids.
 
-use nanokit::{format_spec, Output};
+use nanokit::check::{parse_records, Record};
+use nanokit::{check_spec, format_spec, Output};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -28,10 +29,11 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
             Output::ok(format!("nanokit {}\n", env!("CARGO_PKG_VERSION")))
         }
         "fmt" => fmt(rest),
+        "check" => check(rest),
         // Named in the interface section, not built yet. Saying so beats
         // `unknown command`, which sends the reader hunting for a typo.
-        "check" | "anchors" | "derive" => Output::usage(format!(
-            "nanokit: `{verb}` is specified but not built yet (T4/T5)\n"
+        "anchors" | "derive" => Output::usage(format!(
+            "nanokit: `{verb}` is specified but not built yet (T5)\n"
         )),
         other => Output::usage(format!(
             "nanokit: unknown command '{other}'\n{}",
@@ -40,18 +42,28 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
     }
 }
 
-fn usage() -> String {
-    "nanokit -- the cavekit SPEC format, enforced\n\n\
+/// The usage text, a const so the string literal is not counted as
+/// function length -- the limit exists to bound BRANCHING, and prose
+/// has none.
+const USAGE: &str = "nanokit -- the cavekit SPEC format, enforced\n\n\
      usage: nanokit <command> [args]\n\n\
      commands:\n  \
        fmt [--check] <path>\n      \
          One line per statement: joins hard wraps, enforces the line cap. \
          Rewrites the file; `--check` reports drift and exits 1 instead. \
-         The transform is proven whitespace-only before any write.\n\n\
-     built in this binary: fmt\n\
-     specified, not yet built: check, anchors, derive\n\n\
-     exit: 0 ok | 1 drift or violation | 2 usage\n"
-        .to_owned()
+         The transform is proven whitespace-only before any write.\n  \
+       check [--records <file>] <path>\n      \
+         The structural rules: sections present and ordered, ids unique, \
+         citations resolve, rows sorted, every task in exactly one \
+         milestone. `--records` adds the rejected-option check, whose \
+         baseline the caller owns because survival is a claim about edits \
+         rather than about the file.\n\n\
+     built in this binary: fmt, check\n\
+     specified, not yet built: anchors, derive\n\n\
+     exit: 0 ok | 1 drift or violation | 2 usage\n";
+
+fn usage() -> String {
+    USAGE.to_owned()
 }
 
 /// `fmt [--check] <path>`. The check mode never writes, so it is safe in a
@@ -68,6 +80,61 @@ fn fmt(rest: &[String]) -> Output {
         Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
         Ok(out) => apply(path, &text, &out, check),
     }
+}
+
+/// `check [--records <file>] <path>`. Report-only by construction: it reads
+/// two files and writes none, so it is safe anywhere a gate runs (V10).
+fn check(rest: &[String]) -> Output {
+    let Some(path) = positional(rest) else {
+        return Output::usage("nanokit: check needs a path\n".to_owned());
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Output::usage(format!("nanokit: cannot read {path}\n"));
+    };
+    match records_from(rest) {
+        Err(e) => Output::usage(e),
+        Ok(records) => report(path, &check_spec(&text, &records)),
+    }
+}
+
+/// The V16 baseline, or none. A `--records` path that cannot be read is a
+/// USAGE error, never a silent pass: a gate that quietly stops checking
+/// because a file moved is the failure mode the flag exists to prevent.
+fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
+    let Some(path) = flag_value(rest, "--records") else {
+        return Ok(Vec::new());
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Ok(parse_records(&text)),
+        Err(e) => Err(format!("nanokit: cannot read {path}: {e}\n")),
+    }
+}
+
+fn report(path: &str, violations: &[String]) -> Output {
+    if violations.is_empty() {
+        return Output::ok(String::new());
+    }
+    let listed = violations
+        .iter()
+        .map(|v| format!("nanokit: {path}: {v}\n"))
+        .collect::<Vec<_>>()
+        .concat();
+    Output::drift(listed)
+}
+
+/// The value after `name`, if the flag is present with one.
+fn flag_value(rest: &[String], name: &str) -> Option<String> {
+    let at = rest.iter().position(|a| a == name)?;
+    rest.get(at.saturating_add(1))
+        .filter(|v| !v.starts_with('-'))
+        .cloned()
+}
+
+/// The first argument that is neither a flag nor a flag's value.
+fn positional(rest: &[String]) -> Option<&String> {
+    let skip = flag_value(rest, "--records");
+    rest.iter()
+        .find(|a| !a.starts_with('-') && Some(*a) != skip.as_ref())
 }
 
 /// Report the drift, or write the formatted text.
@@ -109,10 +176,56 @@ mod tests {
     /// while the usage text advertises it.
     #[test]
     fn an_unbuilt_verb_names_itself_not_a_typo() {
-        let o = run(&args(&["check", "SPEC.md"]));
+        let o = run(&args(&["anchors", "SPEC.md"]));
         assert_eq!(o.code, 2);
         assert!(o.err.contains("not built yet"), "{}", o.err);
         assert!(!o.err.contains("unknown command"), "{}", o.err);
+    }
+
+    fn write_temp(name: &str, body: &str) -> String {
+        let p = std::env::temp_dir()
+            .join(format!("nanokit-{name}-{}.md", std::process::id()));
+        let _ = std::fs::write(&p, body);
+        p.to_string_lossy().into_owned()
+    }
+
+    /// `check` gates: a violation exits 1 and NAMES the rule, so the reader
+    /// goes to the invariant rather than guessing which one fired.
+    #[test]
+    fn check_names_the_rule_it_failed() {
+        let path = write_temp("bad", "# spec\n\nnothing here\n");
+        let o = run(&args(&["check", &path]));
+        assert_eq!(o.code, 1, "{}", o.err);
+        assert!(o.err.contains("V11"), "{}", o.err);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A `--records` file that cannot be read is a USAGE error, never a
+    /// silent pass. A gate that quietly stops checking because a path moved
+    /// is exactly what the flag exists to prevent.
+    #[test]
+    fn an_unreadable_records_file_is_a_usage_error() {
+        let path = write_temp("norec", "# spec\n");
+        let o = run(&args(&["check", "--records", "no/such/file", &path]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("cannot read"), "{}", o.err);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The path must survive a flag sitting in front of it, and must not be
+    /// confused with the flag's own value.
+    #[test]
+    fn the_path_is_found_past_a_flag_and_its_value() {
+        let rest = args(&["--records", "recs.txt", "SPEC.md"]);
+        assert_eq!(positional(&rest).map(String::as_str), Some("SPEC.md"));
+        assert_eq!(flag_value(&rest, "--records").as_deref(), Some("recs.txt"));
+        assert_eq!(flag_value(&args(&["--records"]), "--records"), None);
+    }
+
+    #[test]
+    fn check_without_a_path_is_a_usage_error() {
+        assert_eq!(run(&args(&["check"])).code, 2);
+        assert_eq!(run(&args(&["check", "no/such/file"])).code, 2);
     }
 
     #[test]

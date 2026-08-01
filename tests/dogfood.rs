@@ -4,14 +4,19 @@
 //! against the library being built, so the spec and the code cannot drift
 //! apart without the gate noticing.
 
+use nanokit::check::parse_records;
 use nanokit::format::{over_cap, MAX_LINE};
-use nanokit::format_spec;
+use nanokit::{check_spec, format_spec};
+
+fn at_root(name: &str) -> String {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
+    let text = std::fs::read_to_string(p).unwrap_or_default();
+    assert!(!text.is_empty(), "{name} is missing or empty");
+    text
+}
 
 fn spec() -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("SPEC.md");
-    let text = std::fs::read_to_string(p).unwrap_or_default();
-    assert!(!text.is_empty(), "SPEC.md is missing or empty");
-    text
+    at_root("SPEC.md")
 }
 
 /// The spec is already formatted: `fmt` is a no-op on it.
@@ -20,6 +25,18 @@ fn our_own_spec_is_formatted() {
     let text = spec();
     let out = format_spec(&text).unwrap_or_default();
     assert_eq!(out, text, "SPEC.md is not formatted -- run `nanokit fmt`");
+}
+
+/// ...and it passes its own structural rules, records included.
+///
+/// The rules this crate sells are the rules it is held to. A spec that could
+/// not pass `check` would make every violation `check` reports arguable.
+#[test]
+fn our_own_spec_passes_check() {
+    let records = parse_records(&at_root(".spec-records"));
+    assert!(!records.is_empty(), ".spec-records parsed to nothing");
+    let violations = check_spec(&spec(), &records);
+    assert_eq!(violations, Vec::<String>::new());
 }
 
 /// V5/V9: and no line is over the cap.

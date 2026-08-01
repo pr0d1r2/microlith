@@ -72,6 +72,23 @@ pub fn format_spec(text: &str) -> Result<String, String> {
     Ok(out)
 }
 
+/// Every structural violation in `text`, in rule order.
+///
+/// V11-V15 are computable from the text alone. V16 needs a baseline of named
+/// records, which is a claim about edits over time rather than about this
+/// file, so the caller supplies it -- empty means the V16 gate is off, not
+/// that it passed.
+#[must_use]
+pub fn check_spec(text: &str, records: &[check::Record]) -> Vec<String> {
+    let mut out = check::sections_ordered(text);
+    out.extend(check::ids_unique(text));
+    out.extend(check::citations_resolve(text));
+    out.extend(check::rows_sorted(text));
+    out.extend(check::tasks_in_one_milestone(text));
+    out.extend(check::records_survive(text, records));
+    out
+}
+
 /// V5: an over-long line names its place, so the reader can go there.
 fn within_cap(text: &str) -> Result<(), String> {
     match format::over_cap(text, format::MAX_LINE).first() {

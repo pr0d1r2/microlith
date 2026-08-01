@@ -60,9 +60,18 @@ local fast = new Mapping<String, Step> {
   // Triggered by the spec itself as well as the code, so a docs-only
   // commit is still gated.
   ["nanokit"] {
-    glob = List("SPEC.md", "**/*.rs")
+    glob = List("SPEC.md", ".spec-records", "**/*.rs")
     depends = List("doctest")
     check = "cargo run -q --bin nanokit -- fmt --check SPEC.md || { echo 'hk: SPEC.md is not formatted. Run `nanokit fmt SPEC.md`. If a line is over the cap, split the statement -- raising the cap is a reviewed decision. See AGENTS.md' >&2; exit 1; }"
+  }
+  // The other half of the dogfood: the STRUCTURAL rules, run on our own law
+  // with our own records. `fmt` says the file is shaped right; this says it
+  // is still correct -- sections in order, ids unique, citations resolving,
+  // and the rejected-option records still present.
+  ["nanokit-check"] {
+    glob = List("SPEC.md", ".spec-records", "**/*.rs")
+    depends = List("nanokit")
+    check = "cargo run -q --bin nanokit -- check --records .spec-records SPEC.md || { echo 'hk: SPEC.md failed its own structural rules. Each line above names the invariant it broke. See AGENTS.md' >&2; exit 1; }"
   }
   // Hygiene, all of it `hk util` -- native to the runner, so it needs no
   // extra binary in the shell or on a CI runner. These are also the first
