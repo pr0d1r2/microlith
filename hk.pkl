@@ -217,9 +217,9 @@ hooks {
   /// staged file (`git add -p`) is checked as it looks in the worktree,
   /// giving a verdict about code you are not committing.
   ///
-  /// NOTE: nothing installs these hooks yet. `flake.nix`'s shellHook
-  /// deliberately does not, because this file was unverified when it was
-  /// written. Installing them is step 3 of the banner above.
+  /// Installed by `flake.nix`'s shellHook, BY HAND rather than by
+  /// `hk install`, so a shell without hk SKIPS loudly instead of making
+  /// every git command fail (V23).
   ["pre-commit"] {
     fix = true
     stash = "git"
