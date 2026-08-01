@@ -61,11 +61,12 @@ const USAGE: &str = r"nanokit -- the cavekit SPEC format, enforced
 usage: nanokit <command> [args]
 
 commands:
-  fmt [--check] [<path>]
+  fmt [--check] [--verbose] [<path>]
       One line per statement: joins hard wraps, enforces the line
       cap. Rewrites the file; `--check` reports drift and exits 1
       instead. The transform is proven whitespace-only before any
-      write.
+      write. `--verbose` confirms what was examined, with the
+      longest line against the cap.
 
   check [--records <file>] [--format human|json] [<path>]
       The structural rules: sections present and ordered, ids
@@ -107,8 +108,37 @@ fn fmt(rest: &[String]) -> Output {
     };
     match format_spec(&text) {
         Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
-        Ok(out) => apply(&path, &text, &out, check),
+        Ok(out) => {
+            let done = apply(&path, &text, &out, check);
+            said(done, verbose(rest), || fmt_summary(&path, &out))
+        }
     }
+}
+
+/// Append what was examined, but only on success and only when asked. A
+/// summary next to a failure would bury the failure.
+fn said(o: Output, verbose: bool, summary: impl Fn() -> String) -> Output {
+    if o.code != 0 || !verbose {
+        return o;
+    }
+    Output::ok(format!("{}{}", o.out, summary()))
+}
+
+/// What `fmt` examined, for a caller who asked to be told.
+///
+/// The cap and the longest line, because those are the two numbers that
+/// decide whether the next addition will be refused -- knowing you are at
+/// 763 of 1650 is the difference between "it passed" and "it passed with
+/// room".
+fn fmt_summary(path: &str, text: &str) -> String {
+    let lines = text.lines().count();
+    let longest = text.lines().map(|l| l.chars().count()).max().unwrap_or(0);
+    format!(
+        "nanokit: {path}: formatted, {lines} lines, longest {longest} of {} \
+         ({} spare)\n",
+        nanokit::format::MAX_LINE,
+        nanokit::format::MAX_LINE.saturating_sub(longest)
+    )
 }
 
 /// `check [--records <file>] <path>`. Report-only by construction: it reads
@@ -184,6 +214,11 @@ fn flag_value(rest: &[String], name: &str) -> Option<String> {
 /// FORMAT.md: "Single file. Project root." The convention already existed;
 /// this is the CLI honouring it rather than making each caller retype it.
 pub const DEFAULT_PATH: &str = "SPEC.md";
+
+/// Whether the caller opted out of silence-is-success (V10).
+fn verbose(rest: &[String]) -> bool {
+    rest.iter().any(|a| a == "--verbose" || a == "-v")
+}
 
 /// The first argument that is neither a flag nor a flag's value.
 fn positional(rest: &[String]) -> Option<&String> {
@@ -419,6 +454,29 @@ mod tests {
 
     /// Convention over configuration: no path means SPEC.md, the one file
     /// FORMAT.md says every cavekit command reads.
+    /// Silence stays the default; `--verbose` is the opt-out (V10). On a
+    /// clean run it must say what was examined, not merely "ok".
+    #[test]
+    fn fmt_is_silent_unless_asked() {
+        let quiet = run(&args(&["fmt", "--check"]));
+        assert_eq!(quiet.code, 0);
+        assert!(quiet.out.is_empty(), "silence is success: {}", quiet.out);
+        let loud = run(&args(&["fmt", "--check", "--verbose"]));
+        assert_eq!(loud.code, 0);
+        assert!(loud.out.contains("longest"), "{}", loud.out);
+        assert!(loud.out.contains("spare"), "{}", loud.out);
+    }
+
+    /// A summary must never accompany a failure -- it would bury it.
+    #[test]
+    fn a_failure_is_not_dressed_up_with_a_summary() {
+        let path = write_temp("verb", "V1: a rule\nwrapped here\n");
+        let o = run(&args(&["fmt", "--check", "--verbose", &path]));
+        assert_eq!(o.code, 1, "{}", o.err);
+        assert!(o.out.is_empty(), "summary leaked onto a failure: {}", o.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
     #[test]
     fn no_path_means_the_convention() {
         assert_eq!(target(&args(&[])), "SPEC.md");
