@@ -61,13 +61,13 @@ const USAGE: &str = r"nanokit -- the cavekit SPEC format, enforced
 usage: nanokit <command> [args]
 
 commands:
-  fmt [--check] <path>
+  fmt [--check] [<path>]
       One line per statement: joins hard wraps, enforces the line
       cap. Rewrites the file; `--check` reports drift and exits 1
       instead. The transform is proven whitespace-only before any
       write.
 
-  check [--records <file>] [--format human|json] <path>
+  check [--records <file>] [--format human|json] [<path>]
       The structural rules: sections present and ordered, ids
       unique, citations resolve, rows sorted, every task in exactly
       one milestone, every status one of . ~ x. Each violation
@@ -76,14 +76,17 @@ commands:
       rejected-option check, whose baseline the caller owns because
       survival is a claim about edits rather than about the file.
 
-  derive <path>
+  derive [<path>]
       Sizes, the citation graph, and invariants cited by nothing.
       Report-only: exits 0 even with findings, because an orphan is
       a question for a reader, not a build failure.
 
-  anchors <path>
+  anchors [<path>]
       The section address of every item, with the id it resolves to
       and whether the two have drifted apart. Report-only.
+
+<path> defaults to SPEC.md, the one file FORMAT.md says every
+cavekit command reads. Run from a project root and omit it.
 
 built in this binary: fmt, check, derive, anchors
 
@@ -98,26 +101,22 @@ fn usage() -> String {
 /// gate; the default mode writes only after the losslessness proof (V1).
 fn fmt(rest: &[String]) -> Output {
     let check = rest.iter().any(|a| a == "--check");
-    let Some(path) = rest.iter().find(|a| !a.starts_with('-')) else {
-        return Output::usage("nanokit: fmt needs a path\n".to_owned());
-    };
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return Output::usage(format!("nanokit: cannot read {path}\n"));
+    let path = target(rest);
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
     };
     match format_spec(&text) {
         Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
-        Ok(out) => apply(path, &text, &out, check),
+        Ok(out) => apply(&path, &text, &out, check),
     }
 }
 
 /// `check [--records <file>] <path>`. Report-only by construction: it reads
 /// two files and writes none, so it is safe anywhere a gate runs (V10).
 fn check(rest: &[String]) -> Output {
-    let Some(path) = positional(rest) else {
-        return Output::usage("nanokit: check needs a path\n".to_owned());
-    };
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return Output::usage(format!("nanokit: cannot read {path}\n"));
+    let path = target(rest);
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
     };
     let as_json = match wants_json(rest) {
         Err(e) => return Output::usage(e),
@@ -125,7 +124,7 @@ fn check(rest: &[String]) -> Output {
     };
     match records_from(rest) {
         Err(e) => Output::usage(e),
-        Ok(records) => report(path, &check_spec(&text, &records), as_json),
+        Ok(records) => report(&path, &check_spec(&text, &records), as_json),
     }
 }
 
@@ -180,6 +179,12 @@ fn flag_value(rest: &[String], name: &str) -> Option<String> {
         .cloned()
 }
 
+/// The file every cavekit command reads when told nothing else.
+///
+/// FORMAT.md: "Single file. Project root." The convention already existed;
+/// this is the CLI honouring it rather than making each caller retype it.
+pub const DEFAULT_PATH: &str = "SPEC.md";
+
 /// The first argument that is neither a flag nor a flag's value.
 fn positional(rest: &[String]) -> Option<&String> {
     let skip: Vec<String> = ["--records", "--format"]
@@ -188,6 +193,30 @@ fn positional(rest: &[String]) -> Option<&String> {
         .collect();
     rest.iter()
         .find(|a| !a.starts_with('-') && !skip.contains(a))
+}
+
+/// The path to work on: what was asked for, or the convention.
+///
+/// Defaulting the PATH does not make a rewrite less deliberate (V10) --
+/// `fmt` is still a verb someone typed, and the transform is still proven
+/// lossless before any write. What it removes is retyping the one filename
+/// the format says there will be.
+fn target(rest: &[String]) -> String {
+    positional(rest)
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_PATH.to_owned())
+}
+
+/// A path that cannot be read, said in a way that distinguishes the two
+/// reasons: a wrong path, or the right path in the wrong directory.
+fn unreadable(path: &str) -> Output {
+    if path == DEFAULT_PATH {
+        return Output::usage(format!(
+            "nanokit: no {DEFAULT_PATH} here -- run from a project root, \
+             or name a path\n"
+        ));
+    }
+    Output::usage(format!("nanokit: cannot read {path}\n"))
 }
 
 /// `derive <path>` and `anchors <path>`: read, report, exit 0.
@@ -199,11 +228,9 @@ fn positional(rest: &[String]) -> Option<&String> {
 /// be read is still a usage error -- that is a broken invocation, not a
 /// finding.
 fn reporting(rest: &[String], report: fn(&str) -> String) -> Output {
-    let Some(path) = positional(rest) else {
-        return Output::usage("nanokit: needs a path\n".to_owned());
-    };
-    match std::fs::read_to_string(path) {
-        Err(_) => Output::usage(format!("nanokit: cannot read {path}\n")),
+    let path = target(rest);
+    match std::fs::read_to_string(&path) {
+        Err(_) => unreadable(&path),
         Ok(text) => Output::ok(report(&text)),
     }
 }
@@ -294,10 +321,15 @@ mod tests {
         assert_eq!(flag_value(&args(&["--records"]), "--records"), None);
     }
 
+    /// The default is exercised end to end, in READ-ONLY mode only: this
+    /// runs from the crate root, so a writing verb with no path would target
+    /// the real SPEC.md, and a test that edits the repo's own law is a test
+    /// nobody can trust.
     #[test]
-    fn check_without_a_path_is_a_usage_error() {
-        assert_eq!(run(&args(&["check"])).code, 2);
-        assert_eq!(run(&args(&["check", "no/such/file"])).code, 2);
+    fn the_default_path_resolves_to_our_own_spec() {
+        assert_eq!(run(&args(&["check"])).code, 0);
+        assert_eq!(run(&args(&["fmt", "--check"])).code, 0);
+        assert_eq!(run(&args(&["derive"])).code, 0);
     }
 
     /// §I's four verbs are all built now, and the usage says so without a
@@ -374,15 +406,44 @@ mod tests {
 
     /// A broken invocation is still a usage error: that is not a finding.
     #[test]
-    fn a_report_without_a_readable_path_is_a_usage_error() {
-        assert_eq!(run(&args(&["derive"])).code, 2);
+    fn a_report_with_an_unreadable_path_is_a_usage_error() {
         assert_eq!(run(&args(&["anchors", "no/such/file"])).code, 2);
     }
 
+    /// A named path that cannot be read is still an error.
     #[test]
-    fn fmt_without_a_path_is_a_usage_error() {
-        assert_eq!(run(&args(&["fmt"])).code, 2);
+    fn an_unreadable_named_path_is_a_usage_error() {
         assert_eq!(run(&args(&["fmt", "no/such/file"])).code, 2);
+        assert_eq!(run(&args(&["check", "no/such/file"])).code, 2);
+    }
+
+    /// Convention over configuration: no path means SPEC.md, the one file
+    /// FORMAT.md says every cavekit command reads.
+    #[test]
+    fn no_path_means_the_convention() {
+        assert_eq!(target(&args(&[])), "SPEC.md");
+        assert_eq!(target(&args(&["--check"])), "SPEC.md");
+        assert_eq!(target(&args(&["other.md"])), "other.md");
+        assert_eq!(
+            target(&args(&["--records", "r.txt", "other.md"])),
+            "other.md",
+            "a flag value is not the path"
+        );
+    }
+
+    /// The default resolving to a file that is not there says so
+    /// DIFFERENTLY, because the two causes need different fixes: a wrong
+    /// path is a typo, a missing SPEC.md is usually the wrong directory.
+    #[test]
+    fn a_missing_default_names_the_convention_not_a_typo() {
+        let named = unreadable("no/such/file");
+        assert!(named.err.contains("cannot read no/such/file"), "{named:?}");
+        let missing = unreadable(DEFAULT_PATH);
+        assert!(
+            missing.err.contains("run from a project root"),
+            "{missing:?}"
+        );
+        assert_eq!(missing.code, 2);
     }
 
     /// `--check` gates and never writes: exit 1 on drift, and the file on
