@@ -68,7 +68,7 @@ commands:
       write. `--verbose` confirms what was examined, with the
       longest line against the cap.
 
-  check [--records <file>] [--format human|json] [<path>]
+  check [--records <file>] [--format human|json] [--verbose] [<path>]
       The structural rules: sections present and ordered, ids
       unique, citations resolve, rows sorted, every task in exactly
       one milestone, every status one of . ~ x. Each violation
@@ -76,6 +76,8 @@ commands:
       apply) or judgment (needs a human). `--records` adds the
       rejected-option check, whose baseline the caller owns because
       survival is a claim about edits rather than about the file.
+      `--verbose` confirms what was examined, and says when the
+      records check did not run.
 
   derive [<path>]
       Sizes, the citation graph, and invariants cited by nothing.
@@ -148,14 +150,64 @@ fn check(rest: &[String]) -> Output {
     let Ok(text) = std::fs::read_to_string(&path) else {
         return unreadable(&path);
     };
-    let as_json = match wants_json(rest) {
+    let how = match wants_json(rest) {
         Err(e) => return Output::usage(e),
-        Ok(j) => j,
+        Ok(as_json) => Opts {
+            as_json,
+            verbose: verbose(rest),
+        },
     };
     match records_from(rest) {
         Err(e) => Output::usage(e),
-        Ok(records) => report(&path, &check_spec(&text, &records), as_json),
+        Ok(r) => checked(&path, &text, &r, how),
     }
+}
+
+/// Run the rules and render, with the summary only when it was asked for
+/// and only in the human rendering -- appending prose to JSON would break
+/// the one thing the JSON is for.
+fn checked(path: &str, text: &str, records: &[Record], how: Opts) -> Output {
+    let found = check_spec(text, records);
+    let done = report(path, &found, how.as_json);
+    said(done, how.verbose && !how.as_json, || {
+        check_summary(path, text, records.len())
+    })
+}
+
+/// How the caller asked for the output.
+///
+/// A struct rather than two bool parameters, because `checked(.., true,
+/// false)` at the call site says nothing about which is which -- and the
+/// lint that forced this was right to.
+#[derive(Debug, Clone, Copy)]
+struct Opts {
+    as_json: bool,
+    verbose: bool,
+}
+
+/// What `check` examined, for a caller who asked to be told.
+///
+/// Counts the ITEMS, not the rules: "6 rules ran" is a fact about nanokit,
+/// while "24 invariants, 9 tasks, 4 bugs" is a fact about the spec, and
+/// only the second changes when someone points the gate at the wrong file.
+///
+/// It also says whether V16 ran, because that rule is OFF unless a baseline
+/// was supplied -- and a gate silently checking five rules instead of six
+/// looks exactly like a gate checking six.
+fn check_summary(path: &str, text: &str, records: usize) -> String {
+    let n = |kind| nanokit::check::declared(text, kind).len();
+    let records = if records == 0 {
+        "no records baseline, so V16 did not run".to_owned()
+    } else {
+        format!("{records} records checked")
+    };
+    format!(
+        "nanokit: {path}: clean -- {} invariants, {} tasks, {} bugs; {}\n",
+        n('V'),
+        n('T'),
+        n('B'),
+        records
+    )
 }
 
 /// The V16 baseline, or none. A `--records` path that cannot be read is a
@@ -475,6 +527,30 @@ mod tests {
         assert_eq!(o.code, 1, "{}", o.err);
         assert!(o.out.is_empty(), "summary leaked onto a failure: {}", o.out);
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// `check --verbose` counts what is IN the spec, and says when the
+    /// records rule did not run -- five rules and six look identical from
+    /// outside, which is the whole point of saying so.
+    #[test]
+    fn check_says_what_it_examined_and_what_it_skipped() {
+        let quiet = run(&args(&["check"]));
+        assert!(quiet.out.is_empty(), "silence is success: {}", quiet.out);
+        let loud = run(&args(&["check", "--verbose"]));
+        assert!(loud.out.contains("invariants"), "{}", loud.out);
+        assert!(loud.out.contains("V16 did not run"), "{}", loud.out);
+        let with =
+            run(&args(&["check", "--verbose", "--records", ".spec-records"]));
+        assert!(with.out.contains("records checked"), "{}", with.out);
+    }
+
+    /// Prose must never be appended to JSON: an agent parses that stream,
+    /// and a trailing sentence turns valid output into a parse error.
+    #[test]
+    fn verbose_stays_out_of_the_json_rendering() {
+        let o = run(&args(&["check", "--verbose", "--format", "json"]));
+        assert_eq!(o.code, 0);
+        assert!(o.out.is_empty(), "prose leaked into json mode: {}", o.out);
     }
 
     #[test]
