@@ -43,8 +43,15 @@ local fast = new Mapping<String, Step> {
   // nextest runs each test in its OWN process. That isolation is worth an
   // extra tool: it makes a race between concurrently running tests much
   // harder to write in the first place.
+  // SPEC.md and .spec-records are in the glob because `tests/dogfood.rs`
+  // READS them. Without that, a SPEC.md-only commit skipped the entire
+  // suite -- including the dogfood assertions whose whole subject is
+  // SPEC.md. Four spec commits landed that way before `hk check --all`,
+  // run by hand, caught a slack breach the pre-commit hook never looked
+  // for. A step's glob must name every input its tests read, not just the
+  // language it is written in.
   ["test"] {
-    glob = List("**/*.rs")
+    glob = List("**/*.rs", "SPEC.md", ".spec-records")
     depends = List("clippy")
     check = "cargo nextest run"
   }
@@ -197,8 +204,11 @@ local all = (fast) {
   // The known gap, named rather than hidden: `main()` and the I/O error
   // arms are unreachable from lib tests. Only a process-boundary test
   // moves them, and that is its own task, not a coverage tweak.
+  // Same glob as `test`, and for the same reason: this runs the same suite,
+  // so it reads SPEC.md too. `clippy`, `doctest` and `rustdoc` are left at
+  // `**/*.rs` because they genuinely only read Rust.
   ["coverage"] {
-    glob = List("**/*.rs")
+    glob = List("**/*.rs", "SPEC.md", ".spec-records")
     depends = List("rustdoc")
     check = "cargo llvm-cov nextest --fail-under-lines 94 || { echo 'hk: below the coverage floor. Cover the gap; lowering the floor needs a reason in SPEC.md. See AGENTS.md' >&2; exit 1; }"
   }
