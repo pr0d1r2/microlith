@@ -32,6 +32,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "check" => check(rest),
         "derive" => reporting(rest, derive_report(rest)),
         "anchors" => reporting(rest, anchors_report(rest)),
+        "migrate" => migrate(rest),
         other => unknown(other),
     }
 }
@@ -101,6 +102,16 @@ commands:
       `--verbose` confirms what was examined, and says when the
       records check did not run.
 
+  migrate [--check] [--verbose] [<path>]
+      Section headers to canonical 4.1.0. A case or punctuation
+      difference is rewritten silently; a label carrying real text
+      is rewritten with the original kept beneath it, so nothing is
+      discarded. Every alphanumeric run of the original is proven
+      to survive before any write. A letter used for a DIFFERENT
+      concept is never touched -- annotating one keeps the
+      characters and inverts the meaning -- so those are reported
+      and exit 1. `--check` reports without writing.
+
   derive [--verbose] [<path>]
       Sizes, the citation graph, and invariants cited by nothing.
       Report-only: exits 0 even with findings, because an orphan is
@@ -115,7 +126,7 @@ commands:
 <path> defaults to SPEC.md, the one file FORMAT.md says every
 cavekit command reads. Run from a project root and omit it.
 
-built in this binary: fmt, check, derive, anchors
+built in this binary: fmt, check, migrate, derive, anchors
 
 exit: 0 ok | 1 drift or violation | 2 usage
 ";
@@ -135,10 +146,45 @@ fn fmt(rest: &[String]) -> Output {
     match format_spec(&text) {
         Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
         Ok(out) => {
-            let done = apply(&path, &text, &out, check);
+            let done =
+                apply(&path, (&text, &out), check, ("fmt", "not formatted"));
             said(done, verbose(rest), || fmt_summary(&path, &out))
         }
     }
+}
+
+/// `migrate`: headers to canonical 4.1.0, and a report of what it declined.
+///
+/// Writes like `fmt` and gates like `fmt --check`, but with one difference
+/// that matters: a COLLISION cannot be migrated, so a run that rewrote
+/// everything it could may still leave the file non-canonical. That is
+/// reported and exits 1, because silence here would claim a finished job.
+fn migrate(rest: &[String]) -> Output {
+    let check = rest.iter().any(|a| a == "--check");
+    let path = target(rest);
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
+    };
+    match nanokit::migrate::migrate(&text) {
+        Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
+        Ok(out) => migrated(rest, &path, (&text, &out), check),
+    }
+}
+
+fn migrated(
+    rest: &[String],
+    path: &str,
+    io: (&str, &str),
+    check: bool,
+) -> Output {
+    let done = apply(path, io, check, ("migrate", "not canonical"));
+    let left = nanokit::migrate::unfinished(io.1);
+    if done.code == 0 && !left.is_empty() {
+        return Output::drift(format!("{}{left}", done.out));
+    }
+    said(done, verbose(rest), || {
+        format!("nanokit: {path}: headers canonical\n")
+    })
 }
 
 /// Append what was examined, but only on success and only when asked. A
@@ -346,18 +392,29 @@ fn reporting(rest: &[String], report: fn(&str) -> String) -> Output {
     }
 }
 
-/// Report the drift, or write the formatted text.
-fn apply(path: &str, text: &str, out: &str, check: bool) -> Output {
+/// Report the drift, or write the rewritten text.
+///
+/// Shared by `fmt` and `migrate` (V7): both prove a transform, then either
+/// write it or report that it is needed. `verb` carries the command name and
+/// the phrase for what the file currently is, so the two say different
+/// things without a second copy of the write-or-report logic.
+fn apply(
+    path: &str,
+    io: (&str, &str),
+    check: bool,
+    verb: (&str, &str),
+) -> Output {
+    let ((text, out), (verb, drift)) = (io, verb);
     if out == text {
         return Output::ok(String::new());
     }
     if check {
         return Output::drift(format!(
-            "nanokit: {path} is not formatted -- run `nanokit fmt {path}`\n"
+            "nanokit: {path} is {drift} -- run `nanokit {verb} {path}`\n"
         ));
     }
     match std::fs::write(path, out) {
-        Ok(()) => Output::ok(format!("nanokit: formatted {path}\n")),
+        Ok(()) => Output::ok(format!("nanokit: {verb} rewrote {path}\n")),
         Err(e) => Output::usage(format!("nanokit: cannot write {path}: {e}\n")),
     }
 }
@@ -448,8 +505,55 @@ mod tests {
     #[test]
     fn usage_lists_every_built_verb() {
         let u = usage();
-        assert!(u.contains("fmt, check, derive, anchors"), "{u}");
+        assert!(u.contains("fmt, check, migrate, derive, anchors"), "{u}");
         assert!(!u.contains("not yet built"), "{u}");
+    }
+
+    /// `migrate` writes once, then is a no-op -- V2, at the process level.
+    /// And a COLLISION it declined is reported rather than left silent, or a
+    /// clean exit would claim a file was canonical when it is not.
+    /// A spec with one migratable header and one collision.
+    fn mixed_spec(name: &str) -> String {
+        let body = "## \u{a7}I \u{2014} Interfaces\n- a\n\n\
+                    ## \u{a7}V VERSIONING\n- pin\n";
+        write_temp(name, body)
+    }
+
+    #[test]
+    fn migrate_rewrites_what_it_can_and_reports_what_it_declined() {
+        let path = mixed_spec("mig");
+        let o = run(&args(&["migrate", &path]));
+        assert_eq!(o.code, 1, "a collision remains: {o:?}");
+        assert!(o.err.contains("DIFFERENT concept"), "{}", o.err);
+        let after = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(after.contains("## \u{a7}I INTERFACES"), "{after}");
+        assert!(after.contains("## \u{a7}V VERSIONING"), "left: {after}");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// V2 at the process level: the second run writes nothing further, and
+    /// in particular adds no second note.
+    #[test]
+    fn migrating_a_file_twice_writes_once() {
+        let path = mixed_spec("mig2");
+        let _ = run(&args(&["migrate", &path]));
+        let after = std::fs::read_to_string(&path).unwrap_or_default();
+        let again = run(&args(&["migrate", &path]));
+        assert_eq!(std::fs::read_to_string(&path).ok(), Some(after));
+        assert_eq!(again.code, 1, "still not canonical");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// `--check` reports without writing, like `fmt --check`.
+    #[test]
+    fn migrate_check_never_writes() {
+        let src = "## \u{a7}G Goal\none line.\n";
+        let path = write_temp("migchk", src);
+        let o = run(&args(&["migrate", "--check", &path]));
+        assert_eq!(o.code, 1, "{}", o.err);
+        assert!(o.err.contains("not canonical"), "{}", o.err);
+        assert_eq!(std::fs::read_to_string(&path).as_deref().ok(), Some(src));
+        let _ = std::fs::remove_file(&path);
     }
 
     /// Every command is separated by a blank line and no line runs past 76

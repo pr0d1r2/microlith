@@ -14,6 +14,7 @@ pub mod check;
 pub mod derive;
 pub mod format;
 pub mod id;
+pub mod migrate;
 pub mod render;
 pub mod violation;
 

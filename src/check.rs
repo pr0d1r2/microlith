@@ -342,7 +342,10 @@ fn mislabelled(line: &str) -> Option<Violation> {
 }
 
 /// Everything after `## \u{a7}X` -- the label, whatever it is.
-fn label_of(line: &str, kind: char) -> &str {
+///
+/// Shared with `migrate`, which decides what to do about it (V7).
+#[must_use]
+pub fn label_of(line: &str, kind: char) -> &str {
     line.trim_end()
         .strip_prefix("## \u{a7}")
         .and_then(|r| r.get(kind.len_utf8()..))
