@@ -113,13 +113,45 @@ pub fn continuation(prev: &str, cur: &str) -> bool {
 #[must_use]
 pub fn unwrap_wraps(text: &str) -> String {
     let mut out: Vec<String> = Vec::new();
+    let mut fenced = false;
     for line in text.split('\n') {
-        match out.last_mut() {
-            Some(prev) if continuation(prev, line) => join(prev, line),
-            _ => out.push(folded(line)),
-        }
+        step(&mut out, &mut fenced, line);
     }
     out.join("\n")
+}
+
+/// One line: open or close a fence, continue the statement above, or start a
+/// new one. Split out from the loop only to keep each part readable.
+fn step(out: &mut Vec<String>, fenced: &mut bool, line: &str) {
+    if is_fence(line) {
+        *fenced = !*fenced;
+        out.push(line.to_owned());
+        return;
+    }
+    match out.last_mut() {
+        Some(prev) if !*fenced && continuation(prev, line) => join(prev, line),
+        _ if *fenced => out.push(line.to_owned()),
+        _ => out.push(folded(line)),
+    }
+}
+
+/// A fenced block delimiter.
+///
+/// B14: inside a fence every line is VERBATIM -- never joined, never folded.
+/// Without this, a shell block became one line: three commands run together
+/// and the closing fence swallowed into the last of them. V1's proof passed,
+/// as it does for every merge.
+///
+/// This is V13's boundary at BLOCK scale. FORMAT.md reserves backticks for
+/// verbatim text, and that reading was already load-bearing for citations;
+/// the formatter simply had never been told.
+///
+/// Seven fleet specs carry fences and 80 markers between them. Our own spec
+/// carries NONE, which is why the dogfood could not see this -- the third
+/// defect in a row that our own file was structurally unable to catch.
+#[must_use]
+pub fn is_fence(line: &str) -> bool {
+    line.trim_start().starts_with("```")
 }
 
 /// T19: an indented DECLARATION dedented back to column zero.
@@ -306,6 +338,42 @@ mod tests {
         assert!(continuation("V1: costs", "1650 tokens at most"));
         assert!(!carries_a_marker("2026 was the year"));
         assert!(carries_a_marker("2. an item"));
+    }
+
+    /// B14: a fenced block is VERBATIM. This became one line -- three
+    /// commands run together, the closing fence swallowed into the last of
+    /// them -- and V1's proof passed, as it does for every merge.
+    #[test]
+    fn a_fenced_block_survives_intact() {
+        let src = "V1: a rule\n\n```sh\nnanokit check\nnanokit fmt\n```\n";
+        assert_eq!(unwrap_wraps(src), src);
+    }
+
+    /// Indentation inside a fence is CONTENT, not layout: folding it would
+    /// silently reformat somebody's code sample.
+    #[test]
+    fn indentation_inside_a_fence_is_left_alone() {
+        let src = "```\n  - V9: an example line\n    nested\n```\n";
+        assert_eq!(unwrap_wraps(src), src);
+    }
+
+    /// ...and text after the fence closes is joined again, so the rule is
+    /// scoped to the block rather than poisoning the rest of the file (the
+    /// failure mode V13's per-line boundary was written to avoid).
+    #[test]
+    fn wrapping_resumes_after_the_fence_closes() {
+        let src = "```\nx\n```\nV1: a rule that\nwraps here\n";
+        let out = unwrap_wraps(src);
+        assert!(out.contains("V1: a rule that wraps here"), "{out}");
+        assert!(out.contains("```\nx\n```"), "{out}");
+    }
+
+    /// V2 holds with fences in the loop.
+    #[test]
+    fn fenced_formatting_is_idempotent() {
+        let src = "V1: a\nwrap\n\n```sh\ncmd one\ncmd two\n```\n- b\n";
+        let once = unwrap_wraps(src);
+        assert_eq!(unwrap_wraps(&once), once);
     }
 
     /// V2: a formatter that keeps changing its mind cannot gate.
