@@ -161,8 +161,10 @@ fn duplicate_id(label: &str) -> Violation {
     Violation::new("V12", format!("`{label}` is declared twice"))
         .why("a reused id silently redirects every citation to the old meaning")
         .try_(
-            Fix::Mechanical,
-            "give this one the next FREE id; a gap costs nothing",
+            Fix::Judgment,
+            "decide which declaration keeps the id, then renumber the OTHER \
+             to the next free one; a gap costs nothing, a wrong choice \
+             redirects every citation (B2)",
         )
 }
 
@@ -187,7 +189,7 @@ fn dangling(cite: &str) -> Violation {
         .why(
             "a dangling reference reads as authoritative, so nobody follows it",
         )
-        .try_(Fix::Mechanical, "point it at the rule that was meant")
+        .try_(Fix::Judgment, "point it at the rule that was meant")
         .try_(
             Fix::Judgment,
             format!("declare {cite}, if the rule is real but missing"),
@@ -239,8 +241,8 @@ fn unclaimed(label: &str) -> Violation {
     Violation::new("V15", format!("{label} is in no milestone"))
         .why("88 tasks once belonged to none while two gates stayed green")
         .try_(
-            Fix::Mechanical,
-            "add it to a milestone's tasks cell; ranges expand",
+            Fix::Judgment,
+            "add it to the RIGHT milestone's tasks cell; ranges expand",
         )
         .try_(Fix::Judgment, "delete the row, if the work is not real")
 }
@@ -261,8 +263,8 @@ fn claimed_twice(n: u32) -> Violation {
     Violation::new("V15", format!("T{n} is claimed by two milestones"))
         .why("EXACTLY one, or the rule is satisfied by claiming everything")
         .try_(
-            Fix::Mechanical,
-            "remove the claim from all but one milestone",
+            Fix::Judgment,
+            "decide which milestone owns it, then remove the other claims",
         )
 }
 
@@ -312,7 +314,11 @@ pub fn statuses_valid(text: &str) -> Vec<Violation> {
 fn bad_status(label: &str, status: &str) -> Violation {
     Violation::new("V25", format!("{label} has status `{status}`"))
         .why("a status outside . ~ x renders fine and every runner reads it differently")
-        .try_(Fix::Mechanical, "set it to `.` todo, `~` wip or `x` done")
+        .try_(
+            Fix::Judgment,
+            "set it to whichever of `.` todo, `~` wip or `x` done the work \
+             actually is",
+        )
 }
 
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
@@ -689,6 +695,31 @@ mod tests {
     fn a_milestone_row_is_not_checked_for_a_status() {
         let text = "## \u{a7}T TASKS\n| M1 | scope | T1 | done |\n";
         assert!(statuses_valid(text).is_empty());
+    }
+
+    /// The classification is pinned, because it is advice about what an
+    /// agent may do UNATTENDED and it regressed once already (B5). A
+    /// direction is Mechanical only where the tool computes the single
+    /// correct edit.
+    #[test]
+    fn only_computable_directions_are_mechanical() {
+        let mech =
+            |v: &[Violation]| v.first().is_some_and(Violation::is_mechanical);
+        // The tool knows the header text, the order, and the sort key.
+        assert!(mech(&sections_ordered("# nothing here")), "V11");
+        let unsorted = real().replace(
+            "T1|x|a task|V1\nT2|.|another|V3",
+            "T2|.|another|V3\nT1|x|a task|V1",
+        );
+        assert!(mech(&rows_sorted(&unsorted)), "V14");
+
+        // These need a choice the tool cannot make.
+        let dup = real().replace("V3: **a gap", "V1: **a gap");
+        assert!(!mech(&ids_unique(&dup)), "V12 picks which id survives");
+        let dangling = real().replace("T1|x|a task|V1", "T1|x|a task|V99");
+        assert!(!mech(&citations_resolve(&dangling)), "V13 guesses intent");
+        let bad = real().replace("T1|x|a task|V1", "T1|q|a task|V1");
+        assert!(!mech(&statuses_valid(&bad)), "V25 knows the work, not us");
     }
 
     #[test]

@@ -20,12 +20,21 @@ use std::fmt;
 
 /// Whether a direction is safe to apply without judgement.
 ///
-/// This distinction is the reason the type exists. A `Mechanical` fix is
-/// deterministic and reversible, so an agent may take it unattended. A
-/// `Judgment` fix accepts a regression or changes intent -- lowering a
-/// threshold, deleting a rule, widening a cap -- and an agent that applies
-/// one blindly has SILENCED the guardrail rather than fixed the defect,
-/// while leaving a green gate behind to say so.
+/// This distinction is the reason the type exists, and the test is NARROWER
+/// than it first appears: `Mechanical` means there is exactly ONE correct
+/// action AND THE TOOL CAN COMPUTE IT. Not "the action is easy to perform".
+///
+/// Five of eight directions were labelled Mechanical on the looser reading
+/// and shipped that way (B5). "Set it to `.` `~` or `x`" is a one-character
+/// edit, and an agent applying it unattended marks finished work as todo,
+/// because WHICH character is a fact about the work rather than about the
+/// file. Every sentence in that group was a reasonable thing to say to a
+/// human, which is exactly why reading them never caught it.
+///
+/// A `Judgment` fix accepts a regression, changes intent, or requires a
+/// choice the tool cannot make. An agent applying one blindly has SILENCED
+/// the guardrail rather than fixed the defect, and left a green gate behind
+/// to say so.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fix {
     /// Deterministic and reversible. Safe to apply unattended.
