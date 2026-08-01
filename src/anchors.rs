@@ -15,7 +15,7 @@
 //! `§G`, `§C` and `§I` are prose and bullets with no ids at all, so they print
 //! `-`: for those sections the ordinal is the only address there is.
 
-use crate::check::SECTIONS;
+use crate::check::{is_header_for, KINDS};
 use crate::id::at_line_start;
 
 /// One addressable item.
@@ -95,14 +95,21 @@ pub fn anchors(text: &str) -> Vec<Anchor> {
 }
 
 /// `Some(section)` when this line is a header: the section it opens, or
-/// `None` inside it for a header that is not one of the six (V11's list), so
-/// stray `##` prose cannot be addressed as if it were spec content.
+/// `None` inside it for a header that is not one of V11's letters, so stray
+/// `##` prose cannot be addressed as if it were spec content.
+///
+/// Uses `check`'s header test rather than its own (V7). This matched the
+/// SECTIONS strings whole until B9: T15 made `check` label-agnostic and left
+/// this behind, so the two disagreed about what a section header even is --
+/// and `anchors` returned NOTHING for a real fleet spec whose headers read
+/// `## \u{a7}V — Invariants`. Two readings of one thing is the defect this
+/// crate exists to end, and it grew back inside it in a single task.
 fn opens_section(line: &str) -> Option<Option<char>> {
     let letter = section_letter(line)?;
     Some(
-        SECTIONS
-            .iter()
-            .any(|s| line.starts_with(*s))
+        KINDS
+            .into_iter()
+            .any(|k| is_header_for(line, k))
             .then_some(letter),
     )
 }
@@ -204,6 +211,35 @@ T1|x|a task|V1
 id|date|cause|fix
 B1|2026-08-01|a cause|a fix
 ";
+
+    /// B9: `anchors` and `check` must agree on what a section header IS.
+    ///
+    /// This returned NOTHING for a real fleet spec whose headers read
+    /// `## §V — Invariants`, because it matched the SECTIONS strings whole
+    /// while `check` had moved to the letter. A silent empty listing, from a
+    /// verb whose whole job is to list.
+    #[test]
+    fn a_section_is_found_under_any_label() {
+        let relabelled = SPEC
+            .replace("## \u{a7}V INVARIANTS", "## \u{a7}V \u{2014} Invariants")
+            .replace("## \u{a7}T TASKS", "## \u{a7}T Tasks");
+        let got = addresses(&relabelled);
+        assert!(got.contains(&"\u{a7}V.2".to_owned()), "{got:?}");
+        assert!(got.contains(&"\u{a7}T.1".to_owned()), "{got:?}");
+        assert_eq!(got.len(), addresses(SPEC).len(), "same items, new labels");
+    }
+
+    /// §R is addressable too, once 4.1.0 put it in the section list.
+    #[test]
+    fn a_research_row_is_addressable() {
+        let with_r = SPEC.replace(
+            "## \u{a7}V INVARIANTS",
+            "## \u{a7}R RESEARCH\nR1|jwt|`jose` wins|url\n\n## \u{a7}V INVARIANTS",
+        );
+        let got = anchors(&with_r);
+        let r = got.iter().find(|a| a.address == "\u{a7}R.1");
+        assert_eq!(r.map(|a| a.id.as_str()), Some("R1"), "{got:?}");
+    }
 
     fn addresses(text: &str) -> Vec<String> {
         anchors(text).into_iter().map(|a| a.address).collect()
