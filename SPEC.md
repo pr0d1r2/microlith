@@ -72,3 +72,4 @@ T8|.|publish, then the consumer depends on the registry crate and drops its port
 ## §B BUGS
 
 id|date|cause|fix
+B1|2026-08-01|the gate's FIRST real run rejected the comment that exempted the vendored tree from it: the comment QUOTED upstream's misspelling as evidence, and `typos` scans `hk.pkl` too ∴ the exemption's justification became a new violation, one file further out. A rule that names its own trigger literally REINTRODUCES it|name the defect DESCRIPTIVELY (`a misspelling of "precedence" at Config.pkl:201`), ⊥ by quoting it, & say in the comment WHY it is not quoted -- otherwise the next reader restores the quote as a courtesy. Found by running the gate, ⊥ by reading it (V18)

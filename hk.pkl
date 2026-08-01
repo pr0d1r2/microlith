@@ -145,6 +145,17 @@ local fast = new Mapping<String, Step> {
   //   * actionlint -- add it together with a workflow that really runs.
   ["typos"] {
     glob = List("**/*")
+    // `pkl/` is upstream's schema, vendored VERBATIM. It carries a
+    // misspelling of "precedence" in a doc comment (Config.pkl:201) and
+    // that misspelling STAYS: correcting it forks the vendored bytes, so
+    // the next re-sync becomes a conflict instead of a copy. Exempting the
+    // vendored tree is the whole point of vendoring it.
+    //
+    // The misspelled word is NOT quoted above, deliberately: typos scans
+    // this file too, so naming the defect literally reintroduces it -- the
+    // exemption would then be needed for the comment explaining the
+    // exemption. Learned by doing exactly that.
+    exclude = List("pkl/**")
     // --force-exclude: config excludes are ignored for paths passed
     // explicitly, and hk always passes them explicitly.
     check = "typos --force-exclude {{files}}"
