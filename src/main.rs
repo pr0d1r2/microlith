@@ -4,6 +4,7 @@
 //! re-porting it (V7). `main` does only the I/O the core avoids.
 
 use nanokit::check::{parse_records, Record};
+use nanokit::render;
 use nanokit::violation::Violation;
 use nanokit::{check_spec, format_spec, Output};
 use std::process::ExitCode;
@@ -52,7 +53,7 @@ const USAGE: &str = "nanokit -- the cavekit SPEC format, enforced\n\n\
          One line per statement: joins hard wraps, enforces the line cap. \
          Rewrites the file; `--check` reports drift and exits 1 instead. \
          The transform is proven whitespace-only before any write.\n  \
-       check [--records <file>] <path>\n      \
+       check [--records <file>] [--format human|json] <path>\n      \
          The structural rules: sections present and ordered, ids unique, \
          citations resolve, rows sorted, every task in exactly one \
          milestone. `--records` adds the rejected-option check, whose \
@@ -97,9 +98,13 @@ fn check(rest: &[String]) -> Output {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Output::usage(format!("nanokit: cannot read {path}\n"));
     };
+    let as_json = match wants_json(rest) {
+        Err(e) => return Output::usage(e),
+        Ok(j) => j,
+    };
     match records_from(rest) {
         Err(e) => Output::usage(e),
-        Ok(records) => report(path, &check_spec(&text, &records)),
+        Ok(records) => report(path, &check_spec(&text, &records), as_json),
     }
 }
 
@@ -116,32 +121,34 @@ fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
     }
 }
 
-fn report(path: &str, violations: &[Violation]) -> Output {
+/// Report the violations in the requested rendering.
+///
+/// Both renderings come from the lib, so the binary chooses a format and
+/// never owns one -- a consumer calling `render::json` gets byte-identical
+/// output to `nanokit check --format json` (V7).
+fn report(path: &str, violations: &[Violation], as_json: bool) -> Output {
     if violations.is_empty() {
         return Output::ok(String::new());
     }
-    let listed = violations
-        .iter()
-        .map(|v| render(path, v))
-        .collect::<Vec<_>>()
-        .concat();
-    Output::drift(listed)
+    let out = if as_json {
+        render::json(path, violations)
+    } else {
+        render::human(path, violations)
+    };
+    Output::drift(out)
 }
 
-/// `path:V13:12: msg` then the why and each ranked direction, indented.
-///
-/// The first line keeps the `file:line:` shape an editor jumps to, with the
-/// rule id where a column number would sit -- a stable handle to match on
-/// that costs a human nothing to skim past.
-fn render(path: &str, v: &Violation) -> String {
-    let mut out = format!("{path}:{v}\n");
-    if !v.why.is_empty() {
-        out.push_str(&format!("    why: {}\n", v.why));
+/// `--format human|json`, defaulting to human. An unknown format is a usage
+/// error rather than a silent fallback: a caller who asked for json and got
+/// prose would parse it and fail somewhere far away.
+fn wants_json(rest: &[String]) -> Result<bool, String> {
+    match flag_value(rest, "--format").as_deref() {
+        None | Some("human") => Ok(false),
+        Some("json") => Ok(true),
+        Some(other) => Err(format!(
+            "nanokit: unknown --format '{other}' -- expected human or json\n"
+        )),
     }
-    for d in &v.directions {
-        out.push_str(&format!("    {}: {}\n", d.kind, d.action));
-    }
-    out
 }
 
 /// The value after `name`, if the flag is present with one.
@@ -154,9 +161,12 @@ fn flag_value(rest: &[String], name: &str) -> Option<String> {
 
 /// The first argument that is neither a flag nor a flag's value.
 fn positional(rest: &[String]) -> Option<&String> {
-    let skip = flag_value(rest, "--records");
+    let skip: Vec<String> = ["--records", "--format"]
+        .iter()
+        .filter_map(|f| flag_value(rest, f))
+        .collect();
     rest.iter()
-        .find(|a| !a.starts_with('-') && Some(*a) != skip.as_ref())
+        .find(|a| !a.starts_with('-') && !skip.contains(a))
 }
 
 /// `derive <path>` and `anchors <path>`: read, report, exit 0.
@@ -293,6 +303,38 @@ mod tests {
         assert_eq!(a.code, 0, "{}", a.err);
         assert!(a.out.contains("shifted \u{a7}V.2"), "{}", a.out);
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// `--format json` emits the machine rendering and still gates.
+    #[test]
+    fn check_can_report_as_json() {
+        let path = write_temp("json", "# spec\n\nnothing here\n");
+        let o = run(&args(&["check", "--format", "json", &path]));
+        assert_eq!(o.code, 1, "{}", o.err);
+        assert!(o.err.starts_with("{\"file\":"), "{}", o.err);
+        assert!(o.err.contains("\"rule\":\"V11\""), "{}", o.err);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// An unknown format is a usage error, never a silent fallback to prose.
+    /// A caller who asked for json and got a sentence parses it and fails
+    /// somewhere far away from the mistake.
+    #[test]
+    fn an_unknown_format_is_a_usage_error() {
+        let path = write_temp("fmt", "# spec\n");
+        let o = run(&args(&["check", "--format", "yaml", &path]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("expected human or json"), "{}", o.err);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The path must survive BOTH flags and both their values sitting in
+    /// front of it -- the bug a one-flag skip list would have.
+    #[test]
+    fn the_path_is_found_past_two_flags() {
+        let rest =
+            args(&["--records", "recs.txt", "--format", "json", "SPEC.md"]);
+        assert_eq!(positional(&rest).map(String::as_str), Some("SPEC.md"));
     }
 
     /// A broken invocation is still a usage error: that is not a finding.

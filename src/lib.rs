@@ -14,6 +14,7 @@ pub mod check;
 pub mod derive;
 pub mod format;
 pub mod id;
+pub mod render;
 pub mod violation;
 
 /// What a run produced: streams and an exit code. No I/O, so the whole

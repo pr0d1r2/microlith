@@ -19,7 +19,7 @@ Keep a `SPEC.md` CORRECT, SMALL & ADDRESSABLE: enforce the format, minify it los
 ## §I INTERFACE
 
 - `nanokit fmt [--check] <path>` — lossless minify: unwrap hard wraps, enforce the line cap. Default REWRITES; `--check` reports & exits 1 on drift (`rustfmt`'s grammar).
-- `nanokit check [--records <file>] <path>` — the structural rules, all from the TEXT ALONE: sections present & ordered (V11) · ids unique (V12) · citations resolve (V13) · rows sorted (V14) · every task in exactly one milestone (V15). `--records` adds V16, whose baseline the CALLER owns ∵ survival across edits is ⊥ derivable from one file; the lib also exposes `records_survive(text, expected)` for a consumer keeping that list as a const.
+- `nanokit check [--records <file>] [--format human|json] <path>` — the structural rules, all from the TEXT ALONE: sections present & ordered (V11) · ids unique (V12) · citations resolve (V13) · rows sorted (V14) · every task in exactly one milestone (V15) · a task status ∈ `.` `~` `x` (V25). Each violation carries `rule` · `line` · `why` · RANKED `directions`, each `Mechanical` | `Judgment`; `--format json` renders the SAME anatomy ∴ an agent never parses prose, & an unknown format is a USAGE error, ⊥ a silent fall back to prose. `--records` adds V16, whose baseline the CALLER owns ∵ survival across edits is ⊥ derivable from one file; the lib also exposes `records_survive(text, expected)` for a consumer keeping that list as a const.
 - `nanokit anchors <path>` — derive the `§S.n` addressing FORMAT.md defines.
 - `nanokit derive <path>` — sizes · citation graph · orphan invariants. Report-only.
 - Exit: 0 ok · 1 drift or violation · 2 usage.
