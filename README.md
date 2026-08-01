@@ -1,12 +1,12 @@
 # nanokit
 
-Enforce the [cavekit](FORMAT.md) `SPEC.md` format: lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
+Mechanical operations on a caveman [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
 ## Why
 
 The format had **two** hand-maintained implementations and no home. They disagreed, both gates stayed green, and 88 tasks belonged to no milestone before anything noticed. One implementation, or the rule is decoration.
 
-`FORMAT.md` is normative and lives here, so a tool that cites it can read it.
+[`FORMAT.md`](FORMAT.md) is [cavekit](https://github.com/JuliusBrussee/cavekit)'s, vendored here **verbatim** so a tool that cites the format can read it. What nanokit *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
 
 ## Install
 
