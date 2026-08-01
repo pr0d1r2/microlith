@@ -43,31 +43,52 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
     }
 }
 
-/// The usage text, a const so the string literal is not counted as
-/// function length -- the limit exists to bound BRANCHING, and prose
-/// has none.
-const USAGE: &str = "nanokit -- the cavekit SPEC format, enforced\n\n\
-     usage: nanokit <command> [args]\n\n\
-     commands:\n  \
-       fmt [--check] <path>\n      \
-         One line per statement: joins hard wraps, enforces the line cap. \
-         Rewrites the file; `--check` reports drift and exits 1 instead. \
-         The transform is proven whitespace-only before any write.\n  \
-       check [--records <file>] [--format human|json] <path>\n      \
-         The structural rules: sections present and ordered, ids unique, \
-         citations resolve, rows sorted, every task in exactly one \
-         milestone. `--records` adds the rejected-option check, whose \
-         baseline the caller owns because survival is a claim about edits \
-         rather than about the file.\n  \
-       derive <path>\n      \
-         Sizes, the citation graph, and invariants cited by nothing. \
-         Report-only: exits 0 even with findings, because an orphan is a \
-         question for a reader, not a build failure.\n  \
-       anchors <path>\n      \
-         The `\u{a7}S.n` address of every item, with the id it resolves to \
-         and whether the two have drifted apart. Report-only.\n\n\
-     built in this binary: fmt, check, derive, anchors\n\n\
-     exit: 0 ok | 1 drift or violation | 2 usage\n";
+/// The usage text.
+///
+/// A const so the string literal is not counted as function length -- that
+/// limit exists to bound BRANCHING, and prose has none.
+///
+/// A RAW string, laid out exactly as it prints. The previous version was
+/// assembled from continuations, which meant the source gave no clue what
+/// the output looked like and the wrapping could only be checked by running
+/// it. Help text is the one output every user sees first; it should be
+/// readable in the file that defines it.
+///
+/// Blank line between commands, and prose wrapped near 72 columns so it
+/// stays readable in a narrow terminal rather than running to 200.
+const USAGE: &str = r"nanokit -- the cavekit SPEC format, enforced
+
+usage: nanokit <command> [args]
+
+commands:
+  fmt [--check] <path>
+      One line per statement: joins hard wraps, enforces the line
+      cap. Rewrites the file; `--check` reports drift and exits 1
+      instead. The transform is proven whitespace-only before any
+      write.
+
+  check [--records <file>] [--format human|json] <path>
+      The structural rules: sections present and ordered, ids
+      unique, citations resolve, rows sorted, every task in exactly
+      one milestone, every status one of . ~ x. Each violation
+      carries a line and a ranked fix, marked mechanical (safe to
+      apply) or judgment (needs a human). `--records` adds the
+      rejected-option check, whose baseline the caller owns because
+      survival is a claim about edits rather than about the file.
+
+  derive <path>
+      Sizes, the citation graph, and invariants cited by nothing.
+      Report-only: exits 0 even with findings, because an orphan is
+      a question for a reader, not a build failure.
+
+  anchors <path>
+      The section address of every item, with the id it resolves to
+      and whether the two have drifted apart. Report-only.
+
+built in this binary: fmt, check, derive, anchors
+
+exit: 0 ok | 1 drift or violation | 2 usage
+";
 
 fn usage() -> String {
     USAGE.to_owned()
@@ -286,6 +307,20 @@ mod tests {
         let u = usage();
         assert!(u.contains("fmt, check, derive, anchors"), "{u}");
         assert!(!u.contains("not yet built"), "{u}");
+    }
+
+    /// Every command is separated by a blank line and no line runs past 76
+    /// columns. Help is the first output a user sees, and a wall of
+    /// 200-column text is the version they stop reading.
+    #[test]
+    fn the_usage_stays_readable_in_a_narrow_terminal() {
+        let u = usage();
+        for verb in ["check ", "derive ", "anchors "] {
+            let block = format!("\n\n  {verb}");
+            assert!(u.contains(&block), "no blank line before `{verb}`");
+        }
+        let widest = u.lines().map(str::len).max().unwrap_or(0);
+        assert!(widest <= 76, "a line is {widest} columns wide");
     }
 
     /// Report-only means exit 0 WITH findings, which is the whole difference
