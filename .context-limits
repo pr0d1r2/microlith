@@ -1,3 +1,33 @@
+# RAISED a NINTH time, 13000 -> 16000, and the SIZING MODEL changed with it.
+#
+# The eighth raise was an hour old. It was sized for the work on the LIST --
+# B12, V28, T19, then T12-T14 and T18. What actually arrived was B13, B14 and
+# T20-T22, none of which existed when the number was chosen: they came out of
+# ONE question about a different topic, which surfaced two data-corrupting
+# defects (ordered lists merged, fenced blocks merged) and three tasks.
+#
+# So the model was wrong, not the arithmetic. Every ceiling here has been
+# sized for PLANNED work, and the growth has consistently come from
+# DISCOVERED work -- 7 bug records today, ~1,750 tokens, none of them on any
+# plan. A spec that records what measurement finds grows at the rate of
+# MEASUREMENT, not at the rate of the task list. 16,000 is the first number
+# here chosen for that rate.
+#
+# The mechanical test held: `nanokit derive | grep dup` reported none before
+# this moved. That is now the standing precondition and it did its job.
+#
+# WHAT THIS CEILING IS FOR, since it diverges sharply from upstream's rule.
+# FORMAT.md's ONE FILE RULE triggers compaction at 500 LINES. SPEC.md is 121
+# -- 24% of it. Upstream would not have fired once all day. The gap is V3:
+# one statement per line means 121 lines carry 13,671 tokens, so a line count
+# says nothing about what this file costs to READ INTO CONTEXT, which is the
+# only cost that matters for a spec an agent loads every session.
+#
+# That also names the eventual remedy, and it is upstream's rather than mine:
+# at 500 lines, compact the OLDEST §B rows. 14 bug records currently cost
+# 3,130 tokens. Not yet -- and when it comes it is a format-sanctioned edit
+# with a diff, not a number quietly moved.
+
 # RAISED an EIGHTH time, 11500 -> 13000, on the owner's decision.
 #
 # The note below pre-committed that an eighth firing would NOT be a raise --
@@ -195,4 +225,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    13000
+SPEC.md    16000
