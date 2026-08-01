@@ -36,7 +36,9 @@ fn our_own_spec_passes_check() {
     let records = parse_records(&at_root(".spec-records"));
     assert!(!records.is_empty(), ".spec-records parsed to nothing");
     let violations = check_spec(&spec(), &records);
-    assert_eq!(violations, Vec::<String>::new());
+    let named: Vec<String> =
+        violations.iter().map(ToString::to_string).collect();
+    assert_eq!(named, Vec::<String>::new());
 }
 
 /// V5/V9: and no line is over the cap.

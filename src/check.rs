@@ -15,6 +15,7 @@
 //! only in the copy would lose that evidence with it (V19).
 
 use crate::id::{at_line_start, Id};
+use crate::violation::{Fix, Violation};
 
 /// FORMAT.md fixes the sections and their order.
 ///
@@ -32,9 +33,19 @@ pub const SECTIONS: [&str; 6] = [
 /// Every id DECLARED in the text, of one kind, in the order they appear.
 #[must_use]
 pub fn declared(text: &str, kind: char) -> Vec<Id> {
+    declared_at(text, kind)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect()
+}
+
+/// The same, each with its 1-based line, so a violation can say WHERE.
+#[must_use]
+pub fn declared_at(text: &str, kind: char) -> Vec<(usize, Id)> {
     text.lines()
-        .filter_map(at_line_start)
-        .filter(|id| id.kind == kind)
+        .enumerate()
+        .filter_map(|(i, l)| Some((i.saturating_add(1), at_line_start(l)?)))
+        .filter(|(_, id)| id.kind == kind)
         .collect()
 }
 
@@ -61,6 +72,25 @@ pub fn cited(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Every citation with the 1-based line it appears on.
+///
+/// Per-line rather than whole-file, so a dangling reference can be pointed
+/// at. The backtick boundary (V13) is applied line by line, which is a
+/// deliberate narrowing: a code span never legitimately spans a line here,
+/// and scoping it per line stops one stray backtick suppressing citations
+/// for the rest of the file.
+#[must_use]
+pub fn cited_at(text: &str) -> Vec<(usize, String)> {
+    text.lines()
+        .enumerate()
+        .flat_map(|(i, line)| {
+            cited(line)
+                .into_iter()
+                .map(move |c| (i.saturating_add(1), c))
+        })
+        .collect()
+}
+
 /// The text with every backticked span removed.
 ///
 /// An unclosed backtick swallows the rest of the text, which is the safe
@@ -77,37 +107,49 @@ fn is_invariant_ref(token: &str) -> bool {
     }
 }
 
-/// V11: sections are PRESENT and ORDERED. A lost header silently unnames
-/// every item under it, so the items look like prose and no rule reaches them.
+/// V11: sections are PRESENT and ORDERED.
+///
+/// Document-scoped: a missing header has no line to point at, and pointing
+/// at where it OUGHT to be would be a guess dressed as a fact.
 #[must_use]
-pub fn sections_ordered(text: &str) -> Vec<String> {
+pub fn sections_ordered(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
     let mut last = 0usize;
     for header in SECTIONS {
         match text.find(header) {
-            None => out.push(format!("V11: missing section `{header}`")),
-            Some(at) if at < last => {
-                out.push(format!("V11: `{header}` is out of order"));
-            }
+            None => out.push(missing_section(header)),
+            Some(at) if at < last => out.push(misordered_section(header)),
             Some(at) => last = at,
         }
     }
     out
 }
 
+fn missing_section(header: &str) -> Violation {
+    Violation::new("V11", format!("missing section `{header}`"))
+        .why("a lost header silently unnames every item under it")
+        .try_(
+            Fix::Mechanical,
+            format!("add `{header}` in FORMAT.md order"),
+        )
+}
+
+fn misordered_section(header: &str) -> Violation {
+    Violation::new("V11", format!("`{header}` is out of order"))
+        .why("every §S.n address is read against the section order")
+        .try_(Fix::Mechanical, "move the section into FORMAT.md order")
+}
+
 /// V12: ids are UNIQUE and never reused; a GAP is fine.
-///
-/// A skipped number costs nothing. A REUSED one silently redirects every
-/// citation that pointed at the old meaning, which is why this checks for
-/// repeats and says nothing about gaps.
 #[must_use]
-pub fn ids_unique(text: &str) -> Vec<String> {
+pub fn ids_unique(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
     for kind in ['V', 'T', 'B'] {
         let mut seen: Vec<String> = Vec::new();
-        for label in declared(text, kind).iter().map(Id::label) {
+        for (line, id) in declared_at(text, kind) {
+            let label = id.label();
             if seen.contains(&label) {
-                out.push(format!("V12: `{label}` is declared twice"));
+                out.push(duplicate_id(&label).at(line));
             }
             seen.push(label);
         }
@@ -115,87 +157,134 @@ pub fn ids_unique(text: &str) -> Vec<String> {
     out
 }
 
-/// V13: every citation RESOLVES.
-///
-/// A dangling `V99` is a pointer into nothing and it reads as authoritative --
-/// the most expensive kind of wrong, because nobody follows a reference that
-/// looks deliberate.
-#[must_use]
-pub fn citations_resolve(text: &str) -> Vec<String> {
-    let declared: Vec<String> =
-        declared(text, 'V').iter().map(Id::label).collect();
-    let mut out: Vec<String> = cited(text)
-        .into_iter()
-        .filter(|c| !declared.contains(c))
-        .map(|c| format!("V13: `{c}` is cited but never declared"))
-        .collect();
-    out.dedup();
-    out
+fn duplicate_id(label: &str) -> Violation {
+    Violation::new("V12", format!("`{label}` is declared twice"))
+        .why("a reused id silently redirects every citation to the old meaning")
+        .try_(
+            Fix::Mechanical,
+            "give this one the next FREE id; a gap costs nothing",
+        )
 }
 
-/// V14: rows appear in SORTED id order, and a suffixed id RIDES its base.
-///
-/// An out-of-order block RENDERS identically to a sorted one, so nothing but a
-/// check sees it -- measured in the first consumer, where four rows had sat
-/// out of order for weeks because rows get appended wherever is convenient.
+/// V13: every citation RESOLVES; a citation is a `V<n>` outside backticks.
 #[must_use]
-pub fn rows_sorted(text: &str) -> Vec<String> {
+pub fn citations_resolve(text: &str) -> Vec<Violation> {
+    let known: Vec<String> =
+        declared(text, 'V').iter().map(Id::label).collect();
+    let mut seen: Vec<String> = Vec::new();
     let mut out = Vec::new();
-    for kind in ['T', 'B'] {
-        let keys: Vec<(u32, String)> =
-            declared(text, kind).iter().map(Id::sort_key).collect();
-        let mut sorted = keys.clone();
-        sorted.sort();
-        if keys != sorted {
-            out.push(format!("V14: a `{kind}` row is out of id order"));
+    for (line, cite) in cited_at(text) {
+        if !known.contains(&cite) && !seen.contains(&cite) {
+            seen.push(cite.clone());
+            out.push(dangling(&cite).at(line));
         }
     }
     out
 }
 
-/// V15: every task belongs to EXACTLY ONE milestone.
-///
-/// Named by the original checker as the rule most often broken and invisible
-/// without a check; it was right -- 88 tasks belonged to none while two gates
-/// stayed green, after the mapping was deleted on the reasoning that no runner
-/// read it.
+fn dangling(cite: &str) -> Violation {
+    Violation::new("V13", format!("`{cite}` is cited but never declared"))
+        .why(
+            "a dangling reference reads as authoritative, so nobody follows it",
+        )
+        .try_(Fix::Mechanical, "point it at the rule that was meant")
+        .try_(
+            Fix::Judgment,
+            format!("declare {cite}, if the rule is real but missing"),
+        )
+}
+
+/// V14: rows appear in SORTED id order, and a suffixed id RIDES its base.
 #[must_use]
-pub fn tasks_in_one_milestone(text: &str) -> Vec<String> {
+pub fn rows_sorted(text: &str) -> Vec<Violation> {
+    let mut out = Vec::new();
+    for kind in ['T', 'B'] {
+        let rows = declared_at(text, kind);
+        for pair in rows.windows(2) {
+            match (pair.first(), pair.get(1)) {
+                (Some(a), Some(b)) if b.1.sort_key() < a.1.sort_key() => {
+                    out.push(unsorted(&b.1.label(), &a.1.label()).at(b.0));
+                }
+                _ => continue,
+            }
+        }
+    }
+    out
+}
+
+fn unsorted(row: &str, after: &str) -> Violation {
+    Violation::new("V14", format!("`{row}` sorts before `{after}` above it"))
+        .why("an out-of-order block renders identically to a sorted one")
+        .try_(
+            Fix::Mechanical,
+            "move the row into id order; a suffixed id rides its base",
+        )
+}
+
+/// V15: every task belongs to EXACTLY ONE milestone.
+#[must_use]
+pub fn tasks_in_one_milestone(text: &str) -> Vec<Violation> {
     let claimed = claims(text);
     let mut out = duplicate_claims(&claimed);
-    for id in declared(text, 'T') {
-        if !id.suffix.is_empty() {
-            continue;
-        }
-        if !claimed.contains(&id.num) {
-            out.push(format!("V15: {} is in no milestone", id.label()));
+    for (line, id) in declared_at(text, 'T') {
+        if id.suffix.is_empty() && !claimed.contains(&id.num) {
+            out.push(unclaimed(&id.label()).at(line));
         }
     }
     out.extend(claims_without_rows(text, &claimed));
     out
 }
 
-fn duplicate_claims(claimed: &[u32]) -> Vec<String> {
+fn unclaimed(label: &str) -> Violation {
+    Violation::new("V15", format!("{label} is in no milestone"))
+        .why("88 tasks once belonged to none while two gates stayed green")
+        .try_(
+            Fix::Mechanical,
+            "add it to a milestone's tasks cell; ranges expand",
+        )
+        .try_(Fix::Judgment, "delete the row, if the work is not real")
+}
+
+fn duplicate_claims(claimed: &[u32]) -> Vec<Violation> {
     let mut seen: Vec<u32> = Vec::new();
     let mut out = Vec::new();
     for n in claimed {
         if seen.contains(n) {
-            out.push(format!("V15: T{n} is claimed by two milestones"));
+            out.push(claimed_twice(*n));
         }
         seen.push(*n);
     }
     out
 }
 
+fn claimed_twice(n: u32) -> Violation {
+    Violation::new("V15", format!("T{n} is claimed by two milestones"))
+        .why("EXACTLY one, or the rule is satisfied by claiming everything")
+        .try_(
+            Fix::Mechanical,
+            "remove the claim from all but one milestone",
+        )
+}
+
 /// The other direction: a milestone naming a task that has no row. Without it
 /// the rule passes by claiming everything, including work that does not exist.
-fn claims_without_rows(text: &str, claimed: &[u32]) -> Vec<String> {
+fn claims_without_rows(text: &str, claimed: &[u32]) -> Vec<Violation> {
     let rows: Vec<u32> = declared(text, 'T').iter().map(|i| i.num).collect();
     claimed
         .iter()
         .filter(|n| !rows.contains(n))
-        .map(|n| format!("V15: a milestone claims T{n}, which has no row"))
+        .map(|n| phantom_claim(*n))
         .collect()
+}
+
+fn phantom_claim(n: u32) -> Violation {
+    Violation::new("V15", format!("a milestone claims T{n}, which has no row"))
+        .why("a renamed or deleted task leaves the claim behind")
+        .try_(Fix::Mechanical, "drop the claim")
+        .try_(
+            Fix::Judgment,
+            format!("add the T{n} row, if the work is real"),
+        )
 }
 
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
@@ -253,12 +342,32 @@ pub type Record = (String, String);
 /// threshold on how often a word appears either fires on nothing or fires on
 /// prose edits that changed no decision.
 #[must_use]
-pub fn records_survive(text: &str, expected: &[Record]) -> Vec<String> {
+pub fn records_survive(text: &str, expected: &[Record]) -> Vec<Violation> {
     expected
         .iter()
         .filter(|(id, marker)| !body(text, id).contains(marker.as_str()))
-        .map(|(id, marker)| format!("V16: {id} lost its `{marker}` record"))
+        .map(|(id, marker)| lost_record(id, marker, line_of(text, id)))
         .collect()
+}
+
+/// V16 offers NO mechanical direction, and that is the point rather than an
+/// omission. Restoring a deleted record needs the record; deciding the option
+/// no longer needs one changes intent. Both are judgement, so an agent that
+/// hits this must stop, which is exactly what compaction trading a record
+/// away for bytes should feel like.
+fn lost_record(id: &str, marker: &str, line: usize) -> Violation {
+    Violation::new("V16", format!("{id} lost its `{marker}` record"))
+        .why("a rejected option without its record is obeyable but not auditable")
+        .try_(Fix::Judgment, "restore the record, or record why the option no longer needs one")
+        .at(line)
+}
+
+/// The 1-based line a declaration sits on, or 0 if it is gone entirely.
+fn line_of(text: &str, id: &str) -> usize {
+    text.lines()
+        .enumerate()
+        .find(|(_, l)| at_line_start(l).is_some_and(|i| i.label() == id))
+        .map_or(0, |(i, _)| i.saturating_add(1))
 }
 
 /// The body of one declaration, up to the next one.
@@ -353,7 +462,7 @@ mod tests {
             .join("\n")
     }
 
-    fn all(text: &str) -> Vec<String> {
+    fn all(text: &str) -> Vec<Violation> {
         let mut out = sections_ordered(text);
         out.extend(ids_unique(text));
         out.extend(citations_resolve(text));
@@ -365,12 +474,15 @@ mod tests {
     /// The companion for all five rules at once: every real shape passes.
     #[test]
     fn a_well_formed_spec_has_no_violations() {
-        assert_eq!(all(&real()), Vec::<String>::new());
+        assert_eq!(all(&real()), Vec::<Violation>::new());
     }
 
     fn v11_says(text: &str, want: &str) {
         let got = sections_ordered(text);
-        assert!(got.iter().any(|v| v.contains(want)), "want {want}: {got:?}");
+        assert!(
+            got.iter().any(|v| v.msg.contains(want)),
+            "want {want}: {got:?}"
+        );
     }
 
     /// A header lost to an edit. Everything under it is still there and still
@@ -396,7 +508,7 @@ mod tests {
     fn v12_rejects_a_repeat_but_allows_a_gap() {
         let dup = real().replace("V3: **a gap", "V1: **a gap");
         assert!(
-            ids_unique(&dup).iter().any(|v| v.contains("`V1`")),
+            ids_unique(&dup).iter().any(|v| v.msg.contains("`V1`")),
             "{:?}",
             ids_unique(&dup)
         );
@@ -411,7 +523,7 @@ mod tests {
         assert!(
             citations_resolve(&dangling)
                 .iter()
-                .any(|v| v.contains("V99")),
+                .any(|v| v.msg.contains("V99")),
             "{:?}",
             citations_resolve(&dangling)
         );
@@ -435,7 +547,10 @@ mod tests {
     /// caught all three -- and the first is the one that already happened.
     fn v15_says(text: &str, want: &str) {
         let got = tasks_in_one_milestone(text);
-        assert!(got.iter().any(|v| v.contains(want)), "want {want}: {got:?}");
+        assert!(
+            got.iter().any(|v| v.msg.contains(want)),
+            "want {want}: {got:?}"
+        );
     }
 
     /// The measured failure: 88 tasks belonged to no milestone.
@@ -491,7 +606,7 @@ mod tests {
         assert!(
             records_survive(&stripped, &want)
                 .iter()
-                .any(|v| v.contains("V1 lost")),
+                .any(|v| v.msg.contains("V1 lost")),
             "{:?}",
             records_survive(&stripped, &want)
         );

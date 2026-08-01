@@ -82,7 +82,10 @@ pub fn format_spec(text: &str) -> Result<String, String> {
 /// file, so the caller supplies it -- empty means the V16 gate is off, not
 /// that it passed.
 #[must_use]
-pub fn check_spec(text: &str, records: &[check::Record]) -> Vec<String> {
+pub fn check_spec(
+    text: &str,
+    records: &[check::Record],
+) -> Vec<violation::Violation> {
     let mut out = check::sections_ordered(text);
     out.extend(check::ids_unique(text));
     out.extend(check::citations_resolve(text));

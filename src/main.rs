@@ -4,6 +4,7 @@
 //! re-porting it (V7). `main` does only the I/O the core avoids.
 
 use nanokit::check::{parse_records, Record};
+use nanokit::violation::Violation;
 use nanokit::{check_spec, format_spec, Output};
 use std::process::ExitCode;
 
@@ -115,16 +116,32 @@ fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
     }
 }
 
-fn report(path: &str, violations: &[String]) -> Output {
+fn report(path: &str, violations: &[Violation]) -> Output {
     if violations.is_empty() {
         return Output::ok(String::new());
     }
     let listed = violations
         .iter()
-        .map(|v| format!("nanokit: {path}: {v}\n"))
+        .map(|v| render(path, v))
         .collect::<Vec<_>>()
         .concat();
     Output::drift(listed)
+}
+
+/// `path:V13:12: msg` then the why and each ranked direction, indented.
+///
+/// The first line keeps the `file:line:` shape an editor jumps to, with the
+/// rule id where a column number would sit -- a stable handle to match on
+/// that costs a human nothing to skim past.
+fn render(path: &str, v: &Violation) -> String {
+    let mut out = format!("{path}:{v}\n");
+    if !v.why.is_empty() {
+        out.push_str(&format!("    why: {}\n", v.why));
+    }
+    for d in &v.directions {
+        out.push_str(&format!("    {}: {}\n", d.kind, d.action));
+    }
+    out
 }
 
 /// The value after `name`, if the flag is present with one.
