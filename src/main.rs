@@ -30,11 +30,10 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         }
         "fmt" => fmt(rest),
         "check" => check(rest),
-        // Named in the interface section, not built yet. Saying so beats
-        // `unknown command`, which sends the reader hunting for a typo.
-        "anchors" | "derive" => Output::usage(format!(
-            "nanokit: `{verb}` is specified but not built yet (T5)\n"
-        )),
+        // Report-only (V10): both always exit 0, even with findings. An
+        // orphan invariant is a question for a human, not a build failure.
+        "derive" => reporting(rest, nanokit::derive::report),
+        "anchors" => reporting(rest, nanokit::anchors::report),
         other => Output::usage(format!(
             "nanokit: unknown command '{other}'\n{}",
             usage()
@@ -57,9 +56,15 @@ const USAGE: &str = "nanokit -- the cavekit SPEC format, enforced\n\n\
          citations resolve, rows sorted, every task in exactly one \
          milestone. `--records` adds the rejected-option check, whose \
          baseline the caller owns because survival is a claim about edits \
-         rather than about the file.\n\n\
-     built in this binary: fmt, check\n\
-     specified, not yet built: anchors, derive\n\n\
+         rather than about the file.\n  \
+       derive <path>\n      \
+         Sizes, the citation graph, and invariants cited by nothing. \
+         Report-only: exits 0 even with findings, because an orphan is a \
+         question for a reader, not a build failure.\n  \
+       anchors <path>\n      \
+         The `\u{a7}S.n` address of every item, with the id it resolves to \
+         and whether the two have drifted apart. Report-only.\n\n\
+     built in this binary: fmt, check, derive, anchors\n\n\
      exit: 0 ok | 1 drift or violation | 2 usage\n";
 
 fn usage() -> String {
@@ -137,6 +142,24 @@ fn positional(rest: &[String]) -> Option<&String> {
         .find(|a| !a.starts_with('-') && Some(*a) != skip.as_ref())
 }
 
+/// `derive <path>` and `anchors <path>`: read, report, exit 0.
+///
+/// One function for both because they differ only in which report they
+/// print. Exit 0 EVEN WITH FINDINGS is the whole distinction from `check`:
+/// V10 names the gates, and these are not among them, so an orphan or a
+/// shifted address goes to stdout for a reader to judge. A path that cannot
+/// be read is still a usage error -- that is a broken invocation, not a
+/// finding.
+fn reporting(rest: &[String], report: fn(&str) -> String) -> Output {
+    let Some(path) = positional(rest) else {
+        return Output::usage("nanokit: needs a path\n".to_owned());
+    };
+    match std::fs::read_to_string(path) {
+        Err(_) => Output::usage(format!("nanokit: cannot read {path}\n")),
+        Ok(text) => Output::ok(report(&text)),
+    }
+}
+
 /// Report the drift, or write the formatted text.
 fn apply(path: &str, text: &str, out: &str, check: bool) -> Output {
     if out == text {
@@ -172,14 +195,15 @@ mod tests {
         assert!(run(&args(&["--version"])).out.contains("nanokit"));
     }
 
-    /// A specified-but-unbuilt verb says so, rather than reading as a typo
-    /// while the usage text advertises it.
+    /// Every verb §I names is now built, so there is no unbuilt-verb arm
+    /// left to test. What remains is that an unknown one still says so and
+    /// prints the usage rather than failing silently.
     #[test]
-    fn an_unbuilt_verb_names_itself_not_a_typo() {
-        let o = run(&args(&["anchors", "SPEC.md"]));
+    fn an_unknown_verb_says_so_and_shows_the_usage() {
+        let o = run(&args(&["ancors", "SPEC.md"]));
         assert_eq!(o.code, 2);
-        assert!(o.err.contains("not built yet"), "{}", o.err);
-        assert!(!o.err.contains("unknown command"), "{}", o.err);
+        assert!(o.err.contains("unknown command 'ancors'"), "{}", o.err);
+        assert!(o.err.contains("commands:"), "{}", o.err);
     }
 
     fn write_temp(name: &str, body: &str) -> String {
@@ -228,11 +252,37 @@ mod tests {
         assert_eq!(run(&args(&["check", "no/such/file"])).code, 2);
     }
 
+    /// §I's four verbs are all built now, and the usage says so without a
+    /// "not yet" list to keep in sync with reality.
     #[test]
-    fn usage_separates_built_from_specified() {
+    fn usage_lists_every_built_verb() {
         let u = usage();
-        assert!(u.contains("built in this binary: fmt"));
-        assert!(u.contains("specified, not yet built"));
+        assert!(u.contains("fmt, check, derive, anchors"), "{u}");
+        assert!(!u.contains("not yet built"), "{u}");
+    }
+
+    /// Report-only means exit 0 WITH findings, which is the whole difference
+    /// from `check`. Planted with a spec that has an orphan and a gap, so
+    /// both reports have something to say and neither gates on it (V10).
+    #[test]
+    fn a_report_exits_zero_even_with_findings() {
+        let body = "## \u{a7}V INVARIANTS\nV1: **cited by nobody.**\n\
+                    V3: **also nobody, after a gap.**\n";
+        let path = write_temp("report", body);
+        let d = run(&args(&["derive", &path]));
+        assert_eq!(d.code, 0, "{}", d.err);
+        assert!(d.out.contains("orphan V1:"), "{}", d.out);
+        let a = run(&args(&["anchors", &path]));
+        assert_eq!(a.code, 0, "{}", a.err);
+        assert!(a.out.contains("shifted \u{a7}V.2"), "{}", a.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A broken invocation is still a usage error: that is not a finding.
+    #[test]
+    fn a_report_without_a_readable_path_is_a_usage_error() {
+        assert_eq!(run(&args(&["derive"])).code, 2);
+        assert_eq!(run(&args(&["anchors", "no/such/file"])).code, 2);
     }
 
     #[test]
