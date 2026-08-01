@@ -1,3 +1,32 @@
+# RAISED an EIGHTH time, 11500 -> 13000, on the owner's decision.
+#
+# The note below pre-committed that an eighth firing would NOT be a raise --
+# that it would mean the law had outgrown one file. It fired at 11,608, I
+# declined to raise it unilaterally, and the owner ruled: raise.
+#
+# Recording that honestly, because the pre-commitment was mine and the call
+# is theirs. Two things it did not anticipate, both of which weaken it:
+#
+#   1. FORMAT.md forbids the remedy the note assumed. "Too big to be one
+#      file" is not an available move -- the ONE FILE RULE is upstream's, and
+#      the format's own answer to size is compacting the OLDEST §B rows.
+#      Trading bug records for bytes is exactly what V16 refuses.
+#
+#   2. The pass is no longer a ritual. T11 gave it a RUNNER, which is what
+#      the fifth-raise note said the next raise should wait for. On its first
+#      mechanical run it found FOUR duplications -- all written that same day,
+#      all missed by reading -- and cutting them took the file from 11,608 to
+#      11,529 without touching a single record. The number that fired was
+#      partly duplication the ceiling itself surfaced.
+#
+# So the eighth raise buys the remaining specced work: B12, V28 and T19 (the
+# fmt merge defect and its fix), plus T12-T14 and T18, which are mostly
+# status flips and measurements. 13,000 is ~13% over 11,529.
+#
+# THE STANDING TEST IS NOW MECHANICAL, which changes what a future raise has
+# to show. `nanokit derive | grep dup` must report NONE before the number
+# moves. A raise while that says otherwise is a raise made to avoid an edit.
+
 # SIZED ONCE, 9400 -> 11500, and this is meant to be the LAST raise.
 #
 # The seventh firing (9,466) came with the test from line 90 already
@@ -166,4 +195,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    11500
+SPEC.md    13000
