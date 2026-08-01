@@ -24,7 +24,7 @@ use crate::violation::{Fix, Violation};
 pub const SECTIONS: [&str; 6] = [
     "## \u{a7}G GOAL",
     "## \u{a7}C CONSTRAINTS",
-    "## \u{a7}I INTERFACE",
+    "## \u{a7}I INTERFACES",
     "## \u{a7}V INVARIANTS",
     "## \u{a7}T TASKS",
     "## \u{a7}B BUGS",
@@ -456,7 +456,7 @@ mod tests {
         "## \u{a7}C CONSTRAINTS",
         "- a bullet",
         "",
-        "## \u{a7}I INTERFACE",
+        "## \u{a7}I INTERFACES",
         "- `cmd foo` -- does a thing",
         "",
         "## \u{a7}V INVARIANTS",

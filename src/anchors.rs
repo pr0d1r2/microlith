@@ -187,7 +187,7 @@ one line of goal.
 - first constraint
 - second constraint
 
-## \u{a7}I INTERFACE
+## \u{a7}I INTERFACES
 - `cmd foo` -- does a thing
 
 ## \u{a7}V INVARIANTS
