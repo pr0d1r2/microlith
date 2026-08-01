@@ -5,9 +5,26 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
-# 4k against a spec that currently costs ~2k: real slack, so a legitimate
-# addition is not a raise, and a raise stays a reviewed decision rather
-# than a reflex.
+# RAISED ONCE, 4k -> 4500, on the day M2 landed. The ceiling FIRED at 4,105
+# against 4,000 -- which is the whole point of setting it at 2x the size the
+# file then was, rather than at the size it already had.
 #
-# Checked by `itok check` today. When T4 lands, nanokit checks it too.
-SPEC.md    4k
+# The review it triggered, in order, because the order is the discipline:
+#
+#   1. Look for duplication first. Found some: T6 and V24 restated B1's and
+#      B2's records, written before those rows existed. Cut, -60 tokens.
+#   2. Re-measure. 4,045 -- still over. What remained was prose, not
+#      restatement, and a spec compacted to satisfy a number trains the
+#      same reflex as a ceiling raised to satisfy one.
+#   3. Only then size the new number BY RULE, not by what fits: V21 says a
+#      ceiling wants ~12% headroom, and 4,500 is 11% over 4,045.
+#
+# The growth was a MILESTONE, not creep: V24, B1, B2 and a rewritten T6,
+# each carrying a runner or evidence, and V16 forbids trading a
+# rejected-option record for bytes. Four tasks remain, so this will be
+# tested again -- and a second raise inside a task or two would be evidence
+# that 4,500 was also chosen too small, which is worth knowing.
+#
+# Checked by `itok check` today (`--bpe`, so the verdict is deterministic).
+# When T4 lands, nanokit checks it too.
+SPEC.md    4500
