@@ -45,11 +45,13 @@ Sections present and in order, ids unique, citations resolving, rows sorted, eve
 Each violation says where it is and what to do about it:
 
 ```
-SPEC.md:V13:22: `V14` is cited but never declared
+SPEC.md:22: nanokit/V13: `V14` is cited but never declared
     why: a dangling reference reads as authoritative, so nobody follows it
     mechanical: point it at the rule that was meant
     judgment: declare V14, if the rule is real but missing
 ```
+
+`file:line:` first, so an editor and `grep -n` both jump to it. The rule id is **qualified** and sits beside the message, never inside the coordinates: every consumer is a caveman spec numbering from `V1`, so a bare `V13` printed against *your* `SPEC.md` names one of your rules instead of one of nanokit's.
 
 A **mechanical** direction is deterministic and reversible, so an agent may apply it unattended. A **judgment** direction accepts a regression or changes intent -- an agent that applies one blindly has silenced the guardrail rather than fixed the defect. `--format json` emits the same anatomy with `kind` as data, so an agent never has to parse prose.
 

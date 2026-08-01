@@ -120,15 +120,26 @@ impl Violation {
     }
 }
 
+/// The namespace every emitted rule id carries.
+///
+/// One definition, because an id qualified two ways is an id a consumer
+/// cannot grep for.
+pub const NAMESPACE: &str = "nanokit";
+
 impl fmt::Display for Violation {
-    /// `V13:12: msg` -- the `file:line:` shape every editor already jumps to.
-    /// The line is omitted when it is 0 rather than printed as a fake zero.
+    /// `nanokit/V13: msg` -- the rule id QUALIFIED, and no coordinates.
+    ///
+    /// QUALIFIED per V19. Every consumer of this crate is a caveman spec
+    /// numbering from V1, so a bare `V13` printed against someone's
+    /// `SPEC.md` resolves to THEIR V13 -- a real, unrelated rule. MEASURED
+    /// on the first consumer: every id this crate can emit (V1-V5, V11-V16)
+    /// collides with a live invariant there. 100%, not a coincidence to
+    /// design around.
+    ///
+    /// No line, and no file: those are the CALLER's coordinates. `render`
+    /// composes them; this prints only what nanokit owns.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.line == 0 {
-            write!(f, "{}: {}", self.rule, self.msg)
-        } else {
-            write!(f, "{}:{}: {}", self.rule, self.line, self.msg)
-        }
+        write!(f, "{NAMESPACE}/{}: {}", self.rule, self.msg)
     }
 }
 
@@ -136,18 +147,30 @@ impl fmt::Display for Violation {
 mod tests {
     use super::*;
 
+    /// The id is QUALIFIED wherever it is printed (V19).
     #[test]
-    fn a_document_scoped_violation_omits_the_line() {
+    fn the_rule_id_is_namespaced() {
         let v = Violation::new("V11", "missing section");
-        assert_eq!(v.line, 0);
-        assert_eq!(v.to_string(), "V11: missing section");
+        assert_eq!(v.to_string(), "nanokit/V11: missing section");
     }
 
-    /// The `file:line:` shape, so an editor and `grep -n` both jump to it.
+    /// A PLANTED bare id: the failure V19 forbids, asserted as absent rather
+    /// than assumed. A consumer's own `V13` must never be what this resolves
+    /// to.
     #[test]
-    fn a_placed_violation_prints_its_line() {
+    fn a_bare_id_never_reaches_the_output() {
         let v = Violation::new("V13", "`V99` never declared").at(12);
-        assert_eq!(v.to_string(), "V13:12: `V99` never declared");
+        let out = v.to_string();
+        assert!(out.starts_with("nanokit/V13: "), "{out}");
+        assert!(!out.starts_with("V13"), "bare id leaked: {out}");
+    }
+
+    /// The coordinates belong to the caller, so `Display` carries NEITHER --
+    /// including the line, which it used to put where a column goes.
+    #[test]
+    fn the_display_carries_no_coordinates() {
+        let v = Violation::new("V13", "`V99` never declared").at(12);
+        assert!(!v.to_string().contains("12"), "{v}");
     }
 
     /// Call order IS the ranking, so `directions[0]` is the correct fix and

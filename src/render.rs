@@ -18,17 +18,31 @@
 
 use crate::violation::Violation;
 
-/// `path:V13:12: msg`, then the why and each ranked direction, indented.
+/// `path:12: nanokit/V13: msg`, then the why and each ranked direction,
+/// indented.
 ///
-/// The first line keeps the `file:line:` shape an editor already jumps to,
-/// with the rule id where a column number would sit.
+/// `file:line:` FIRST and a real line in the line slot -- the shape every
+/// editor and `grep -n` already jump to. The rule id used to sit where the
+/// COLUMN goes, which made an editor jump to line 13 of the file being
+/// checked: silent, plausible, wrong. rustc's shape instead, where the id
+/// is named beside the message and never inside the coordinates.
+///
+/// The id arrives QUALIFIED from `Display` (V19), which matters most here:
+/// this line names the CONSUMER's file, so an unqualified id reads as one
+/// of the consumer's own rules.
 #[must_use]
 pub fn human(file: &str, violations: &[Violation]) -> String {
     violations.iter().map(|v| one_human(file, v)).collect()
 }
 
 fn one_human(file: &str, v: &Violation) -> String {
-    let mut out = format!("{file}:{v}\n");
+    // Line 0 is document-scoped -- no coordinate to print, so print none
+    // rather than a fake zero an editor would honour.
+    let mut out = if v.line == 0 {
+        format!("{file}: {v}\n")
+    } else {
+        format!("{file}:{}: {v}\n", v.line)
+    };
     if !v.why.is_empty() {
         out.push_str(&format!("    why: {}\n", v.why));
     }
@@ -118,12 +132,36 @@ mod tests {
     }
 
     #[test]
-    fn the_human_rendering_leads_with_file_rule_line() {
+    fn the_human_rendering_leads_with_file_and_line() {
         let out = human("SPEC.md", &sample());
-        assert!(out.starts_with("SPEC.md:V13:12: "), "{out}");
+        assert!(out.starts_with("SPEC.md:12: nanokit/V13: "), "{out}");
         assert!(out.contains("\n    why: "), "{out}");
         assert!(out.contains("\n    mechanical: "), "{out}");
         assert!(out.contains("\n    judgment: "), "{out}");
+    }
+
+    /// The PLANTED failure: an id in the COLUMN slot. `SPEC.md:V13:12:` sends
+    /// an editor to line 13 of a file whose line 13 is unrelated, and says
+    /// nothing while doing it. Asserted absent, not assumed.
+    #[test]
+    fn no_rule_id_sits_where_a_coordinate_goes() {
+        let out = human("SPEC.md", &sample());
+        assert!(!out.contains("SPEC.md:V"), "id in the line slot: {out}");
+        let head = out.lines().next().unwrap_or_default();
+        let coords = head.split(": ").next().unwrap_or_default();
+        assert_eq!(coords, "SPEC.md:12", "{out}");
+    }
+
+    /// A document-scoped violation has no line, so it prints no coordinate
+    /// rather than a zero an editor would honour.
+    #[test]
+    fn a_document_scoped_violation_prints_no_line() {
+        let v = vec![Violation::new("V11", "missing section")];
+        assert!(
+            human("SPEC.md", &v).starts_with("SPEC.md: nanokit/V11: "),
+            "{}",
+            human("SPEC.md", &v)
+        );
     }
 
     /// The JSON carries the same anatomy, with the fix kind as data rather
