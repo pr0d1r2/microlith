@@ -17,26 +17,36 @@
 use crate::id::{at_line_start, Id};
 use crate::violation::{Fix, Violation};
 
-/// FORMAT.md fixes the sections and their order.
-///
-/// `\u{a7}` is the section sign, written as an escape so this source stays
-/// ASCII -- the runtime string is identical either way.
 /// The section LETTER of each entry in `SECTIONS`, in the same order.
 ///
 /// Held alongside rather than read out of the header string: the letter is
 /// what the checker matches on now that labels vary across the fleet, and
 /// digging it out by character offset would make the position of a word in
 /// prose load-bearing.
-pub const KINDS: [char; 6] = ['G', 'C', 'I', 'V', 'T', 'B'];
+pub const KINDS: [char; 7] = ['G', 'C', 'I', 'R', 'V', 'T', 'B'];
 
-pub const SECTIONS: [&str; 6] = [
+/// FORMAT.md fixes the sections and their order.
+///
+/// `\u{a7}` is the section sign, written as an escape so this source stays
+/// ASCII -- the runtime string is identical either way.
+pub const SECTIONS: [&str; 7] = [
     "## \u{a7}G GOAL",
     "## \u{a7}C CONSTRAINTS",
     "## \u{a7}I INTERFACES",
+    // 4.1.0's addition: optional, and present only if `/research` ran. It
+    // needs no rule of its own -- `R1|topic|finding|src` is a pipe row, so
+    // V12 and V14 cover it the moment the id grammar knows the letter.
+    "## \u{a7}R RESEARCH",
     "## \u{a7}V INVARIANTS",
     "## \u{a7}T TASKS",
     "## \u{a7}B BUGS",
 ];
+
+/// The kinds that DECLARE an addressable item, in report order.
+///
+/// `G`, `C` and `I` are prose and bullets with no ids, so they appear in
+/// `KINDS` -- which is about section ORDER -- but never here.
+pub const ITEM_KINDS: [char; 4] = ['V', 'T', 'B', 'R'];
 
 /// Every id DECLARED in the text, of one kind, in the order they appear.
 #[must_use]
@@ -139,16 +149,45 @@ fn is_invariant_ref(token: &str) -> bool {
 /// at where it OUGHT to be would be a guess dressed as a fact.
 #[must_use]
 pub fn sections_ordered(text: &str) -> Vec<Violation> {
+    let mut out = misplaced(&present(text));
+    out.extend(orphaned_items(text));
+    out
+}
+
+/// Every section that IS here, as `(position, canonical rank)`, in the order
+/// a reader meets them.
+fn present(text: &str) -> Vec<(usize, usize)> {
+    let mut found: Vec<(usize, usize)> = KINDS
+        .into_iter()
+        .enumerate()
+        .filter_map(|(rank, kind)| Some((section_at(text, kind)?, rank)))
+        .collect();
+    found.sort_unstable();
+    found
+}
+
+/// The sections whose canonical rank goes BACKWARDS as you read down.
+///
+/// Walking in reading order and blaming the section that arrives too late is
+/// what keeps the message honest. The old scan walked in CANONICAL order and
+/// compared positions, so a single section placed at the end made every
+/// section before it look early. One fleet spec carries `\u{a7}R` after
+/// `\u{a7}B`, and that single misplacement was reported as THREE -- against
+/// `\u{a7}V`, `\u{a7}T` and `\u{a7}B`, none of which had moved.
+///
+/// Third time this shape has cost something (B8, B9): a rule that is right
+/// about WHETHER and wrong about WHICH sends every reader to the wrong line.
+fn misplaced(found: &[(usize, usize)]) -> Vec<Violation> {
     let mut out = Vec::new();
-    let mut last = 0usize;
-    for (kind, header) in KINDS.into_iter().zip(SECTIONS) {
-        match section_at(text, kind) {
-            Some(at) if at < last => out.push(misordered_section(header)),
-            Some(at) => last = at,
-            None => {}
+    let mut highest = 0usize;
+    for (_, rank) in found {
+        match SECTIONS.get(*rank) {
+            Some(header) if *rank < highest => {
+                out.push(misordered_section(header))
+            }
+            _ => highest = *rank,
         }
     }
-    out.extend(orphaned_items(text));
     out
 }
 
@@ -177,7 +216,8 @@ fn section_at(text: &str, kind: char) -> Option<usize> {
 /// `## \u{a7}V`, `## \u{a7}V INVARIANTS`, `## \u{a7}V — Invariants` -- yes.
 /// `## \u{a7}T55-PLAN` -- no: the letter must not run into a word or digit,
 /// or a section id in a heading would read as the section itself.
-fn is_header_for(line: &str, kind: char) -> bool {
+#[must_use]
+pub fn is_header_for(line: &str, kind: char) -> bool {
     let Some(rest) = line.strip_prefix("## \u{a7}") else {
         return false;
     };
@@ -202,7 +242,7 @@ fn header_for(kind: char) -> Option<&'static str> {
 /// strictly narrower -- it fires only when there is something to unname.
 fn orphaned_items(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
-    for kind in ['V', 'T', 'B'] {
+    for kind in ITEM_KINDS {
         let Some(header) = header_for(kind) else {
             continue;
         };
@@ -235,7 +275,7 @@ fn misordered_section(header: &str) -> Violation {
 #[must_use]
 pub fn ids_unique(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
-    for kind in ['V', 'T', 'B'] {
+    for kind in ITEM_KINDS {
         let mut seen: Vec<String> = Vec::new();
         for (line, id) in declared_at(text, kind) {
             let label = id.label();
@@ -291,7 +331,10 @@ fn dangling(cite: &str) -> Violation {
 #[must_use]
 pub fn rows_sorted(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
-    for kind in ['T', 'B'] {
+    // ROW kinds -- the pipe-table sections. `V` is excluded because an
+    // invariant is a `V1:` statement, not a row, and `R` joined them with
+    // 4.1.0 for the same reason `T` and `B` are here: `R1|topic|finding|src`.
+    for kind in ['T', 'B', 'R'] {
         let rows = declared_at(text, kind);
         for pair in rows.windows(2) {
             match (pair.first(), pair.get(1)) {
@@ -681,6 +724,69 @@ mod tests {
     fn a_heading_that_runs_into_the_letter_is_not_a_section() {
         let text = real().replace("## \u{a7}T TASKS", "## \u{a7}T55-PLAN");
         v11_says(&text, "no `##");
+    }
+
+    /// One misplaced section is ONE violation, and it names the section that
+    /// actually moved.
+    ///
+    /// A fleet spec carries §R after §B. Walking in canonical order and
+    /// comparing positions reported that as THREE violations -- against §V,
+    /// §T and §B, none of which had moved -- because one late section makes
+    /// every section before it look early. `migrate` reads this to decide
+    /// what to move, so blaming the wrong three would move the wrong three.
+    #[test]
+    fn a_late_section_is_blamed_alone() {
+        let text = real().replace(
+            "## \u{a7}I INTERFACES",
+            "## \u{a7}I INTERFACES\nplaceholder\n",
+        );
+        let moved = format!("{text}\n## \u{a7}R RESEARCH\nR1|a|b|c\n");
+        let got = sections_ordered(&moved);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first().is_some_and(|v| v.msg.contains("\u{a7}R")),
+            "must name the section that moved: {got:?}"
+        );
+    }
+
+    /// 4.1.0's `§R`, accepted: a research row is an ordinary pipe row, so
+    /// nothing here needed a rule of its own.
+    #[test]
+    fn v11_accepts_a_research_section() {
+        let with_r = real().replace(
+            "## \u{a7}V INVARIANTS",
+            "## \u{a7}R RESEARCH\nid|topic|finding|src\nR1|jwt|`jose` wins|url\n\n## \u{a7}V INVARIANTS",
+        );
+        assert_eq!(sections_ordered(&with_r), Vec::<Violation>::new());
+    }
+
+    /// ...and an R row with no §R above it is stranded, exactly as a T or B
+    /// row would be. This is the half that proves acceptance is not blindness.
+    #[test]
+    fn v11_rejects_a_research_row_with_no_section() {
+        let orphan = real().replace(
+            "## \u{a7}V INVARIANTS",
+            "R1|jwt|`jose` wins|url\n\n## \u{a7}V INVARIANTS",
+        );
+        v11_says(&orphan, "no `##");
+    }
+
+    /// §R is OPTIONAL -- present only if `/research` ran -- so its absence
+    /// must stay silent. `real()` has none, and this pins that.
+    #[test]
+    fn a_spec_with_no_research_section_still_passes() {
+        assert!(!real().contains("\u{a7}R"), "the fixture must have no §R");
+        assert_eq!(sections_ordered(&real()), Vec::<Violation>::new());
+    }
+
+    /// V12 and V14 cover §R for free, which was the whole argument for
+    /// teaching the grammar one letter instead of writing new rules.
+    #[test]
+    fn v12_and_v14_reach_research_rows_for_free() {
+        let dup = "## \u{a7}R RESEARCH\nR1|a|b|c\nR1|d|e|f\n";
+        assert!(ids_unique(dup).iter().any(|v| v.rule == "V12"), "V12");
+        let unsorted = "## \u{a7}R RESEARCH\nR2|a|b|c\nR1|d|e|f\n";
+        assert!(rows_sorted(unsorted).iter().any(|v| v.rule == "V14"), "V14");
     }
 
     /// Extension sections are real and in fleet use -- §D, §E, §F, §O, §P, §X.

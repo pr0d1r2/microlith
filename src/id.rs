@@ -85,9 +85,14 @@ fn past_bullet(line: &str) -> (&str, bool) {
     (line, false)
 }
 
-/// The four section letters. Anything else opens no id.
+/// The section letters that open an id. Anything else opens none.
+///
+/// `R` arrived with FORMAT.md 4.1.0. Its rows are `R1|topic|finding|src` --
+/// an ordinary pipe row -- so teaching the grammar the letter is the whole
+/// change: V12 (unique ids) and V14 (rows sorted) already work in terms of
+/// this parser, and cover `\u{a7}R` the moment it parses.
 fn section_kind(c: char) -> Option<char> {
-    matches!(c, 'V' | 'T' | 'B' | 'M').then_some(c)
+    matches!(c, 'V' | 'T' | 'B' | 'M' | 'R').then_some(c)
 }
 
 /// `:` or `|` immediately after the id -- the thing that makes it a

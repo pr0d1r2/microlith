@@ -15,7 +15,7 @@
 //! the id grammar and V13's citation boundary, so the graph is a regroup of
 //! code that exists rather than a second parser for the same text (V7).
 
-use crate::check::{cited, declared};
+use crate::check::{cited, declared, ITEM_KINDS};
 use crate::id::Id;
 
 /// How often each invariant is cited, and by which rows.
@@ -117,7 +117,7 @@ pub fn report(text: &str) -> String {
 #[must_use]
 pub fn report_verbose(text: &str) -> String {
     let mut out = report(text);
-    for kind in ['V', 'T', 'B'] {
+    for kind in ITEM_KINDS {
         let mut all = sizes(text, kind);
         all.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         for (id, chars) in all {
@@ -129,7 +129,7 @@ pub fn report_verbose(text: &str) -> String {
 
 fn sizes_section(text: &str) -> String {
     let mut out = String::new();
-    for kind in ['V', 'T', 'B'] {
+    for kind in ITEM_KINDS {
         let s = sizes(text, kind);
         if let Some((max, min, mean)) = spread(&s) {
             out.push_str(&format!(
