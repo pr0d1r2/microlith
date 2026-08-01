@@ -28,11 +28,15 @@
 # says they were already considered and dropped.
 T6   DROPPED
 
-# V24 rejected shipping the dev shell a BUILT nanokit in favour of a cargo-run
+# V24 rejected shipping the dev shell a BUILT cavespec in favour of a cargo-run
 # shim: a package must compile before the shell opens, so one error locks you
 # out of the shell you need to fix it.
 V24  a built package
-T20  REJECTED: nanokit writing an inline markdownlint directive
+T20  REJECTED: cavespec writing an inline markdownlint directive
 T23  REJECTED: auto-writing a single `complete all tasks` milestone
 T10  DROPPED: multi-version support & AUTODETECTION
 T14  DROPPED: a parallel `nk:` skill set
+
+# V31 defers a checker for condition 4; the denylist cannot live in the repo
+# it guards. Without this line a later pass reads it as an unbuilt feature.
+V31  A checker is DEFERRED

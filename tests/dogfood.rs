@@ -1,12 +1,12 @@
-//! V24: nanokit's own `SPEC.md` is the first file it formats and caps.
+//! V24: cavespec's own `SPEC.md` is the first file it formats and caps.
 //!
 //! A rule this crate cannot pass is a rule it may not ship. These run
 //! against the library being built, so the spec and the code cannot drift
 //! apart without the gate noticing.
 
-use nanokit::check::parse_records;
-use nanokit::format::{over_cap, MAX_LINE};
-use nanokit::{check_spec, format_spec};
+use cavespec::check::parse_records;
+use cavespec::format::{over_cap, MAX_LINE};
+use cavespec::{check_spec, format_spec};
 
 fn at_root(name: &str) -> String {
     let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
@@ -24,7 +24,7 @@ fn spec() -> String {
 fn our_own_spec_is_formatted() {
     let text = spec();
     let out = format_spec(&text).unwrap_or_default();
-    assert_eq!(out, text, "SPEC.md is not formatted -- run `nanokit fmt`");
+    assert_eq!(out, text, "SPEC.md is not formatted -- run `cavespec fmt`");
 }
 
 /// ...and it passes its own structural rules, records included.

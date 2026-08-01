@@ -124,10 +124,10 @@ impl Violation {
 ///
 /// One definition, because an id qualified two ways is an id a consumer
 /// cannot grep for.
-pub const NAMESPACE: &str = "nanokit";
+pub const NAMESPACE: &str = "cavespec";
 
 impl fmt::Display for Violation {
-    /// `nanokit/V13: msg` -- the rule id QUALIFIED, and no coordinates.
+    /// `cavespec/V13: msg` -- the rule id QUALIFIED, and no coordinates.
     ///
     /// QUALIFIED per V19. Every consumer of this crate is a caveman spec
     /// numbering from V1, so a bare `V13` printed against someone's
@@ -137,7 +137,7 @@ impl fmt::Display for Violation {
     /// design around.
     ///
     /// No line, and no file: those are the CALLER's coordinates. `render`
-    /// composes them; this prints only what nanokit owns.
+    /// composes them; this prints only what cavespec owns.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{NAMESPACE}/{}: {}", self.rule, self.msg)
     }
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn the_rule_id_is_namespaced() {
         let v = Violation::new("V11", "missing section");
-        assert_eq!(v.to_string(), "nanokit/V11: missing section");
+        assert_eq!(v.to_string(), "cavespec/V11: missing section");
     }
 
     /// A PLANTED bare id: the failure V19 forbids, asserted as absent rather
@@ -161,7 +161,7 @@ mod tests {
     fn a_bare_id_never_reaches_the_output() {
         let v = Violation::new("V13", "`V99` never declared").at(12);
         let out = v.to_string();
-        assert!(out.starts_with("nanokit/V13: "), "{out}");
+        assert!(out.starts_with("cavespec/V13: "), "{out}");
         assert!(!out.starts_with("V13"), "bare id leaked: {out}");
     }
 

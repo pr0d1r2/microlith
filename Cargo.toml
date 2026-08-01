@@ -1,8 +1,8 @@
-# Self-specified, not workspace-inherited: nanokit is born standalone, so
+# Self-specified, not workspace-inherited: cavespec is born standalone, so
 # it carries its own package metadata and lints from commit one (V20 --
 # a consumer depends on a registry crate, never a path that dangles).
 [package]
-name = "nanokit"
+name = "cavespec"
 # A minor is a level of GUARANTEE, not a feature count (V30). The full
 # ladder lives in SPEC.md and is rendered for consumers in CHANGELOG.md.
 #
@@ -26,7 +26,7 @@ readme = "README.md"
 # ahead of the repo being public -- flake.nix already names the same URL,
 # and two places claiming different homes would be worse than one claiming
 # a home that is not published yet.
-repository = "https://github.com/pr0d1r2/nanokit"
+repository = "https://github.com/pr0d1r2/cavespec"
 # Five is the crates.io maximum. `cli` went because `categories`
 # already says command-line-utilities; `cavekit` earns its place as the
 # search term someone in that ecosystem would actually type.
@@ -56,7 +56,7 @@ exclude = [
 ]
 
 [[bin]]
-name = "nanokit"
+name = "cavespec"
 path = "src/main.rs"
 
 # Zero dependencies. Every operation here is CPU-derivable (V6), so a dep

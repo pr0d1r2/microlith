@@ -18,7 +18,7 @@
 
 use crate::violation::Violation;
 
-/// `path:12: nanokit/V13: msg`, then the why and each ranked direction,
+/// `path:12: cavespec/V13: msg`, then the why and each ranked direction,
 /// indented.
 ///
 /// `file:line:` FIRST and a real line in the line slot -- the shape every
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn the_human_rendering_leads_with_file_and_line() {
         let out = human("SPEC.md", &sample());
-        assert!(out.starts_with("SPEC.md:12: nanokit/V13: "), "{out}");
+        assert!(out.starts_with("SPEC.md:12: cavespec/V13: "), "{out}");
         assert!(out.contains("\n    why: "), "{out}");
         assert!(out.contains("\n    mechanical: "), "{out}");
         assert!(out.contains("\n    judgment: "), "{out}");
@@ -158,7 +158,7 @@ mod tests {
     fn a_document_scoped_violation_prints_no_line() {
         let v = vec![Violation::new("V11", "missing section")];
         assert!(
-            human("SPEC.md", &v).starts_with("SPEC.md: nanokit/V11: "),
+            human("SPEC.md", &v).starts_with("SPEC.md: cavespec/V11: "),
             "{}",
             human("SPEC.md", &v)
         );

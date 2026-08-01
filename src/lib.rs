@@ -1,4 +1,4 @@
-//! `nanokit` -- the cavekit SPEC format, enforced.
+//! `cavespec` -- the cavekit SPEC format, enforced.
 //!
 //! One implementation of the format rules, callable as a library, so a
 //! consumer embeds them instead of re-porting them (V7). That is the whole
@@ -98,7 +98,7 @@ pub fn format_spec(text: &str) -> Result<String, String> {
 /// ```
 /// let text = "V1: **a rule.** cited by T1.\n";
 /// let records = Vec::new();
-/// let violations = nanokit::check_spec(text, &records);
+/// let violations = cavespec::check_spec(text, &records);
 /// for v in &violations {
 ///     println!("{}: {} ({})", v.rule, v.msg, v.line);
 /// }

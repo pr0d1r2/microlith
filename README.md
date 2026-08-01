@@ -1,4 +1,4 @@
-# nanokit
+# cavespec
 
 Mechanical operations on a caveman [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
@@ -6,22 +6,22 @@ Mechanical operations on a caveman [`SPEC.md`](FORMAT.md): lossless minify, stru
 
 The format had **two** hand-maintained implementations and no home. They disagreed, both gates stayed green, and 88 tasks belonged to no milestone before anything noticed. One implementation, or the rule is decoration.
 
-[`FORMAT.md`](FORMAT.md) is [cavekit](https://github.com/JuliusBrussee/cavekit)'s, vendored here **verbatim** so a tool that cites the format can read it. What nanokit *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
+[`FORMAT.md`](FORMAT.md) is [cavekit](https://github.com/JuliusBrussee/cavekit)'s, vendored here **verbatim** so a tool that cites the format can read it. What cavespec *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
 
 ## Install
 
 ```sh
-cargo install nanokit
+cargo install cavespec
 ```
 
 ## Use
 
 ```sh
-nanokit fmt --check      # gate: report drift, exit 1, never write
-nanokit fmt              # rewrite: one line per statement
-nanokit check            # gate: the structural rules
-nanokit derive           # report: sizes, citations, orphans
-nanokit anchors          # report: the section address of every item
+cavespec fmt --check      # gate: report drift, exit 1, never write
+cavespec fmt              # rewrite: one line per statement
+cavespec check            # gate: the structural rules
+cavespec derive           # report: sizes, citations, orphans
+cavespec anchors          # report: the section address of every item
 ```
 
 The path defaults to `SPEC.md` -- the one file [FORMAT.md](FORMAT.md) says every command reads -- so run from a project root and omit it. Pass a path for anything else.
@@ -45,17 +45,17 @@ Sections present and in order, ids unique, citations resolving, rows sorted, eve
 Each violation says where it is and what to do about it:
 
 ```
-SPEC.md:22: nanokit/V13: `V14` is cited but never declared
+SPEC.md:22: cavespec/V13: `V14` is cited but never declared
     why: a dangling reference reads as authoritative, so nobody follows it
     mechanical: point it at the rule that was meant
     judgment: declare V14, if the rule is real but missing
 ```
 
-`file:line:` first, so an editor and `grep -n` both jump to it. The rule id is **qualified** and sits beside the message, never inside the coordinates: every consumer is a caveman spec numbering from `V1`, so a bare `V13` printed against *your* `SPEC.md` names one of your rules instead of one of nanokit's.
+`file:line:` first, so an editor and `grep -n` both jump to it. The rule id is **qualified** and sits beside the message, never inside the coordinates: every consumer is a caveman spec numbering from `V1`, so a bare `V13` printed against *your* `SPEC.md` names one of your rules instead of one of cavespec's.
 
 A **mechanical** direction is deterministic and reversible, so an agent may apply it unattended. A **judgment** direction accepts a regression or changes intent -- an agent that applies one blindly has silenced the guardrail rather than fixed the defect. `--format json` emits the same anatomy with `kind` as data, so an agent never has to parse prose.
 
-`--records <file>` adds the rejected-option check. Its baseline lives with the spec being checked rather than in nanokit, because "this record still exists" is a claim about edits over time and no single file can answer it.
+`--records <file>` adds the rejected-option check. Its baseline lives with the spec being checked rather than in cavespec, because "this record still exists" is a claim about edits over time and no single file can answer it.
 
 ### `derive` and `anchors` -- report only
 
@@ -68,7 +68,7 @@ These answer questions rather than passing judgement, so they **exit 0 even with
 The binary is a thin shell. Every rule is a pure function over `&str`, so a consumer calls the rule instead of porting it:
 
 ```rust
-let violations = nanokit::check_spec(&text, &records);
+let violations = cavespec::check_spec(&text, &records);
 for v in &violations {
     println!("{}: {} ({})", v.rule, v.msg, v.line);
 }
@@ -79,7 +79,7 @@ for v in &violations {
 - **Lossless, provably.** Normalizing all whitespace in the input and the output must yield identical strings -- asserted *before* any write. A formatter that can drop a fact is one nobody may run unattended.
 - **Idempotent.** `fmt(fmt(x)) == fmt(x)`, tested, because a formatter that changes its mind cannot be a `--check` gate.
 - **Deterministic.** No inference, no network, and **zero dependencies**. Every operation is a pure function of the text.
-- **Self-guarding.** nanokit's own `SPEC.md` is the first file it formats, caps and checks, using the binary being built. A rule this crate cannot pass is a rule it cannot ship.
+- **Self-guarding.** cavespec's own `SPEC.md` is the first file it formats, caps and checks, using the binary being built. A rule this crate cannot pass is a rule it cannot ship.
 - **Every guard is proven by a planted violation**, never by reading it, plus a companion proving it accepts every real shape -- so no check can pass by rejecting everything.
 
 ## Status

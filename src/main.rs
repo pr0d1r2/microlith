@@ -1,12 +1,12 @@
-//! The `nanokit` binary: a thin shell over the library. All the rules and
+//! The `cavespec` binary: a thin shell over the library. All the rules and
 //! their tests live in the lib, so the format is testable without spawning
 //! a process -- and so a consumer can call the same code instead of
 //! re-porting it (V7). `main` does only the I/O the core avoids.
 
-use nanokit::check::{parse_records, Record};
-use nanokit::render;
-use nanokit::violation::Violation;
-use nanokit::{check_spec, format_spec, Output};
+use cavespec::check::{parse_records, Record};
+use cavespec::render;
+use cavespec::violation::Violation;
+use cavespec::{check_spec, format_spec, Output};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -38,20 +38,20 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
 }
 
 fn version() -> Output {
-    Output::ok(format!("nanokit {}\n", env!("CARGO_PKG_VERSION")))
+    Output::ok(format!("cavespec {}\n", env!("CARGO_PKG_VERSION")))
 }
 
 fn unknown(verb: &str) -> Output {
-    Output::usage(format!("nanokit: unknown command '{verb}'\n{}", usage()))
+    Output::usage(format!("cavespec: unknown command '{verb}'\n{}", usage()))
 }
 
 /// Which `anchors` rendering. Verbose prints each item's full text rather
 /// than a 60-char gist -- the same deepen-not-repeat rule (§I).
 fn anchors_report(rest: &[String]) -> fn(&str) -> String {
     if verbose(rest) {
-        nanokit::anchors::report_verbose
+        cavespec::anchors::report_verbose
     } else {
-        nanokit::anchors::report
+        cavespec::anchors::report
     }
 }
 
@@ -60,9 +60,9 @@ fn anchors_report(rest: &[String]) -> fn(&str) -> String {
 /// one answers "what do I cut" (§I).
 fn derive_report(rest: &[String]) -> fn(&str) -> String {
     if verbose(rest) {
-        nanokit::derive::report_verbose
+        cavespec::derive::report_verbose
     } else {
-        nanokit::derive::report
+        cavespec::derive::report
     }
 }
 
@@ -79,9 +79,9 @@ fn derive_report(rest: &[String]) -> fn(&str) -> String {
 ///
 /// Blank line between commands, and prose wrapped near 72 columns so it
 /// stays readable in a narrow terminal rather than running to 200.
-const USAGE: &str = r"nanokit -- the cavekit SPEC format, enforced
+const USAGE: &str = r"cavespec -- the cavekit SPEC format, enforced
 
-usage: nanokit <command> [args]
+usage: cavespec <command> [args]
 
 commands:
   fmt [--check] [--verbose] [<path>]
@@ -144,7 +144,7 @@ fn fmt(rest: &[String]) -> Output {
         return unreadable(&path);
     };
     match format_spec(&text) {
-        Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
+        Err(e) => Output::drift(format!("cavespec: {path}: {e}\n")),
         Ok(out) => {
             let done =
                 apply(&path, (&text, &out), check, ("fmt", "not formatted"));
@@ -165,8 +165,8 @@ fn migrate(rest: &[String]) -> Output {
     let Ok(text) = std::fs::read_to_string(&path) else {
         return unreadable(&path);
     };
-    match nanokit::migrate::migrate(&text) {
-        Err(e) => Output::drift(format!("nanokit: {path}: {e}\n")),
+    match cavespec::migrate::migrate(&text) {
+        Err(e) => Output::drift(format!("cavespec: {path}: {e}\n")),
         Ok(out) => migrated(rest, &path, (&text, &out), check),
     }
 }
@@ -178,12 +178,12 @@ fn migrated(
     check: bool,
 ) -> Output {
     let done = apply(path, io, check, ("migrate", "not canonical"));
-    let left = nanokit::migrate::unfinished(io.1);
+    let left = cavespec::migrate::unfinished(io.1);
     if done.code == 0 && !left.is_empty() {
         return Output::drift(format!("{}{left}", done.out));
     }
     said(done, verbose(rest), || {
-        format!("nanokit: {path}: headers canonical\n")
+        format!("cavespec: {path}: headers canonical\n")
     })
 }
 
@@ -206,10 +206,10 @@ fn fmt_summary(path: &str, text: &str) -> String {
     let lines = text.lines().count();
     let longest = text.lines().map(|l| l.chars().count()).max().unwrap_or(0);
     format!(
-        "nanokit: {path}: formatted, {lines} lines, longest {longest} of {} \
+        "cavespec: {path}: formatted, {lines} lines, longest {longest} of {} \
          ({} spare)\n",
-        nanokit::format::MAX_LINE,
-        nanokit::format::MAX_LINE.saturating_sub(longest)
+        cavespec::format::MAX_LINE,
+        cavespec::format::MAX_LINE.saturating_sub(longest)
     )
 }
 
@@ -257,7 +257,7 @@ struct Opts {
 
 /// What `check` examined, for a caller who asked to be told.
 ///
-/// Counts the ITEMS, not the rules: "6 rules ran" is a fact about nanokit,
+/// Counts the ITEMS, not the rules: "6 rules ran" is a fact about cavespec,
 /// while "24 invariants, 9 tasks, 4 bugs" is a fact about the spec, and
 /// only the second changes when someone points the gate at the wrong file.
 ///
@@ -265,14 +265,14 @@ struct Opts {
 /// was supplied -- and a gate silently checking five rules instead of six
 /// looks exactly like a gate checking six.
 fn check_summary(path: &str, text: &str, records: usize) -> String {
-    let n = |kind| nanokit::check::declared(text, kind).len();
+    let n = |kind| cavespec::check::declared(text, kind).len();
     let records = if records == 0 {
         "no records baseline, so V16 did not run".to_owned()
     } else {
         format!("{records} records checked")
     };
     format!(
-        "nanokit: {path}: clean -- {} invariants, {} tasks, {} bugs; {}\n",
+        "cavespec: {path}: clean -- {} invariants, {} tasks, {} bugs; {}\n",
         n('V'),
         n('T'),
         n('B'),
@@ -289,7 +289,7 @@ fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
     };
     match std::fs::read_to_string(&path) {
         Ok(text) => Ok(parse_records(&text)),
-        Err(e) => Err(format!("nanokit: cannot read {path}: {e}\n")),
+        Err(e) => Err(format!("cavespec: cannot read {path}: {e}\n")),
     }
 }
 
@@ -297,7 +297,7 @@ fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
 ///
 /// Both renderings come from the lib, so the binary chooses a format and
 /// never owns one -- a consumer calling `render::json` gets byte-identical
-/// output to `nanokit check --format json` (V7).
+/// output to `cavespec check --format json` (V7).
 fn report(path: &str, violations: &[Violation], as_json: bool) -> Output {
     if violations.is_empty() {
         return Output::ok(String::new());
@@ -318,7 +318,7 @@ fn wants_json(rest: &[String]) -> Result<bool, String> {
         None | Some("human") => Ok(false),
         Some("json") => Ok(true),
         Some(other) => Err(format!(
-            "nanokit: unknown --format '{other}' -- expected human or json\n"
+            "cavespec: unknown --format '{other}' -- expected human or json\n"
         )),
     }
 }
@@ -369,11 +369,11 @@ fn target(rest: &[String]) -> String {
 fn unreadable(path: &str) -> Output {
     if path == DEFAULT_PATH {
         return Output::usage(format!(
-            "nanokit: no {DEFAULT_PATH} here -- run from a project root, \
+            "cavespec: no {DEFAULT_PATH} here -- run from a project root, \
              or name a path\n"
         ));
     }
-    Output::usage(format!("nanokit: cannot read {path}\n"))
+    Output::usage(format!("cavespec: cannot read {path}\n"))
 }
 
 /// `derive <path>` and `anchors <path>`: read, report, exit 0.
@@ -410,12 +410,14 @@ fn apply(
     }
     if check {
         return Output::drift(format!(
-            "nanokit: {path} is {drift} -- run `nanokit {verb} {path}`\n"
+            "cavespec: {path} is {drift} -- run `cavespec {verb} {path}`\n"
         ));
     }
     match std::fs::write(path, out) {
-        Ok(()) => Output::ok(format!("nanokit: {verb} rewrote {path}\n")),
-        Err(e) => Output::usage(format!("nanokit: cannot write {path}: {e}\n")),
+        Ok(()) => Output::ok(format!("cavespec: {verb} rewrote {path}\n")),
+        Err(e) => {
+            Output::usage(format!("cavespec: cannot write {path}: {e}\n"))
+        }
     }
 }
 
@@ -435,7 +437,7 @@ mod tests {
     #[test]
     fn help_and_version_succeed() {
         assert_eq!(run(&args(&["--help"])).code, 0);
-        assert!(run(&args(&["--version"])).out.contains("nanokit"));
+        assert!(run(&args(&["--version"])).out.contains("cavespec"));
     }
 
     /// Every verb §I names is now built, so there is no unbuilt-verb arm
@@ -451,7 +453,7 @@ mod tests {
 
     fn write_temp(name: &str, body: &str) -> String {
         let p = std::env::temp_dir()
-            .join(format!("nanokit-{name}-{}.md", std::process::id()));
+            .join(format!("cavespec-{name}-{}.md", std::process::id()));
         let _ = std::fs::write(&p, body);
         p.to_string_lossy().into_owned()
     }
@@ -713,7 +715,7 @@ mod tests {
     #[test]
     fn check_reports_drift_without_writing() {
         let p = std::env::temp_dir()
-            .join(format!("nanokit-{}.md", std::process::id()));
+            .join(format!("cavespec-{}.md", std::process::id()));
         let src = "V1: a rule\nwrapped here\n";
         let _ = std::fs::write(&p, src);
         let path = p.to_string_lossy().into_owned();
@@ -728,7 +730,7 @@ mod tests {
     #[test]
     fn fmt_writes_once_then_is_a_no_op() {
         let p = std::env::temp_dir()
-            .join(format!("nanokit-w-{}.md", std::process::id()));
+            .join(format!("cavespec-w-{}.md", std::process::id()));
         let _ = std::fs::write(&p, "V1: a rule\nwrapped here\n");
         let path = p.to_string_lossy().into_owned();
         assert_eq!(run(&args(&["fmt", &path])).code, 0);

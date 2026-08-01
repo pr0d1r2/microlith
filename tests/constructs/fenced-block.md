@@ -4,8 +4,8 @@
 - cmd: run it like this
 
 ```sh
-nanokit check
-nanokit fmt
+cavespec check
+cavespec fmt
 ```
 
 ## §V INVARIANTS
