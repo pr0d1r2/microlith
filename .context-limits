@@ -1,3 +1,38 @@
+# RAISED a TENTH time, 16000 -> 18800, and the ninth's model held -- it was
+# simply SILENT about one category.
+#
+# The ninth block sized this for the rate of MEASUREMENT: discovered work,
+# bug records, what a run finds rather than what a plan lists. That reading
+# is still right, and it is not what fired here. The release ladder --
+# V30-V33, T24-T27, M9 and M10 -- is +1,474 tokens of PLANNED work, specced
+# in ONE pass, none of it discovered. A file that grows at the rate of
+# measurement ALSO takes a step function whenever a milestone is designed,
+# and the ninth number left no room for one.
+#
+# So this is the first raise here that is neither creep nor discovery. It
+# is a MILESTONE, which is what the FIRST raise called its own growth.
+#
+# 18,800 is ~12% over the measured 16,734, per V21's ceiling rule.
+#
+# THE STANDING PRECONDITION HELD, mechanically, twice: `nanokit derive |
+# grep dup` reported NONE before the additions and NONE after. It did work
+# in between -- the first run on the new rows found T24 restating V33's
+# report-only clause, 10 words, written minutes earlier. Fifth consecutive
+# find of the same pattern: a row written while the reasoning is fresh
+# restates it instead of citing where it already lives.
+#
+# WHAT THE NEXT RAISE HAS TO ANSWER, since the trajectory is now
+# 4,000 -> 4,500 -> 5,100 -> 5,800 -> 7,000 -> 8,100 -> 9,400 -> 11,500 ->
+# 13,000 -> 16,000 -> 18,800:
+#
+#   The eventual remedy is upstream's and is still not available -- the ONE
+#   FILE RULE triggers compaction at 500 LINES and SPEC.md is 131. But the
+#   gap between 131 lines and this token count is V3's doing (one statement
+#   per line), so waiting for 500 lines means waiting for a trigger this
+#   file may never reach. If an ELEVENTH raise is needed, the question to
+#   settle is not the number: it is whether the 500-line trigger is the
+#   right one for a spec whose cost is measured in tokens.
+#
 # RAISED a NINTH time, 13000 -> 16000, and the SIZING MODEL changed with it.
 #
 # The eighth raise was an hour old. It was sized for the work on the LIST --
@@ -225,4 +260,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    16000
+SPEC.md    18800
