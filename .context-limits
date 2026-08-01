@@ -5,6 +5,26 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
+# RAISED A FIFTH TIME, 7000 -> 8100, when T11 was specced and the ceiling
+# fired at 7,235.
+#
+# THE TEST PASSED AGAIN, and more sharply than last time: the duplication
+# pass found V13 and B3 sharing 11 words -- in a spec deduplicated HOURS
+# earlier, by the same technique, looking for exactly this. Reading had
+# walked past it twice that day.
+#
+# The pattern behind both finds is now named: a RULE and the BUG RECORD
+# that produced it each restate the justification, because writing the
+# record while the incident is fresh means writing the reasoning again. The
+# rule owns it; the record cites it.
+#
+# 8,100 is ~12% over the compacted 7,216, per V21.
+#
+# T11 will give this pass a RUNNER. Until it lands, every raise below
+# depends on someone remembering to run a throwaway script -- which is why
+# T11 exists at all, and why the next raise should be the first one where
+# the pass is mechanical rather than remembered.
+#
 # RAISED A FOURTH TIME, 5800 -> 7000, when T10 specced the 4.1.0 sync and
 # the ceiling fired at 6,261.
 #
@@ -82,4 +102,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    7000
+SPEC.md    8100
