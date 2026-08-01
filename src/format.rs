@@ -36,7 +36,26 @@ pub fn carries_a_marker(line: &str) -> bool {
     {
         return true;
     }
-    id_prefixed(line)
+    ordered_item(line) || id_prefixed(line)
+}
+
+/// `1. `, `2) ` -- an ORDERED list item opens a statement too.
+///
+/// B13: B12's fix taught this function three bullet characters and stopped,
+/// so `1.` `2.` `3.` still read as continuations and a nine-item ordered
+/// list collapsed into ONE line. Worse than the bullet case it replaced:
+/// those items are not declared ids, so V28's id-set proof cannot see them
+/// go either, and both proofs pass on a spec that lost eight statements.
+///
+/// The digits must be followed by `.` or `)` AND a space, so a wrapped line
+/// beginning with a number is still prose.
+fn ordered_item(line: &str) -> bool {
+    let digits: String =
+        line.chars().take_while(char::is_ascii_digit).collect();
+    if digits.is_empty() {
+        return false;
+    }
+    matches!(line.get(digits.len()..), Some(r) if r.starts_with(". ") || r.starts_with(") "))
 }
 
 /// Every id DECLARED in the text, as labels -- V28's unit.
@@ -266,6 +285,27 @@ mod tests {
     fn folding_is_idempotent() {
         let once = unwrap_wraps("- V1: one\n  - V2: two\n  - sub\n");
         assert_eq!(unwrap_wraps(&once), once);
+    }
+
+    /// B13: an ORDERED list survives fmt. B12's fix taught the marker test
+    /// three bullet characters and stopped, so `1.` `2.` `3.` still merged
+    /// -- nine invariants into one line on a real spec, with V1's proof AND
+    /// V28's id-set proof both passing, because ordered items are not
+    /// declared ids.
+    #[test]
+    fn an_ordered_list_keeps_one_item_per_line() {
+        let src = "1. first\n2. second\n3. third\n";
+        assert_eq!(unwrap_wraps(src), src);
+        assert_eq!(unwrap_wraps("1) a\n2) b\n"), "1) a\n2) b\n");
+    }
+
+    /// ...and a wrapped line that merely BEGINS with a number is still
+    /// prose, so the marker cannot swallow ordinary continuations.
+    #[test]
+    fn a_number_without_a_list_marker_is_still_prose() {
+        assert!(continuation("V1: costs", "1650 tokens at most"));
+        assert!(!carries_a_marker("2026 was the year"));
+        assert!(carries_a_marker("2. an item"));
     }
 
     /// V2: a formatter that keeps changing its mind cannot gate.
