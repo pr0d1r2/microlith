@@ -5,6 +5,35 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
+# RAISED A SIXTH TIME, 8100 -> 9400, when T12-T14 were specced and the
+# ceiling fired at 8,415. The pass found two, both introduced MINUTES
+# earlier in T13's own row -- the tightest that loop has closed yet, and
+# three-for-three on the same pattern: a row written while the reasoning is
+# fresh restates it instead of citing where it already lives.
+#
+# 9,400 is ~12% over the compacted 8,369.
+#
+# BUT READ THE TRAJECTORY BEFORE RAISING AGAIN:
+#
+#   4,000 -> 4,500 -> 5,100 -> 5,800 -> 7,000 -> 8,100 -> 9,400
+#
+# Six raises in one day; the spec has more than doubled. Every one followed
+# the procedure and every pass found something, so the discipline is not
+# failing -- but a ceiling that has never once REFUSED an addition is
+# measuring growth rather than bounding it.
+#
+# There is a REJECTED OPTION whose trigger has now plausibly fired. When
+# this fired the second time, "compact completed task rows" was considered
+# and set aside: a done row's detail also lives in its commit message, and
+# V19 says lineage lives in the commit trail. It was rejected then because
+# the pass had cheaper duplication to cut first. It no longer does -- T4,
+# T6, T9 and T10 are done, and their rows carry full design reasoning that
+# the commits already hold.
+#
+# So the honest choice at the SEVENTH raise is not 12% again. It is either
+# that compaction, or admitting the ceiling is a tripwire for sudden growth
+# rather than a budget, and sizing it once for the remaining tasks.
+#
 # RAISED A FIFTH TIME, 7000 -> 8100, when T11 was specced and the ceiling
 # fired at 7,235.
 #
@@ -102,4 +131,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    8100
+SPEC.md    9400
