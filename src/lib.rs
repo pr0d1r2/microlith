@@ -87,13 +87,14 @@ pub fn format_spec(text: &str) -> Result<String, String> {
 /// README cannot drift from the API it advertises:
 ///
 /// ```
-/// let text = "## \u{a7}V INVARIANTS\nV1: **a rule.** cited by T1.\n";
+/// let text = "V1: **a rule.** cited by T1.\n";
 /// let records = Vec::new();
 /// let violations = nanokit::check_spec(text, &records);
 /// for v in &violations {
 ///     println!("{}: {} ({})", v.rule, v.msg, v.line);
 /// }
-/// // Sections are missing from that fragment, so V11 has something to say.
+/// // A rule with no §V header above it, so V11 has something to say. An
+/// // ABSENT section is legal since T15; an item STRANDED by one is not.
 /// assert!(violations.iter().any(|v| v.rule == "V11"));
 /// ```
 #[must_use]

@@ -403,7 +403,7 @@ mod tests {
     /// goes to the invariant rather than guessing which one fired.
     #[test]
     fn check_names_the_rule_it_failed() {
-        let path = write_temp("bad", "# spec\n\nnothing here\n");
+        let path = write_temp("bad", "# spec\n\nV1: a rule with no header.\n");
         let o = run(&args(&["check", &path]));
         assert_eq!(o.code, 1, "{}", o.err);
         assert!(o.err.contains("V11"), "{}", o.err);
@@ -486,7 +486,7 @@ mod tests {
     /// `--format json` emits the machine rendering and still gates.
     #[test]
     fn check_can_report_as_json() {
-        let path = write_temp("json", "# spec\n\nnothing here\n");
+        let path = write_temp("json", "# spec\n\nV1: a rule with no header.\n");
         let o = run(&args(&["check", "--format", "json", &path]));
         assert_eq!(o.code, 1, "{}", o.err);
         assert!(o.err.starts_with("{\"file\":"), "{}", o.err);

@@ -21,6 +21,14 @@ use crate::violation::{Fix, Violation};
 ///
 /// `\u{a7}` is the section sign, written as an escape so this source stays
 /// ASCII -- the runtime string is identical either way.
+/// The section LETTER of each entry in `SECTIONS`, in the same order.
+///
+/// Held alongside rather than read out of the header string: the letter is
+/// what the checker matches on now that labels vary across the fleet, and
+/// digging it out by character offset would make the position of a word in
+/// prose load-bearing.
+pub const KINDS: [char; 6] = ['G', 'C', 'I', 'V', 'T', 'B'];
+
 pub const SECTIONS: [&str; 6] = [
     "## \u{a7}G GOAL",
     "## \u{a7}C CONSTRAINTS",
@@ -107,7 +115,25 @@ fn is_invariant_ref(token: &str) -> bool {
     }
 }
 
-/// V11: sections are PRESENT and ORDERED.
+/// V11: sections are ORDERED, and no item outlives its header.
+///
+/// ABSENCE IS LEGAL. This demanded all six until the corpus was measured:
+/// across 51 fleet specs only 41 carry `\u{a7}G` and 46 carry `\u{a7}T`, and
+/// FORMAT.md 4.1.0 says a section may be absent but is never reordered. The
+/// old rule rejected specs that were legal, which is the shape B4 named --
+/// a rule generalised from n=2 without measuring.
+///
+/// What the old rule was FOR survives as `orphaned_items`. "A lost header
+/// silently unnames every item under it" is a real failure, but presence was
+/// the wrong test for it: a spec with no tasks needs no `\u{a7}T`, while a
+/// spec with `T1|` rows and no `\u{a7}T` has exactly the defect. Dropping
+/// presence without that replacement would leave V11 unable to catch the one
+/// thing it was written for.
+///
+/// UNKNOWN letters are tolerated -- `\u{a7}D`, `\u{a7}E`, `\u{a7}F`,
+/// `\u{a7}O`, `\u{a7}P` and `\u{a7}X` are all in fleet use. Only the KNOWN
+/// six are ordered against each other; an extension between them is not the
+/// checker's business.
 ///
 /// Document-scoped: a missing header has no line to point at, and pointing
 /// at where it OUGHT to be would be a guess dressed as a fact.
@@ -115,18 +141,83 @@ fn is_invariant_ref(token: &str) -> bool {
 pub fn sections_ordered(text: &str) -> Vec<Violation> {
     let mut out = Vec::new();
     let mut last = 0usize;
-    for header in SECTIONS {
-        match text.find(header) {
-            None => out.push(missing_section(header)),
+    for (kind, header) in KINDS.into_iter().zip(SECTIONS) {
+        match section_at(text, kind) {
             Some(at) if at < last => out.push(misordered_section(header)),
             Some(at) => last = at,
+            None => {}
+        }
+    }
+    out.extend(orphaned_items(text));
+    out
+}
+
+/// Where `## \u{a7}<kind>` starts, whatever LABEL follows it.
+///
+/// Label-agnostic on purpose. Only 16 of 51 fleet specs spell the header
+/// exactly as `SECTIONS` does; 9 write `## \u{a7}V Invariants` and 7 write
+/// `## \u{a7}V — Invariants`. Matching the full string reported those as a
+/// MISSING section while the section sat right there -- B8's defect again,
+/// a true rule delivering a false message.
+///
+/// So V11 asks only whether the section EXISTS and where. Whether its label
+/// carries the canonical word is a separate rule with a separate remedy
+/// (T17), and keeping them apart is what lets each say something true.
+fn section_at(text: &str, kind: char) -> Option<usize> {
+    let mut at = 0usize;
+    for line in text.split_inclusive('\n') {
+        if is_header_for(line, kind) {
+            return Some(at);
+        }
+        at = at.saturating_add(line.len());
+    }
+    None
+}
+
+/// `## \u{a7}V`, `## \u{a7}V INVARIANTS`, `## \u{a7}V — Invariants` -- yes.
+/// `## \u{a7}T55-PLAN` -- no: the letter must not run into a word or digit,
+/// or a section id in a heading would read as the section itself.
+fn is_header_for(line: &str, kind: char) -> bool {
+    let Some(rest) = line.strip_prefix("## \u{a7}") else {
+        return false;
+    };
+    let mut chars = rest.chars();
+    chars.next() == Some(kind)
+        && chars.next().is_none_or(|c| !c.is_ascii_alphanumeric())
+}
+
+/// The canonical header an id of this kind belongs under.
+fn header_for(kind: char) -> Option<&'static str> {
+    KINDS
+        .into_iter()
+        .zip(SECTIONS)
+        .find(|(k, _)| *k == kind)
+        .map(|(_, h)| h)
+}
+
+/// V11's evidence, kept after presence was dropped: items whose section
+/// header is GONE.
+///
+/// This is the failure the old presence check was really guarding, and it is
+/// strictly narrower -- it fires only when there is something to unname.
+fn orphaned_items(text: &str) -> Vec<Violation> {
+    let mut out = Vec::new();
+    for kind in ['V', 'T', 'B'] {
+        let Some(header) = header_for(kind) else {
+            continue;
+        };
+        if section_at(text, kind).is_some() {
+            continue;
+        }
+        if let Some((line, _)) = declared_at(text, kind).first() {
+            out.push(orphaned_item(kind, header).at(*line));
         }
     }
     out
 }
 
-fn missing_section(header: &str) -> Violation {
-    Violation::new("V11", format!("missing section `{header}`"))
+fn orphaned_item(kind: char, header: &str) -> Violation {
+    Violation::new("V11", format!("`{kind}` items with no `{header}`"))
         .why("a lost header silently unnames every item under it")
         .try_(
             Fix::Mechanical,
@@ -223,9 +314,23 @@ fn unsorted(row: &str, after: &str) -> Violation {
         )
 }
 
-/// V15: every task belongs to EXACTLY ONE milestone.
+/// V15: every task belongs to EXACTLY ONE milestone -- WHERE MILESTONES EXIST.
+///
+/// Milestones are an EXTENSION, not part of the format: canonical `\u{a7}T`
+/// has none, and 48 of 51 fleet specs carry no `| M<n> |` row at all. Against
+/// those this fired `in no milestone` on EVERY task -- one violation per row,
+/// for declining to use an optional feature. A check that loud is one nobody
+/// reads, which is how the real violation hides.
+///
+/// So the rule is scoped to specs that OPTED IN. A single milestone row is
+/// the opt-in signal, and it is the right one: adding the first milestone is
+/// the moment "every task belongs to one" starts being a claim the author is
+/// making. Below that line the rule has nothing to say, and says it.
 #[must_use]
 pub fn tasks_in_one_milestone(text: &str) -> Vec<Violation> {
+    if !uses_milestones(text) {
+        return Vec::new();
+    }
     let claimed = claims(text);
     let mut out = duplicate_claims(&claimed);
     for (line, id) in declared_at(text, 'T') {
@@ -319,6 +424,15 @@ fn bad_status(label: &str, status: &str) -> Violation {
             "set it to whichever of `.` todo, `~` wip or `x` done the work \
              actually is",
         )
+}
+
+/// Whether this spec uses milestones at all -- V15's opt-in signal.
+///
+/// A row with an EMPTY tasks cell still counts: the author declared a
+/// milestone, so "which tasks are in it" is a fair question.
+#[must_use]
+pub fn uses_milestones(text: &str) -> bool {
+    text.lines().any(|l| l.starts_with("| M"))
 }
 
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
@@ -521,9 +635,64 @@ mod tests {
 
     /// A header lost to an edit. Everything under it is still there and still
     /// reads fine, which is the problem: it is no longer in any section.
+    ///
+    /// This is what survived the calibration. The rule no longer asks whether
+    /// the header is PRESENT -- it asks whether anything was left stranded by
+    /// its absence, which is the same defect and nothing more.
     #[test]
-    fn v11_rejects_a_missing_section() {
-        v11_says(&real().replace("## \u{a7}B BUGS", "## BUGS"), "missing");
+    fn v11_rejects_items_whose_header_is_gone() {
+        v11_says(&real().replace("## \u{a7}B BUGS", "## BUGS"), "no `##");
+    }
+
+    /// The companion, and the whole point of T15: a spec that simply HAS no
+    /// bugs yet needs no §B, and 4.1.0 says so. The old rule failed 49 of 51
+    /// fleet specs largely on this.
+    #[test]
+    fn v11_accepts_a_section_that_is_absent_with_nothing_under_it() {
+        let text = real();
+        let cut = text.split("## \u{a7}B BUGS").next().unwrap_or_default();
+        assert_eq!(sections_ordered(cut), Vec::<Violation>::new());
+    }
+
+    /// V11 is LABEL-AGNOSTIC: the section exists, whatever it is called.
+    /// Only 16 of 51 fleet specs spell these headers exactly as `SECTIONS`
+    /// does, and calling the other 35 "missing" was a true rule delivering a
+    /// false message. Whether the label carries the canonical word is T17's.
+    #[test]
+    fn v11_finds_a_section_under_any_label() {
+        for label in ["", " Invariants", " \u{2014} Invariants", " INVARIANTS"]
+        {
+            let text = real().replace(
+                "## \u{a7}V INVARIANTS",
+                &format!("## \u{a7}V{label}"),
+            );
+            assert_eq!(
+                sections_ordered(&text),
+                Vec::<Violation>::new(),
+                "label {label:?}"
+            );
+        }
+    }
+
+    /// ...but a HEADING that merely starts with a section letter is not that
+    /// section. `## §T55-PLAN` is a real fleet heading, and reading it as §T
+    /// would silently satisfy the rule with a document that has no §T at all.
+    #[test]
+    fn a_heading_that_runs_into_the_letter_is_not_a_section() {
+        let text = real().replace("## \u{a7}T TASKS", "## \u{a7}T55-PLAN");
+        v11_says(&text, "no `##");
+    }
+
+    /// Extension sections are real and in fleet use -- §D, §E, §F, §O, §P, §X.
+    /// Only the KNOWN six are ordered against each other; an unknown letter
+    /// between them is not the checker's business.
+    #[test]
+    fn v11_tolerates_an_unknown_section_letter() {
+        let with_ext = real().replace(
+            "## \u{a7}T TASKS",
+            "## \u{a7}D DECISIONS\n\nsome prose.\n\n## \u{a7}T TASKS",
+        );
+        assert_eq!(sections_ordered(&with_ext), Vec::<Violation>::new());
     }
 
     /// Order is part of the format, not a convention, because every `§S.n`
@@ -592,6 +761,22 @@ mod tests {
     fn v15_rejects_a_task_in_no_milestone() {
         let orphan = real().replace("| T1-T2, T4 |", "| T1-T2 |");
         v15_says(&orphan, "T4 is in no milestone");
+    }
+
+    /// The companion T15 added: a spec with NO milestone rows has not opted
+    /// in, so the rule says nothing. It used to say `in no milestone` once
+    /// per task -- 48 of 51 fleet specs, every row, for declining an optional
+    /// feature. The planted case above proves it still fires where the author
+    /// DID opt in, so this cannot be a check that was simply switched off.
+    #[test]
+    fn v15_is_silent_where_no_milestone_row_exists() {
+        let none: String = real()
+            .lines()
+            .filter(|l| !l.starts_with("| M"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!uses_milestones(&none), "the fixture still has a row");
+        assert_eq!(tasks_in_one_milestone(&none), Vec::<Violation>::new());
     }
 
     /// EXACTLY one, so two claims on one task is a violation too -- otherwise
@@ -706,7 +891,9 @@ mod tests {
         let mech =
             |v: &[Violation]| v.first().is_some_and(Violation::is_mechanical);
         // The tool knows the header text, the order, and the sort key.
-        assert!(mech(&sections_ordered("# nothing here")), "V11");
+        // An ITEM with no header, since T15: bare prose is no longer a
+        // violation at all, so a fixture without one proves nothing.
+        assert!(mech(&sections_ordered("B1|d|c|f\n")), "V11");
         let unsorted = real().replace(
             "T1|x|a task|V1\nT2|.|another|V3",
             "T2|.|another|V3\nT1|x|a task|V1",
