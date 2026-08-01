@@ -1,4 +1,4 @@
-//! V10: nanokit's own `SPEC.md` is the first file it formats and caps.
+//! V24: nanokit's own `SPEC.md` is the first file it formats and caps.
 //!
 //! A rule this crate cannot pass is a rule it may not ship. These run
 //! against the library being built, so the spec and the code cannot drift

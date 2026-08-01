@@ -55,7 +55,7 @@ local fast = new Mapping<String, Step> {
     depends = List("test")
     check = "cargo test --doc"
   }
-  // THE DOGFOOD (V10). nanokit formats its own law, using the binary being
+  // THE DOGFOOD (V24). nanokit formats its own law, using the binary being
   // built -- so a rule this crate cannot pass is a rule it cannot ship.
   // Triggered by the spec itself as well as the code, so a docs-only
   // commit is still gated.

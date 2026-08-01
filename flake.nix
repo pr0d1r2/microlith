@@ -21,7 +21,7 @@
       ];
       forAll = f: nixpkgs.lib.genAttrs systems (s: f nixpkgs.legacyPackages.${s});
 
-      # nanokit formats its own SPEC.md (V10), so the dev shell must PROVIDE
+      # nanokit formats its own SPEC.md (V24), so the dev shell must PROVIDE
       # `nanokit`, not merely the toolchain to build it.
       #
       # Deliberately a SHIM rather than a package in the shell's closure: a
