@@ -52,9 +52,18 @@ fn our_own_spec_is_under_the_cap() {
 /// with real slack, so a legitimate addition is not a raise. If this fails
 /// the spec has grown into its ceiling and the number needs a REVIEW, not
 /// a reflex bump.
+/// CHARS, matching `over_cap`, which is what actually enforces the cap.
+/// This measured BYTES until it fired on a line that was comfortably under
+/// the limit: 1478 chars but 1514 bytes, because the format is dense with
+/// `§`, `∴` and `⊥` at three bytes each. A guard must measure in the same
+/// unit as the rule it guards, or it reports a breach that does not exist.
 #[test]
 fn the_cap_still_carries_real_slack() {
-    let longest = spec().split('\n').map(str::len).max().unwrap_or(0);
+    let longest = spec()
+        .split('\n')
+        .map(|l| l.chars().count())
+        .max()
+        .unwrap_or(0);
     let slack = MAX_LINE.saturating_sub(longest);
     assert!(
         slack.saturating_mul(10) > MAX_LINE,
