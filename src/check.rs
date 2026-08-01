@@ -145,7 +145,8 @@ pub fn cited_at(text: &str) -> Vec<(usize, String)> {
 /// An unclosed backtick swallows the rest of the text, which is the safe
 /// direction: it can only SUPPRESS citations, never invent one, so the
 /// failure is a check that misses rather than a check that lies.
-fn outside_backticks(text: &str) -> String {
+#[must_use]
+pub fn outside_backticks(text: &str) -> String {
     text.split('`').step_by(2).collect::<Vec<_>>().join(" ")
 }
 
