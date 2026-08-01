@@ -27,19 +27,31 @@ fn run(args: &[String]) -> Output {
 fn dispatch(verb: &str, rest: &[String]) -> Output {
     match verb {
         "--help" | "-h" => Output::ok(usage()),
-        "--version" | "-V" => {
-            Output::ok(format!("nanokit {}\n", env!("CARGO_PKG_VERSION")))
-        }
+        "--version" | "-V" => version(),
         "fmt" => fmt(rest),
         "check" => check(rest),
-        // Report-only (V10): both always exit 0, even with findings. An
-        // orphan invariant is a question for a human, not a build failure.
-        "derive" => reporting(rest, nanokit::derive::report),
+        "derive" => reporting(rest, derive_report(rest)),
         "anchors" => reporting(rest, nanokit::anchors::report),
-        other => Output::usage(format!(
-            "nanokit: unknown command '{other}'\n{}",
-            usage()
-        )),
+        other => unknown(other),
+    }
+}
+
+fn version() -> Output {
+    Output::ok(format!("nanokit {}\n", env!("CARGO_PKG_VERSION")))
+}
+
+fn unknown(verb: &str) -> Output {
+    Output::usage(format!("nanokit: unknown command '{verb}'\n{}", usage()))
+}
+
+/// Which `derive` rendering. Verbose DEEPENS here rather than confirming:
+/// the plain report is already the answer to "is it big", and the verbose
+/// one answers "what do I cut" (§I).
+fn derive_report(rest: &[String]) -> fn(&str) -> String {
+    if verbose(rest) {
+        nanokit::derive::report_verbose
+    } else {
+        nanokit::derive::report
     }
 }
 
@@ -79,10 +91,11 @@ commands:
       `--verbose` confirms what was examined, and says when the
       records check did not run.
 
-  derive [<path>]
+  derive [--verbose] [<path>]
       Sizes, the citation graph, and invariants cited by nothing.
       Report-only: exits 0 even with findings, because an orphan is
-      a question for a reader, not a build failure.
+      a question for a reader, not a build failure. `--verbose`
+      adds every statement's size, biggest first: what to cut.
 
   anchors [<path>]
       The section address of every item, with the id it resolves to

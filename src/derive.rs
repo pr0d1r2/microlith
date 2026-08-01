@@ -104,6 +104,29 @@ pub fn report(text: &str) -> String {
     out
 }
 
+/// The same, plus every statement's own size, biggest FIRST.
+///
+/// `derive` already speaks, so verbose here DEEPENS rather than confirms
+/// (§I). The aggregate answers "is the spec big?"; this answers "what do I
+/// cut?", which is the question anyone actually has when the ceiling fires
+/// -- and the aggregate cannot answer it, because a mean hides the one
+/// statement that is three times the others.
+///
+/// Biggest first because a list sorted by id makes a reader do the ranking
+/// themselves, and the whole point is to put the next edit at the top.
+#[must_use]
+pub fn report_verbose(text: &str) -> String {
+    let mut out = report(text);
+    for kind in ['V', 'T', 'B'] {
+        let mut all = sizes(text, kind);
+        all.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        for (id, chars) in all {
+            out.push_str(&format!("stmt {id}: {chars} chars\n"));
+        }
+    }
+    out
+}
+
 fn sizes_section(text: &str) -> String {
     let mut out = String::new();
     for kind in ['V', 'T', 'B'] {
@@ -207,6 +230,22 @@ T1|x|a task|V1
         // 2 chars, so a byte count would inflate this line by a third.
         assert_eq!(line.len(), 17, "bytes");
         assert_eq!(sizes(&text, 'V').first().map(|(_, n)| *n), Some(13));
+    }
+
+    /// Verbose adds per-statement sizes, biggest first, and keeps
+    /// everything the plain report said -- it deepens, never replaces.
+    #[test]
+    fn verbose_ranks_every_statement_biggest_first() {
+        let out = report_verbose(SPEC);
+        assert!(out.contains("size V:"), "keeps the aggregate: {out}");
+        assert!(out.contains("orphan V2:"), "keeps the orphans: {out}");
+        let stmts: Vec<&str> =
+            out.lines().filter(|l| l.starts_with("stmt ")).collect();
+        assert_eq!(stmts.len(), 4, "three invariants and a task: {stmts:?}");
+        assert!(
+            stmts.first().is_some_and(|l| l.starts_with("stmt V3:")),
+            "longest first: {stmts:?}"
+        );
     }
 
     #[test]
