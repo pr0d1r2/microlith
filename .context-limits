@@ -5,6 +5,21 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
+# RAISED TWICE IN ONE DAY. 4500 -> 5100 when T4 landed and the ceiling fired
+# again at 4,587. Same procedure as below, in the same order: cut duplication
+# first (V13 and §I each restated B3's record; -58), re-measure (4,529), then
+# size by V21's rule -- 5,100 is ~12.6% over.
+#
+# The note below predicted this and said it would be worth knowing. It is:
+# T4 cost +484 tokens MEASURED, and T5, T7, T8 remain, so on this trajectory
+# 5,100 buys about one more task. That is the deliberate choice -- a ceiling
+# sized to the trajectory (6,000 was the alternative, and was rejected) would
+# stop catching anything in the meantime, which is what a ceiling is for.
+# Expect a third raise, and expect it to be reviewed the same way.
+#
+# What did NOT happen, and is the point: no rejected-option record was traded
+# for bytes (V16), and no threshold moved before the duplication pass.
+#
 # RAISED ONCE, 4k -> 4500, on the day M2 landed. The ceiling FIRED at 4,105
 # against 4,000 -- which is the whole point of setting it at 2x the size the
 # file then was, rather than at the size it already had.
@@ -25,6 +40,8 @@
 # tested again -- and a second raise inside a task or two would be evidence
 # that 4,500 was also chosen too small, which is worth knowing.
 #
-# Checked by `itok check` today (`--bpe`, so the verdict is deterministic).
-# When T4 lands, nanokit checks it too.
-SPEC.md    4500
+# Checked by `itok check` (`--bpe`, so the verdict is deterministic). T4 has
+# landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
+# not its size. T5's `derive` reports sizes; whether the GATE moves here is a
+# decision for T5, not an assumption to leave standing in a comment.
+SPEC.md    5100
