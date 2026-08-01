@@ -28,3 +28,5 @@ T6   DROPPED
 V24  a built package
 T20  REJECTED: nanokit writing an inline markdownlint directive
 T23  REJECTED: auto-writing a single `complete all tasks` milestone
+T10  DROPPED: multi-version support & AUTODETECTION
+T14  DROPPED: a parallel `nk:` skill set
