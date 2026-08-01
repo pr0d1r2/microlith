@@ -1,5 +1,5 @@
 # Self-specified, not workspace-inherited: nanokit is born standalone, so
-# it carries its own package metadata and lints from commit one (V6 --
+# it carries its own package metadata and lints from commit one (V20 --
 # a consumer depends on a registry crate, never a path that dangles).
 [package]
 name = "nanokit"
@@ -11,6 +11,13 @@ rust-version = "1.82"
 license = "MIT"
 description = "enforce the cavekit SPEC format: lossless minify, structural check, CPU only"
 readme = "README.md"
+# `cargo package` warns without one of these, and the warning is right: the
+# crates.io page and docs.rs both link back through it, so a crate without
+# it is one a reader cannot get from the listing to the source. Declared
+# ahead of the repo being public -- flake.nix already names the same URL,
+# and two places claiming different homes would be worse than one claiming
+# a home that is not published yet.
+repository = "https://github.com/pr0d1r2/nanokit"
 keywords = ["spec", "markdown", "formatter", "agents", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
@@ -18,7 +25,7 @@ categories = ["command-line-utilities", "development-tools"]
 name = "nanokit"
 path = "src/main.rs"
 
-# Zero dependencies. Every operation here is CPU-derivable (V5), so a dep
+# Zero dependencies. Every operation here is CPU-derivable (V6), so a dep
 # would buy nothing and cost every consumer a transitive edge.
 [dependencies]
 
