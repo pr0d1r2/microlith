@@ -1,7 +1,7 @@
 //! The `nanokit` binary: a thin shell over the library. All the rules and
 //! their tests live in the lib, so the format is testable without spawning
 //! a process -- and so a consumer can call the same code instead of
-//! re-porting it (V6). `main` does only the I/O the core avoids.
+//! re-porting it (V7). `main` does only the I/O the core avoids.
 
 use nanokit::{format_spec, Output};
 use std::process::ExitCode;

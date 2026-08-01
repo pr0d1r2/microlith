@@ -1,13 +1,13 @@
 //! The formatter: unwrap hard wraps to one line per statement (V3), and
-//! report any line over the cap (V4).
+//! report any line over the cap (V5).
 //!
 //! Every function here is a pure transform over `&str`. That is deliberate
 //! and load-bearing: a consumer embeds these rules by CALLING them, never
-//! by re-porting them (V6), and a pure function is what makes that cheap.
+//! by re-porting them (V7), and a pure function is what makes that cheap.
 
 /// The line cap.
 ///
-/// Set from measured data, not taste (V4): ~12% above the longest statement
+/// Set from measured data, not taste (V5): ~12% above the longest statement
 /// this repo's own spec produces after `fmt`. Real slack, so a legitimate
 /// addition is not a raise -- a ceiling a hair above current turns every
 /// edit into a threshold bump, and a threshold bumped reflexively trains
@@ -45,7 +45,8 @@ fn id_prefixed(line: &str) -> bool {
 
 /// Whether `cur` CONTINUES `prev` -- i.e. is a hard wrap.
 ///
-/// The property is PAIRWISE, not per-line, and that is the whole subtlety:
+/// The property is PAIRWISE, not per-line (V4), and that is the whole
+/// subtlety:
 /// a blank-separated paragraph and the text under a header carry no marker
 /// and are still whole statements. A per-line predicate rejects them, which
 /// is exactly how the first version of this rule failed on a spec's own
@@ -80,7 +81,7 @@ fn join(prev: &mut String, line: &str) {
 }
 
 /// Lines over the cap, as `(line number, length)` -- 1-based, so the
-/// diagnostic names a place a reader can go (V4).
+/// diagnostic names a place a reader can go (V5).
 #[must_use]
 pub fn over_cap(text: &str, cap: usize) -> Vec<(usize, usize)> {
     text.split('\n')

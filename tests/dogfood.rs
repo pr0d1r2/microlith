@@ -22,14 +22,14 @@ fn our_own_spec_is_formatted() {
     assert_eq!(out, text, "SPEC.md is not formatted -- run `nanokit fmt`");
 }
 
-/// V4/V8: and no line is over the cap.
+/// V5/V9: and no line is over the cap.
 #[test]
 fn our_own_spec_is_under_the_cap() {
     let over = over_cap(&spec(), MAX_LINE);
     assert!(over.is_empty(), "lines over the {MAX_LINE} cap: {over:?}");
 }
 
-/// V8's evidence, kept honest: the cap is set ABOVE the measured maximum
+/// V9's evidence, kept honest: the cap is set ABOVE the measured maximum
 /// with real slack, so a legitimate addition is not a raise. If this fails
 /// the spec has grown into its ceiling and the number needs a REVIEW, not
 /// a reflex bump.
@@ -40,6 +40,6 @@ fn the_cap_still_carries_real_slack() {
     assert!(
         slack.saturating_mul(10) > MAX_LINE,
         "longest line is {longest} of {MAX_LINE} -- under 10% slack, which \
-         is the ceiling-a-hair-above-current failure (V4)"
+         is the ceiling-a-hair-above-current failure (V5)"
     );
 }
