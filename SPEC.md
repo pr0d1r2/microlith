@@ -22,6 +22,7 @@ Keep a `SPEC.md` CORRECT, SMALL & ADDRESSABLE: enforce the format, minify it los
 - `nanokit check [--records <file>] [--format human|json] <path>` — the structural rules, all from the TEXT ALONE: sections present & ordered (V11) · ids unique (V12) · citations resolve (V13) · rows sorted (V14) · every task in exactly one milestone (V15) · a task status ∈ `.` `~` `x` (V25). Each violation carries `rule` · `line` · `why` · RANKED `directions`, each `Mechanical` | `Judgment`; `--format json` renders the SAME anatomy ∴ an agent never parses prose, & an unknown format is a USAGE error, ⊥ a silent fall back to prose. `--records` adds V16, whose baseline the CALLER owns ∵ survival across edits is ⊥ derivable from one file; the lib also exposes `records_survive(text, expected)` for a consumer keeping that list as a const.
 - `nanokit anchors <path>` — derive the `§S.n` addressing FORMAT.md defines.
 - `nanokit derive <path>` — sizes · citation graph · orphan invariants. Report-only.
+- `--verbose` on EVERY verb: opts OUT of silence-is-success (V10), ⊥ adds noise to it. What it says differs ∵ the silence differs: `fmt`/`check` are MUTE when clean ∴ verbose CONFIRMS what was examined; `derive`/`anchors` already speak ∴ verbose DEEPENS -- per-statement sizes biggest-first, and full text ⊥ a 60-char gist. A flag that printed the same thing louder would be decoration.
 - Exit: 0 ok · 1 drift or violation · 2 usage.
 
 ## §V INVARIANTS
