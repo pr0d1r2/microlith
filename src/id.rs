@@ -41,19 +41,22 @@ impl Id {
 
 /// The id opening `line`, if it has one.
 ///
-/// Deliberately anchored at the START of the line: an id mentioned mid-line is
-/// a CITATION, not a declaration, and conflating the two would make every rule
-/// that cites `V7` look like a second declaration of it.
+/// Anchored at the START of the line: an id mentioned mid-line is a CITATION,
+/// not a declaration, and conflating the two would make every rule that cites
+/// `V7` look like a second declaration of it.
+///
+/// V26: a markdown LIST MARKER may precede it. FORMAT.md's example is column
+/// zero and that stays canonical, but reading ONLY column zero made `check`
+/// report 1,134 dangling citations against invariants declared three lines
+/// above (B8) -- 1,097 of 1,750 fleet declarations carry a bullet.
 #[must_use]
 pub fn at_line_start(line: &str) -> Option<Id> {
-    let mut chars = line.chars();
+    let (rest, bulleted) = past_bullet(line);
+    let mut chars = rest.chars();
     let kind = section_kind(chars.next()?)?;
     let rest = chars.as_str();
-    let body: String = rest
-        .chars()
-        .take_while(char::is_ascii_alphanumeric)
-        .collect();
-    let terminator = terminator_after(rest, body.len())?;
+    let body = alnum_run(rest);
+    let terminator = terminator_after(rest, body.len(), bulleted)?;
     let (num, suffix) = split_number(&body)?;
     Some(Id {
         kind,
@@ -63,6 +66,25 @@ pub fn at_line_start(line: &str) -> Option<Id> {
     })
 }
 
+/// The leading run of letters and digits -- the id's `42` or `30a`.
+fn alnum_run(s: &str) -> String {
+    s.chars().take_while(char::is_ascii_alphanumeric).collect()
+}
+
+/// The line past one markdown list marker, and whether there was one.
+///
+/// One marker, not a nested indent: `  - V1:` under another bullet is a
+/// sub-point of that bullet, not a top-level declaration, and treating it as
+/// one would invent declarations out of prose structure.
+fn past_bullet(line: &str) -> (&str, bool) {
+    for marker in ["- ", "* ", "+ "] {
+        if let Some(rest) = line.strip_prefix(marker) {
+            return (rest, true);
+        }
+    }
+    (line, false)
+}
+
 /// The four section letters. Anything else opens no id.
 fn section_kind(c: char) -> Option<char> {
     matches!(c, 'V' | 'T' | 'B' | 'M').then_some(c)
@@ -70,11 +92,17 @@ fn section_kind(c: char) -> Option<char> {
 
 /// `:` or `|` immediately after the id -- the thing that makes it a
 /// DECLARATION rather than a word that happens to start with a section letter.
-fn terminator_after(rest: &str, at: usize) -> Option<char> {
+///
+/// A SPACE counts only behind a bullet. 131 fleet declarations are written
+/// `- V1 every venue entry has...`, with no colon at all, and the bullet is
+/// what distinguishes those from a prose line opening `V1 is broken` -- which
+/// stays unrecognised at column zero, exactly as before, so widening the
+/// grammar cannot invent a declaration where none was read yesterday.
+fn terminator_after(rest: &str, at: usize, bulleted: bool) -> Option<char> {
     rest.get(at..)?
         .chars()
         .next()
-        .filter(|c| matches!(c, ':' | '|'))
+        .filter(|c| matches!(c, ':' | '|') || (bulleted && *c == ' '))
 }
 
 /// `30a` -> `(30, "a")`. An empty or non-numeric lead fails the parse, which
@@ -89,6 +117,39 @@ fn split_number(body: &str) -> Option<(u32, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// V26, planted: the shape that made `check` report 1,134 dangling
+    /// citations against invariants that were right there (B8).
+    #[test]
+    fn a_bulleted_declaration_is_recognised() {
+        for (line, want) in [
+            ("- V1: agent sandboxed", ('V', 1)),
+            ("* V2: another marker", ('V', 2)),
+            ("+ V3: a third", ('V', 3)),
+            // No colon at all -- 131 fleet declarations look like this.
+            ("- V4 every venue entry has a name", ('V', 4)),
+        ] {
+            let got = at_line_start(line).map(|i| (i.kind, i.num));
+            assert_eq!(got, Some(want), "{line}");
+        }
+    }
+
+    /// The companion, and the reason the space terminator is gated on the
+    /// bullet: prose opening with a section letter is still not a declaration.
+    /// Widening the grammar must not invent one where none was read before.
+    #[test]
+    fn prose_opening_with_an_id_is_still_not_a_declaration() {
+        assert_eq!(at_line_start("V1 is broken and needs a rewrite"), None);
+        assert_eq!(at_line_start("V1 every venue entry has a name"), None);
+    }
+
+    /// One marker, not an indent: a nested bullet is a sub-point of the
+    /// bullet above it, so reading it as a top-level declaration would
+    /// manufacture ids out of prose structure.
+    #[test]
+    fn an_indented_bullet_is_not_a_declaration() {
+        assert_eq!(at_line_start("  - V1: a sub-point"), None);
+    }
 
     #[test]
     fn every_real_id_shape_parses() {
