@@ -20,7 +20,7 @@
 //! judgement (V6), so it is not inferred -- V27's audited `SYNONYMS` table
 //! decides, and absence from it means collision.
 
-use crate::check::{is_header_for, CANONICAL_WORDS, SECTIONS, SYNONYMS};
+use crate::check::{is_header_for, CANONICAL_WORDS, KINDS, SECTIONS, SYNONYMS};
 
 /// What `migrate` would do to one header line.
 #[derive(Debug, PartialEq, Eq)]
@@ -106,6 +106,64 @@ fn canonical_header(kind: char) -> Option<&'static str> {
         .find(|h| h.chars().nth(4) == Some(kind))
 }
 
+/// A declaration written in a DIALECT, rewritten canonically.
+///
+/// Three shapes, one family, all measured in the corpus (T20):
+///
+/// * `| T1 | x | task | V1 |` -> `T1|x|task|V1` -- 21 specs write §T as a
+///   markdown table, and those 1,227 rows open with `|`, so the id grammar
+///   never sees them. 16 of those specs PASSED `check` while their whole task
+///   section was invisible (B15).
+/// * `| V1 | text |` -> `V1: text` -- the id is already explicit.
+/// * `4. text` -> `V4: text` in `\u{a7}V` -- the ORDINAL IS THE ID. FORMAT.md's
+///   `\u{a7}S.n` says item 4 of `\u{a7}V` IS `\u{a7}V.4`, so this reads the
+///   format rather than inventing a mapping.
+///
+/// `M` is excluded deliberately: a `| M1 | scope | tasks | done-when |` row is
+/// a milestone, which the format renders AS a table. Converting it would
+/// destroy a legal shape.
+fn dialect(line: &str, section: char) -> Option<String> {
+    if let Some(cells) = table_cells(line) {
+        return from_table(&cells, section);
+    }
+    ordinal(line, section)
+}
+
+/// The cells of a markdown table row, or `None` if it is not one.
+///
+/// Furniture is rejected here: a separator row has nothing but dashes, and a
+/// header row's first cell is not an id.
+fn table_cells(line: &str) -> Option<Vec<String>> {
+    let inner = line.trim().strip_prefix('|')?.strip_suffix('|')?;
+    if inner.chars().all(|c| matches!(c, '-' | ':' | '|' | ' ')) {
+        return None;
+    }
+    Some(inner.split('|').map(|c| c.trim().to_owned()).collect())
+}
+
+fn from_table(cells: &[String], section: char) -> Option<String> {
+    let first = cells.first()?;
+    let id = crate::id::at_line_start(&format!("{first}:"))?;
+    if id.kind == 'M' || id.kind != section {
+        return None;
+    }
+    if cells.len() == 2 {
+        return Some(format!("{first}: {}", cells.get(1)?));
+    }
+    Some(cells.join("|"))
+}
+
+/// `4. text` under `\u{a7}V` -- the ordinal is the id it already addresses.
+fn ordinal(line: &str, section: char) -> Option<String> {
+    if section != 'V' {
+        return None;
+    }
+    let digits: String =
+        line.chars().take_while(char::is_ascii_digit).collect();
+    let rest = line.get(digits.len()..)?.strip_prefix(". ")?;
+    (!digits.is_empty()).then(|| format!("V{digits}: {rest}"))
+}
+
 /// The migrated text, or the reason it was refused.
 ///
 /// Refusal is the safe direction: a proof that does not hold means the
@@ -125,19 +183,101 @@ pub fn migrate(text: &str) -> Result<String, String> {
 }
 
 fn rewrite(text: &str) -> String {
+    let settled = already_canonical(text);
     let mut out = String::new();
+    let mut section = ' ';
+    let mut fenced = false;
     for line in text.split_inclusive('\n') {
-        let ending = line.strip_prefix(line.trim_end()).unwrap_or("");
-        match plan(line) {
-            Some(Plan::Rewrite(c)) => push(&mut out, c, ending),
-            Some(Plan::Annotate(c, was)) => {
-                push(&mut out, c, ending);
-                push(&mut out, &format!("{NOTE}{was}"), ending);
-            }
-            _ => out.push_str(line),
+        emit(&mut out, (&mut section, &mut fenced), line, &settled);
+    }
+    out
+}
+
+/// One line, with the section and fence state it is read in.
+fn emit(
+    out: &mut String,
+    at: (&mut char, &mut bool),
+    line: &str,
+    settled: &[char],
+) {
+    let (section, fenced) = at;
+    if crate::format::is_fence(line) {
+        *fenced = !*fenced;
+        out.push_str(line);
+        return;
+    }
+    if let Some(k) = section_of(line) {
+        *section = k;
+    }
+    headed(
+        out,
+        line,
+        plan(line).filter(|_| !*fenced),
+        (*section, *fenced, settled),
+    );
+}
+
+/// The header rewrite if there is one, else the dialect pass.
+fn headed(
+    out: &mut String,
+    line: &str,
+    plan: Option<Plan>,
+    at: (char, bool, &[char]),
+) {
+    let ending = line.strip_prefix(line.trim_end()).unwrap_or("");
+    match plan {
+        Some(Plan::Rewrite(c)) => push(out, c, ending),
+        Some(Plan::Annotate(c, was)) => {
+            push(out, c, ending);
+            push(out, &format!("{NOTE}{was}"), ending);
+        }
+        _ => converted(out, line, ending, at),
+    }
+}
+
+/// A dialect declaration rewritten canonically, or the line untouched.
+///
+/// SCOPED: never inside a fence (B14), and never in a section that already
+/// holds canonical declarations -- a half-converted section is worse than an
+/// untouched one, and the corpus has 0 mixed sections anyway.
+fn converted(
+    out: &mut String,
+    line: &str,
+    ending: &str,
+    at: (char, bool, &[char]),
+) {
+    let (section, fenced, settled) = at;
+    if fenced || settled.contains(&section) {
+        out.push_str(line);
+        return;
+    }
+    match dialect(line.trim_end(), section) {
+        Some(canonical) => push(out, &canonical, ending),
+        None => out.push_str(line),
+    }
+}
+
+/// The section a header opens, if it opens one.
+fn section_of(line: &str) -> Option<char> {
+    KINDS.into_iter().find(|k| is_header_for(line, *k))
+}
+
+/// Sections that ALREADY declare canonically, so nothing there is converted.
+fn already_canonical(text: &str) -> Vec<char> {
+    let mut out = Vec::new();
+    let mut section = ' ';
+    for line in text.lines() {
+        if let Some(k) = section_of(line) {
+            section = k;
+        } else if declares(line, section) && !out.contains(&section) {
+            out.push(section);
         }
     }
     out
+}
+
+fn declares(line: &str, section: char) -> bool {
+    crate::id::at_line_start(line).is_some_and(|i| i.kind == section)
 }
 
 fn push(out: &mut String, body: &str, ending: &str) {
@@ -352,6 +492,74 @@ V1: **a rule.**
             lost_words(before, "## \u{a7}B BUGS\n"),
             ["known", "issues"]
         );
+    }
+
+    /// B15's shape, planted: 21 fleet specs write §T as a markdown table, so
+    /// 1,227 task rows never reached the id grammar and 16 specs passed
+    /// `check` with their whole task section invisible.
+    #[test]
+    fn a_task_table_row_becomes_a_canonical_row() {
+        let text = "## \u{a7}T TASKS\n\
+            | id | status | task | cites |\n\
+            |---|---|---|---|\n\
+            | T1 | x | a task | V1 |\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(out.contains("\nT1|x|a task|V1\n"), "{out}");
+        assert!(out.contains("| id | status"), "furniture stays: {out}");
+    }
+
+    /// A two-column table is the invariant dialect: the id is explicit, so
+    /// the canonical form is a statement rather than a row.
+    #[test]
+    fn an_invariant_table_row_becomes_a_statement() {
+        let text = "## \u{a7}V INVARIANTS\n\
+            | id | invariant |\n\
+            |---|---|\n\
+            | V1 | a rule worth keeping |\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(out.contains("\nV1: a rule worth keeping\n"), "{out}");
+    }
+
+    /// The ORDINAL IS THE ID: FORMAT.md's §S.n already says item 4 of §V is
+    /// §V.4, so this reads the format rather than inventing a mapping.
+    #[test]
+    fn a_numbered_invariant_becomes_a_statement() {
+        let text = "## \u{a7}V INVARIANTS\n1. first rule\n2. second rule\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(out.contains("V1: first rule"), "{out}");
+        assert!(out.contains("V2: second rule"), "{out}");
+    }
+
+    /// A MILESTONE row is a table by design -- the format renders it that
+    /// way. Converting it would destroy a legal shape.
+    #[test]
+    fn a_milestone_row_is_never_converted() {
+        let text = "## \u{a7}T TASKS\n| M1 | scope | T1 | done |\nT1|x|a|V1\n";
+        assert_eq!(migrate(text).unwrap_or_default(), text);
+    }
+
+    /// A section that ALREADY declares canonically is left alone: half
+    /// converted is worse than untouched.
+    #[test]
+    fn a_mixed_section_is_not_half_converted() {
+        let text =
+            "## \u{a7}V INVARIANTS\nV1: canonical\n| V2 | a table row |\n";
+        assert_eq!(migrate(text).unwrap_or_default(), text);
+    }
+
+    /// B14 again: a table inside a FENCE is an example, not a declaration.
+    #[test]
+    fn a_dialect_row_inside_a_fence_is_left_alone() {
+        let text = "## \u{a7}V INVARIANTS\n\n```\n| V1 | an example |\n```\n";
+        assert_eq!(migrate(text).unwrap_or_default(), text);
+    }
+
+    /// V2: converting twice is converting once.
+    #[test]
+    fn converting_a_dialect_twice_is_converting_once() {
+        let text = "## \u{a7}T TASKS\n| T1 | x | a task | V1 |\n";
+        let once = migrate(text).unwrap_or_default();
+        assert_eq!(migrate(&once).unwrap_or_default(), once);
     }
 
     /// `## §T55-PLAN` is a heading, not a section, so migrate has no opinion.
