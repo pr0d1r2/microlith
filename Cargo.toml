@@ -20,6 +20,27 @@ readme = "README.md"
 repository = "https://github.com/pr0d1r2/nanokit"
 keywords = ["spec", "markdown", "formatter", "agents", "cli"]
 categories = ["command-line-utilities", "development-tools"]
+# What NOT to ship: the dev environment and CI machinery, which only mean
+# anything inside the git repo. A `.crate` is source a consumer builds, not
+# a clone of how it is developed.
+#
+# What deliberately STAYS, because excluding it would break something:
+#   FORMAT.md       normative, and V8 says it ships HERE -- a format living
+#                   in nobody's repo is unreadable exactly when needed
+#   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
+#   .spec-records   the unpacked crate fails rather than dogfooding
+#   .context-limits the ceiling and the reasoning behind three raises
+#   clippy.toml     the code limits this source was written against, so it
+#   rustfmt.toml    lints and formats identically once unpacked
+exclude = [
+  ".envrc",
+  ".github/",
+  ".gitignore",
+  "flake.nix",
+  "flake.lock",
+  "hk.pkl",
+  "pkl/",
+]
 
 [[bin]]
 name = "nanokit"
