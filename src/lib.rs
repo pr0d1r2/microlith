@@ -10,6 +10,7 @@
 //! deterministic function of the text it is given.
 
 pub mod check;
+pub mod derive;
 pub mod format;
 pub mod id;
 
