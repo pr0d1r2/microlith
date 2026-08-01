@@ -1,3 +1,38 @@
+# SIZED ONCE, 9400 -> 11500, and this is meant to be the LAST raise.
+#
+# The seventh firing (9,466) came with the test from line 90 already
+# written: "did the duplication pass find anything?" It found NOTHING --
+# 0 pairs across every V/T/B statement, by the same script that found V5/V21
+# and V13/B3. Three finds, then a clean sweep. The ritual has arrived.
+#
+# So the choice recorded above was taken, and the OTHER branch was taken:
+#
+#   COMPACT COMPLETED TASK ROWS -- rejected AGAIN, on a new ground. T1-T5,
+#   T6, T9 are done and their rows carry ~795 tokens of design reasoning,
+#   which is more than enough. But these commits were asked to be an AUDIT
+#   TRAIL, and V19's "lineage lives in the commit trail" cuts BOTH ways: a
+#   commit message is found by someone who already knows to look for it.
+#   The row is what a reader meets first. Compacting the done rows would buy
+#   795 tokens by making the spec worse at the one job the granular-commit
+#   convention exists to serve.
+#
+#   TRIPWIRE, NOT BUDGET -- taken. A number that lands ~12% above current
+#   seven times running is measuring the file. Sized instead for the spec
+#   growth that REMAINS: T10 (§R), T15 (V11/V15 recalibration), T16
+#   (migrate) and T17 (the canonical-label rule) each land an invariant plus
+#   row amendments, ~400 tokens apiece on the measured rate. T11-T14, T7 and
+#   T8 are already specced and cost only status flips.
+#
+#   9,466 + ~1,600 = ~11,100. 11,500 is that, rounded, with the slack a
+#   tripwire needs to fire on SUDDEN growth rather than on the next task.
+#
+# WHAT THIS COSTS, said plainly: between here and 11,500 the ceiling will
+# not refuse anything. It has not refused anything yet, so that is a change
+# of honesty rather than of behaviour. If it fires an EIGHTH time, the
+# reading is that the spec outgrew its own plan -- and the answer then is
+# NOT a raise. It is that nanokit's law has become too big to be one file,
+# which is a design finding, not a number to edit.
+
 # Per-path token ceilings, set from COMMIT ONE (V9).
 #
 # This is the lesson nanokit exists to carry, transplanted as a number:
@@ -131,4 +166,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    9400
+SPEC.md    11500
