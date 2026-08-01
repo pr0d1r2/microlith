@@ -73,6 +73,14 @@ pub fn format_spec(text: &str) -> Result<String, String> {
                     not just whitespace"
             .to_owned());
     }
+    // V28, and NOT implied by the line above: a MERGE is whitespace-only, so
+    // the losslessness proof passes while a statement stops existing (B12).
+    let lost = format::lost_statements(text, &out);
+    if !lost.is_empty() {
+        return Err(format!(
+            "refusing to write: {lost:?} would stop being declared"
+        ));
+    }
     within_cap(&out)?;
     Ok(out)
 }

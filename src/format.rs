@@ -16,15 +16,50 @@ pub const MAX_LINE: usize = 1650;
 
 /// Whether a line opens a statement by its own syntax: a header, a bullet,
 /// a table row, or a section id (`V3:`, `T30a|`, `B12|`, `M1|`).
+///
+/// V28: read on the TRIMMED line. This tested the raw line until B12, so
+/// anything INDENTED read as a continuation and was merged into the line
+/// above -- two invariants became one line, three bullets became one, and
+/// V1's proof passed every time because a merge is whitespace-only. The
+/// corpus carries 112 genuine sub-bullets that adoption would have mangled
+/// silently.
 #[must_use]
 pub fn carries_a_marker(line: &str) -> bool {
+    let line = line.trim_start();
     if line.trim().is_empty() || line.starts_with(['#', '|']) {
         return true;
     }
-    if line.starts_with("- ") || line == "id|date|cause|fix" {
+    // The SPACE is required, as it always was: a wrapped line that happens
+    // to begin with a dash is prose, not a bullet.
+    if ["- ", "* ", "+ "].iter().any(|m| line.starts_with(m))
+        || line == "id|date|cause|fix"
+    {
         return true;
     }
     id_prefixed(line)
+}
+
+/// Every id DECLARED in the text, as labels -- V28's unit.
+///
+/// V1 compares normalised whitespace, so it cannot see a MERGE. This can:
+/// a statement that stopped existing is an id that stopped being declared.
+fn declared_ids(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|l| Some(crate::id::at_line_start(l)?.label()))
+        .collect()
+}
+
+/// Ids declared before a format and not after it.
+///
+/// SUPERSET, not equality: `fmt` may GAIN an id by dedenting one that was
+/// hidden (T19), and that is a repair rather than a loss.
+#[must_use]
+pub fn lost_statements(before: &str, after: &str) -> Vec<String> {
+    let kept = declared_ids(after);
+    declared_ids(before)
+        .into_iter()
+        .filter(|id| !kept.contains(id))
+        .collect()
 }
 
 /// Delegated to `id`, never re-derived here: the checker reads the same
@@ -62,10 +97,36 @@ pub fn unwrap_wraps(text: &str) -> String {
     for line in text.split('\n') {
         match out.last_mut() {
             Some(prev) if continuation(prev, line) => join(prev, line),
-            _ => out.push(line.to_owned()),
+            _ => out.push(folded(line)),
         }
     }
     out.join("\n")
+}
+
+/// T19: an indented DECLARATION dedented back to column zero.
+///
+/// Whitespace-only, so V1's existing proof already covers it -- which is why
+/// this belongs in `fmt` rather than `migrate`, whose word-level proof is
+/// weaker. Without it V28 stops the merge but the declaration stays
+/// invisible, and `check` still reports it as cited-but-never-declared.
+///
+/// ONLY id-shaped lines. Promoting a genuine sub-point to top level would
+/// change what the document says, and the corpus has 112 of those.
+fn folded(line: &str) -> String {
+    let bare = line.trim_start();
+    if bare.len() == line.len() || !carries_an_id(bare) {
+        return line.to_owned();
+    }
+    bare.to_owned()
+}
+
+/// Whether the trimmed line declares an id, bullet or not.
+fn carries_an_id(bare: &str) -> bool {
+    id_prefixed(bare)
+        || ["- ", "* ", "+ "]
+            .iter()
+            .filter_map(|m| bare.strip_prefix(m))
+            .any(id_prefixed)
 }
 
 fn join(prev: &mut String, line: &str) {
@@ -132,6 +193,79 @@ mod tests {
         }
         assert!(!carries_a_marker("Vx: not a numbered id"));
         assert!(!carries_a_marker("already use, even when"));
+    }
+
+    /// B12, planted: an indented declaration was MERGED into the line above,
+    /// so two invariants became one. The failure this crate exists to
+    /// prevent, in the crate's own flagship verb.
+    #[test]
+    fn an_indented_declaration_is_not_swallowed_by_the_line_above() {
+        let src = "- V1: first rule\n  - V2: an indented one\n";
+        let out = unwrap_wraps(src);
+        assert!(out.contains("V1: first rule\n"), "{out}");
+        assert!(out.contains("V2: an indented one"), "{out}");
+        assert_eq!(out.lines().count(), 2, "still two statements: {out}");
+    }
+
+    /// ...and the same for a genuine sub-point, which is not a declaration
+    /// at all. Three bullets became one line before B12, and the corpus
+    /// carries 112 of these.
+    #[test]
+    fn an_indented_sub_point_keeps_its_own_line() {
+        let src = "- parent\n  - sub one\n  - sub two\n";
+        assert_eq!(unwrap_wraps(src).lines().count(), 3);
+    }
+
+    /// T19: an indented DECLARATION is folded back to column zero, so it is
+    /// visible to `check`. Whitespace-only, so V1 still holds.
+    #[test]
+    fn an_indented_declaration_is_folded_to_column_zero() {
+        let out = unwrap_wraps("- V1: one\n  - V2: two\n");
+        assert!(out.contains("\n- V2: two"), "dedented: {out}");
+        assert!(is_lossless("- V1: one\n  - V2: two\n", &out));
+    }
+
+    /// ...but a SUB-POINT is never promoted: that would change what the
+    /// document says, and nothing about it is a declaration.
+    #[test]
+    fn a_sub_point_is_never_promoted() {
+        let src = "- parent\n  - sub one\n";
+        assert!(
+            unwrap_wraps(src).contains("\n  - sub one"),
+            "still indented"
+        );
+    }
+
+    /// V28's proof, which V1 cannot make: a merge is whitespace-only, so
+    /// `is_lossless` PASSES on a text that lost a statement.
+    ///
+    /// Both declarations start visible here, deliberately. An INDENTED one
+    /// was never declared in the first place, so no id-set proof could
+    /// notice it going -- that case is fixed by the marker rule and the
+    /// fold, not by this. Two guards, two different failures.
+    #[test]
+    fn the_statement_proof_catches_what_the_whitespace_proof_cannot() {
+        let before = "V1: first\nV2: second\n";
+        let merged = "V1: first V2: second\n";
+        assert!(is_lossless(before, merged), "V1 is blind to this");
+        assert_eq!(lost_statements(before, merged), ["V2"]);
+    }
+
+    /// ...and it does not fire on a repair. Folding GAINS a declaration,
+    /// which is why the rule is a superset rather than an equality.
+    #[test]
+    fn gaining_a_declaration_is_not_a_loss() {
+        let before = "- V1: first\n  - V2: second\n";
+        let after = unwrap_wraps(before);
+        assert_eq!(lost_statements(before, &after), Vec::<String>::new());
+    }
+
+    /// V2 still holds with folding in the loop: a second pass sees a line
+    /// already at column zero and leaves it alone.
+    #[test]
+    fn folding_is_idempotent() {
+        let once = unwrap_wraps("- V1: one\n  - V2: two\n  - sub\n");
+        assert_eq!(unwrap_wraps(&once), once);
     }
 
     /// V2: a formatter that keeps changing its mind cannot gate.
