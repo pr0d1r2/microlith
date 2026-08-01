@@ -19,7 +19,7 @@ Keep a `SPEC.md` CORRECT, SMALL & ADDRESSABLE: enforce the format, minify it los
 ## §I INTERFACE
 
 - `nanokit fmt [--check] <path>` — lossless minify: unwrap hard wraps, enforce the line cap. Default REWRITES; `--check` reports & exits 1 on drift (`rustfmt`'s grammar).
-- `nanokit check <path>` — the structural rules: sections present & ordered (V11) · ids unique (V12) · citations resolve (V13) · rows sorted (V14) · every task in exactly one milestone (V15) · rejected-option records survive (V16).
+- `nanokit check [--records <file>] <path>` — the structural rules, all from the TEXT ALONE: sections present & ordered (V11) · ids unique (V12) · citations resolve (V13) · rows sorted (V14) · every task in exactly one milestone (V15). `--records` adds V16, which needs a BASELINE of named records ∵ it is about SURVIVAL across edits ∴ ⊥ derivable from one file: that baseline is data about the spec being checked, so the CALLER owns it & the lib also exposes `records_survive(text, expected)` for a consumer keeping the list as a const in its own test.
 - `nanokit anchors <path>` — derive the `§S.n` addressing FORMAT.md defines.
 - `nanokit derive <path>` — sizes · citation graph · orphan invariants. Report-only.
 - Exit: 0 ok · 1 drift or violation · 2 usage.
