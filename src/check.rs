@@ -38,16 +38,36 @@ pub fn declared(text: &str, kind: char) -> Vec<Id> {
         .collect()
 }
 
-/// Every `V<n>` mentioned anywhere -- a citation from any section.
+/// Every `V<n>` CITED -- that is, mentioned OUTSIDE backticks (V13).
+///
+/// Inside backticks it is a literal: `grep V47` is an example command, and
+/// `itok's V82` is another repo's namespace, which V19 requires be written
+/// exactly that way. Both were reported as dangling citations on this
+/// checker's first real run (B3), and the rule's own illustration of a
+/// dangling reference was among them.
+///
+/// The boundary is READ OFF the format rather than invented here: FORMAT.md
+/// already reserves backticks for verbatim text. A boundary invented in the
+/// checker is one the next consumer re-derives differently.
 ///
 /// Splitting on non-alphanumerics rather than whitespace, so `(V21,V22)` and
 /// `V13.` are found: a citation is rarely followed by a space.
 #[must_use]
 pub fn cited(text: &str) -> Vec<String> {
-    text.split(|c: char| !c.is_ascii_alphanumeric())
+    outside_backticks(text)
+        .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|t| is_invariant_ref(t))
         .map(str::to_owned)
         .collect()
+}
+
+/// The text with every backticked span removed.
+///
+/// An unclosed backtick swallows the rest of the text, which is the safe
+/// direction: it can only SUPPRESS citations, never invent one, so the
+/// failure is a check that misses rather than a check that lies.
+fn outside_backticks(text: &str) -> String {
+    text.split('`').step_by(2).collect::<Vec<_>>().join(" ")
 }
 
 fn is_invariant_ref(token: &str) -> bool {
@@ -216,6 +236,9 @@ fn task_num(s: &str) -> Option<u32> {
     s.trim().strip_prefix('T')?.parse().ok()
 }
 
+/// One named record: the id that owns it, and a marker substring of it.
+pub type Record = (String, String);
+
 /// V16: considered-and-REJECTED records SURVIVE.
 ///
 /// An option recorded with its rejection & the trigger that would reopen it
@@ -230,10 +253,7 @@ fn task_num(s: &str) -> Option<u32> {
 /// threshold on how often a word appears either fires on nothing or fires on
 /// prose edits that changed no decision.
 #[must_use]
-pub fn records_survive(
-    text: &str,
-    expected: &[(String, String)],
-) -> Vec<String> {
+pub fn records_survive(text: &str, expected: &[Record]) -> Vec<String> {
     expected
         .iter()
         .filter(|(id, marker)| !body(text, id).contains(marker.as_str()))
@@ -268,7 +288,7 @@ pub fn body(text: &str, id: &str) -> String {
 /// which runs to end of line so it may contain spaces. `#` comments and blank
 /// lines are skipped.
 #[must_use]
-pub fn parse_records(text: &str) -> Vec<(String, String)> {
+pub fn parse_records(text: &str) -> Vec<Record> {
     text.lines()
         .map(str::trim)
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -455,7 +475,7 @@ mod tests {
         assert!(tasks_in_one_milestone(&real()).is_empty());
     }
 
-    fn records(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    fn records(pairs: &[(&str, &str)]) -> Vec<Record> {
         pairs
             .iter()
             .map(|(i, m)| ((*i).to_owned(), (*m).to_owned()))
@@ -499,5 +519,23 @@ mod tests {
     fn a_citation_is_found_next_to_punctuation() {
         let found = cited("cites (V21,V22) and V13. not Vx or V");
         assert_eq!(found, vec!["V21", "V22", "V13"]);
+    }
+
+    /// V13's boundary, planted from the three shapes that actually fired on
+    /// this checker's first real run (B3): an example command, the rule's own
+    /// illustration, and a qualified cross-project reference.
+    #[test]
+    fn a_backticked_mention_is_a_literal_not_a_citation() {
+        assert!(cited("`grep V47` returned a fragment").is_empty());
+        assert!(cited("a dangling `V99` points at nothing").is_empty());
+        assert!(cited("name the repo (`itok's V82`)").is_empty());
+    }
+
+    /// ...and the boundary must not swallow real citations sharing a line
+    /// with backticked text, which is the common case in this very spec.
+    #[test]
+    fn a_citation_beside_backticks_still_counts() {
+        let line = "V5: the cap in `format.rs` is measured (V21), not taste";
+        assert_eq!(cited(line), vec!["V5", "V21"]);
     }
 }
