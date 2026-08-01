@@ -3,9 +3,18 @@
 # a consumer depends on a registry crate, never a path that dangles).
 [package]
 name = "nanokit"
-# The ladder: 0.1 builds reproducibly anywhere. A minor is a level of
-# GUARANTEE, not a feature count.
-version = "0.1.0"
+# A minor is a level of GUARANTEE, not a feature count (V30). The full
+# ladder lives in SPEC.md and is rendered for consumers in CHANGELOG.md.
+#
+# 0.4.0, and the number is a MEASUREMENT rather than a choice: 0.1 was
+# "builds reproducibly anywhere" and M1, M2, M3, M6 and M7 have all landed
+# since, so the rungs through 0.4 -- the rules hold on real-world markdown,
+# not only on our own file -- are paid for. Leaving it at 0.1.0 was the
+# failure V30 names: a version that says nothing.
+#
+# The next rung is 0.5.0 = PUBLIC, and it ships as 0.5.0-rc.1 first
+# because crates.io is immutable.
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
