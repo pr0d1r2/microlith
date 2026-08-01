@@ -17,12 +17,14 @@ cargo install nanokit
 ## Use
 
 ```sh
-nanokit fmt --check SPEC.md    # gate: report drift, exit 1, never write
-nanokit fmt SPEC.md            # rewrite: one line per statement
-nanokit check SPEC.md          # gate: the structural rules
-nanokit derive SPEC.md         # report: sizes, citations, orphans
-nanokit anchors SPEC.md        # report: the §S.n address of every item
+nanokit fmt --check      # gate: report drift, exit 1, never write
+nanokit fmt              # rewrite: one line per statement
+nanokit check            # gate: the structural rules
+nanokit derive           # report: sizes, citations, orphans
+nanokit anchors          # report: the section address of every item
 ```
+
+The path defaults to `SPEC.md` -- the one file [FORMAT.md](FORMAT.md) says every command reads -- so run from a project root and omit it. Pass a path for anything else.
 
 Exit codes are the same everywhere: `0` clean, `1` a violation the command gates on, `2` a usage error.
 
