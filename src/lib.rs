@@ -82,6 +82,20 @@ pub fn format_spec(text: &str) -> Result<String, String> {
 /// records, which is a claim about edits over time rather than about this
 /// file, so the caller supplies it -- empty means the V16 gate is off, not
 /// that it passed.
+///
+/// This is the example README.md shows, so the gate compiles it and the
+/// README cannot drift from the API it advertises:
+///
+/// ```
+/// let text = "## \u{a7}V INVARIANTS\nV1: **a rule.** cited by T1.\n";
+/// let records = Vec::new();
+/// let violations = nanokit::check_spec(text, &records);
+/// for v in &violations {
+///     println!("{}: {} ({})", v.rule, v.msg, v.line);
+/// }
+/// // Sections are missing from that fragment, so V11 has something to say.
+/// assert!(violations.iter().any(|v| v.rule == "V11"));
+/// ```
 #[must_use]
 pub fn check_spec(
     text: &str,
