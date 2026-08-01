@@ -10,6 +10,7 @@
 //! deterministic function of the text it is given.
 
 pub mod format;
+pub mod id;
 
 /// What a run produced: streams and an exit code. No I/O, so the whole
 /// command surface is testable without spawning the binary.

@@ -27,20 +27,12 @@ pub fn carries_a_marker(line: &str) -> bool {
     id_prefixed(line)
 }
 
+/// Delegated to `id`, never re-derived here: the checker reads the same
+/// grammar to find DECLARATIONS, and a formatter that disagreed with it about
+/// what an id looks like would produce violations the checker then reported
+/// (V7).
 fn id_prefixed(line: &str) -> bool {
-    let mut chars = line.chars();
-    if !matches!(chars.next(), Some('V' | 'T' | 'B' | 'M')) {
-        return false;
-    }
-    let rest = chars.as_str();
-    let id: String = rest
-        .chars()
-        .take_while(char::is_ascii_alphanumeric)
-        .collect();
-    let opens = rest
-        .get(id.len()..)
-        .is_some_and(|r| r.starts_with([':', '|']));
-    opens && id.chars().next().is_some_and(|c| c.is_ascii_digit())
+    crate::id::at_line_start(line).is_some()
 }
 
 /// Whether `cur` CONTINUES `prev` -- i.e. is a hard wrap.
