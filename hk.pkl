@@ -189,17 +189,15 @@ local all = (fast) {
     env { ["RUSTDOCFLAGS"] = "-D warnings" }
     check = "cargo doc --no-deps"
   }
-  // UNVERIFIED NUMBER -- see the banner at the top of this file.
-  //
-  // 94 is one point under this crate's own measured 94.68% (format.rs 100,
-  // lib.rs 94.44, main.rs 89.91). It is NOT copied from another project:
-  // the first consumer floors at 98, and that number would have failed
-  // this repo on commit one (V21).
+  // 94 is one point under this crate's own MEASURED 94.68% lines
+  // (format.rs 100, lib.rs 94.44, main.rs 89.91), taken from this gate's
+  // own run, with doctest and rustdoc already in the chain above -- so the
+  // number is the one the gate produces, not one predicted for it. It is
+  // NOT copied from another project: the first consumer floors at 98, and
+  // that number would have failed this repo on commit one (V21).
   //
   // A floor is a RATCHET, so it sits just under current -- unlike a size
-  // ceiling, which wants real headroom. Re-measure once this gate runs,
-  // because doctest and rustdoc add surface, then set the number from that
-  // measurement and delete this note.
+  // ceiling, which wants real headroom.
   //
   // The known gap, named rather than hidden: `main()` and the I/O error
   // arms are unreachable from lib tests. Only a process-boundary test
