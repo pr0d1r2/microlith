@@ -287,6 +287,34 @@ fn phantom_claim(n: u32) -> Violation {
         )
 }
 
+/// The three statuses FORMAT.md allows, and nothing else.
+pub const STATUSES: [&str; 3] = [".", "~", "x"];
+
+/// V25: a task STATUS is `.` todo, `~` wip or `x` done.
+///
+/// Read from the SECOND pipe field of a `T<n>|` row. A status outside the
+/// set renders as ordinary text, so a table full of them looks fine while
+/// every runner that reads the column disagrees about the state of the work.
+#[must_use]
+pub fn statuses_valid(text: &str) -> Vec<Violation> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let id = at_line_start(line).filter(|id| id.kind == 'T')?;
+            let status = line.split('|').nth(1)?;
+            (!STATUSES.contains(&status)).then(|| {
+                bad_status(&id.label(), status).at(i.saturating_add(1))
+            })
+        })
+        .collect()
+}
+
+fn bad_status(label: &str, status: &str) -> Violation {
+    Violation::new("V25", format!("{label} has status `{status}`"))
+        .why("a status outside . ~ x renders fine and every runner reads it differently")
+        .try_(Fix::Mechanical, "set it to `.` todo, `~` wip or `x` done")
+}
+
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
 /// cell the original checker reads, so the two cannot disagree about where to
 /// look.
@@ -628,6 +656,39 @@ mod tests {
     fn a_records_file_parses_with_comments_and_spaces() {
         let got = parse_records("# a note\n\nT6   DROPPED\nV24  a built pkg\n");
         assert_eq!(got, records(&[("T6", "DROPPED"), ("V24", "a built pkg")]));
+    }
+
+    /// V25, planted: a status outside the set. This is the rule the host
+    /// checker had and nanokit did not (B4), so it gets the same treatment
+    /// as the rest -- a plant and a companion.
+    #[test]
+    fn v25_rejects_a_status_outside_the_set() {
+        let bad = real().replace("T1|x|a task|V1", "T1|q|a task|V1");
+        let got = statuses_valid(&bad);
+        assert!(
+            got.iter().any(|v| v.msg.contains("T1 has status `q`")),
+            "{got:?}"
+        );
+        assert!(got.iter().any(|v| v.line > 0), "names the line: {got:?}");
+    }
+
+    /// The companion: all three real statuses are accepted, so the guard
+    /// cannot pass by rejecting every row.
+    #[test]
+    fn v25_accepts_every_status_the_format_allows() {
+        assert!(statuses_valid(&real()).is_empty(), "the fixture is clean");
+        for s in STATUSES {
+            let text = format!("## \u{a7}T TASKS\nT1|{s}|a task|V1\n");
+            assert!(statuses_valid(&text).is_empty(), "rejected `{s}`");
+        }
+    }
+
+    /// A milestone row has no status field and must not be read as though it
+    /// did -- it opens with `|`, so it is not a task row at all.
+    #[test]
+    fn a_milestone_row_is_not_checked_for_a_status() {
+        let text = "## \u{a7}T TASKS\n| M1 | scope | T1 | done |\n";
+        assert!(statuses_valid(text).is_empty());
     }
 
     #[test]
