@@ -9,6 +9,7 @@
 //! CPU only -- no inference, no network (V6). Every operation is a
 //! deterministic function of the text it is given.
 
+pub mod anchors;
 pub mod check;
 pub mod derive;
 pub mod format;
