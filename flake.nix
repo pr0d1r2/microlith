@@ -140,6 +140,10 @@
             # `nixfmt --check` gates this very file: the flake decides what
             # every other step runs with, so drift here is drift everywhere.
             pkgs.nixfmt
+            # `ci.yml` is the ONE file no local step exercises, so without
+            # this a mistake there is found only by pushing. It arrives now
+            # that the workflow really runs, and not before.
+            pkgs.actionlint
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";

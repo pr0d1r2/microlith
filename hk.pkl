@@ -142,7 +142,14 @@ local fast = new Mapping<String, Step> {
   // NOT PRESENT, and that is deliberate rather than forgotten:
   //   * shellcheck -- there are no shell scripts here yet. A linter with
   //     nothing to lint is the same shape as a rule with no runner.
-  //   * actionlint -- add it together with a workflow that really runs.
+  //
+  // `ci.yml` is the one file no other step here exercises -- it runs on
+  // GitHub, not locally -- so without this a mistake in it is found only by
+  // pushing. Landed with the workflow that really runs, not before.
+  ["actionlint"] {
+    glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+    check = "actionlint {{files}}"
+  }
   ["typos"] {
     glob = List("**/*")
     // `pkl/` is upstream's schema, vendored VERBATIM. It carries a
