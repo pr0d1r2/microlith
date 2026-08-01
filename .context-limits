@@ -5,6 +5,25 @@
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
 #
+# RAISED A FOURTH TIME, 5800 -> 7000, when T10 specced the 4.1.0 sync and
+# the ceiling fired at 6,261.
+#
+# THE TEST BELOW WAS APPLIED, and it passed: the duplication pass FOUND
+# something. V5 and V21 had carried the same fourteen words verbatim since
+# V21 was written that morning, and three earlier compaction passes had all
+# missed it -- because a repeated clause reads perfectly well in both places.
+# Found by MEASURING this time: a script over every V/T/B statement looking
+# for word-sequences appearing in more than one.
+#
+# So the ceiling is still doing work rather than performing it. 7,000 is
+# ~12% over the compacted 6,201, per V21.
+#
+# The LINE cap earned its keep in the same pass, and better: it rejected
+# T10's row at 1722 chars, and the right fix was not compression. The row
+# specified behaviour for `add R`, a verb that is neither built nor specced.
+# A length limit caught a FORWARD REFERENCE. That is the second time a
+# threshold here has found a defect rather than merely bounded a number.
+#
 # RAISED A THIRD TIME, 5100 -> 5800, when T9 and B4 were specced and the
 # ceiling fired at 5,187. Procedure as recorded below; the compaction pass
 # found only 20 tokens this time, because T9's row was already dense.
@@ -63,4 +82,4 @@
 # landed and did NOT take this over: `nanokit check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    5800
+SPEC.md    7000
