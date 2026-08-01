@@ -26,3 +26,4 @@ T6   DROPPED
 # shim: a package must compile before the shell opens, so one error locks you
 # out of the shell you need to fix it.
 V24  a built package
+T20  REJECTED: nanokit writing an inline markdownlint directive
