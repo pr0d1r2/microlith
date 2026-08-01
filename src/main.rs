@@ -31,7 +31,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "fmt" => fmt(rest),
         "check" => check(rest),
         "derive" => reporting(rest, derive_report(rest)),
-        "anchors" => reporting(rest, nanokit::anchors::report),
+        "anchors" => reporting(rest, anchors_report(rest)),
         other => unknown(other),
     }
 }
@@ -42,6 +42,16 @@ fn version() -> Output {
 
 fn unknown(verb: &str) -> Output {
     Output::usage(format!("nanokit: unknown command '{verb}'\n{}", usage()))
+}
+
+/// Which `anchors` rendering. Verbose prints each item's full text rather
+/// than a 60-char gist -- the same deepen-not-repeat rule (§I).
+fn anchors_report(rest: &[String]) -> fn(&str) -> String {
+    if verbose(rest) {
+        nanokit::anchors::report_verbose
+    } else {
+        nanokit::anchors::report
+    }
 }
 
 /// Which `derive` rendering. Verbose DEEPENS here rather than confirming:
@@ -97,9 +107,10 @@ commands:
       a question for a reader, not a build failure. `--verbose`
       adds every statement's size, biggest first: what to cut.
 
-  anchors [<path>]
+  anchors [--verbose] [<path>]
       The section address of every item, with the id it resolves to
       and whether the two have drifted apart. Report-only.
+      `--verbose` prints each item in full, not a 60-char gist.
 
 <path> defaults to SPEC.md, the one file FORMAT.md says every
 cavekit command reads. Run from a project root and omit it.

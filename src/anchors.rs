@@ -27,6 +27,8 @@ pub struct Anchor {
     pub id: String,
     /// Enough of the item to recognise it.
     pub gist: String,
+    /// The whole line, for `--verbose`.
+    pub full: String,
 }
 
 impl Anchor {
@@ -110,6 +112,7 @@ fn anchor(line: &str, letter: char, n: usize) -> Anchor {
         address: format!("\u{a7}{letter}.{n}"),
         id: at_line_start(line).map_or_else(|| "-".to_owned(), |i| i.label()),
         gist: gist(line),
+        full: line.trim_end().to_owned(),
     }
 }
 
@@ -126,10 +129,29 @@ fn gist(line: &str) -> String {
 /// The listing, one item per line, plus what the addresses are worth.
 #[must_use]
 pub fn report(text: &str) -> String {
+    listing(text, false)
+}
+
+/// The same, with each item's FULL text instead of a 60-char gist.
+///
+/// `anchors` already speaks, so verbose DEEPENS rather than confirms (§I).
+/// The gist exists to keep a 30-line listing scannable; it is the wrong
+/// trade the moment you are looking for the item that says a particular
+/// thing, because a statement's distinguishing clause is rarely in its
+/// first 60 characters -- V21 and V22 are identical for the first 40.
+#[must_use]
+pub fn report_verbose(text: &str) -> String {
+    listing(text, true)
+}
+
+fn listing(text: &str, full: bool) -> String {
     let found = anchors(text);
     let mut out: String = found
         .iter()
-        .map(|a| format!("{}\t{}\t{}\n", a.address, a.id, a.gist))
+        .map(|a| {
+            let body = if full { &a.full } else { &a.gist };
+            format!("{}\t{}\t{}\n", a.address, a.id, body)
+        })
         .collect();
     out.push_str(&divergence(&found));
     out
@@ -257,14 +279,30 @@ B1|2026-08-01|a cause|a fix
             address: "\u{a7}T.3".to_owned(),
             id: "T3a".to_owned(),
             gist: String::new(),
+            full: String::new(),
         };
         assert!(a.diverges(), "3a differs from 3, and that is real");
         let plain = Anchor {
             address: "\u{a7}T.3".to_owned(),
             id: "T3".to_owned(),
             gist: String::new(),
+            full: String::new(),
         };
         assert!(!plain.diverges());
+    }
+
+    /// Verbose keeps the whole statement, so a listing can be searched for
+    /// the clause that distinguishes two items rather than only their
+    /// openings.
+    #[test]
+    fn verbose_prints_the_whole_line() {
+        let long = format!("V1: **a rule.** {}", "distinguishing ".repeat(8));
+        let text = format!("## \u{a7}V INVARIANTS\n{long}\n");
+        let whole = long.trim_end();
+        assert!(!report(&text).contains(whole), "gist must truncate");
+        assert!(report_verbose(&text).contains(whole), "verbose must not");
+        // Both still end with the same verdict about the addresses.
+        assert!(report_verbose(&text).contains("stable:"));
     }
 
     #[test]
