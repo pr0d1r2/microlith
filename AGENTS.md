@@ -3,24 +3,20 @@
 For agents and humans. Read this before changing anything; read `SPEC.md`
 for what must hold and what to build next.
 
-## Start here: what is half-done
+## Start here: the gate
 
-`hk.pkl` and `.github/workflows/ci.yml` are **annotated drafts that have
-never run**. They are on disk instead of absent so the next session starts
-from a draft rather than a blank page, and they are **inert by
-construction**:
+`hk.pkl` defines every gate op once; `.github/workflows/ci.yml` supplies
+only the runner and the toolchain (V22). Entering the dev shell — `direnv
+allow`, or `nix develop` — installs the `pre-commit` and `pre-push` hooks
+and rewrites them on every entry, so the hook you have is always the one
+`flake.nix` describes.
 
-- no git hooks are installed, so `hk` is never invoked on a commit
-- the workflow triggers on `workflow_dispatch` only, so it cannot fire
+Outside that shell the hooks **skip loudly**: one line on stderr, exit 0
+(V23). A gate exists to stop bad commits, not to stop git, and CI is the
+gate of record. If you see that line, you are ungated locally — enter the
+shell.
 
-Each carries a banner naming exactly what remains. That is the open half of
-**T6** in `SPEC.md`, and it is the next thing to build. Expect
-`hk check --all` to fail the first time it is run: fix the causes, and set
-the coverage floor from a fresh measurement rather than from the placeholder
-number in the file.
-
-Nothing else in the repo is half-done. `fmt` works, is tested, and gates
-this repo's own spec.
+The next thing to build is **T4**, the `check` verb, in `SPEC.md`.
 
 ## The rule
 
@@ -40,6 +36,9 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 cargo run -- fmt --check SPEC.md     # the dogfood: we format our own law
 ```
+
+The hook runner is a convenience, never a dependency of the crate: no
+verdict here rests on `hk`'s own logic.
 
 ## What this crate is
 

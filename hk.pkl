@@ -1,26 +1,5 @@
 /// nanokit's gate, defined ONCE (V22).
 ///
-/// ============================ DRAFT -- T6 ============================
-/// This file has NEVER BEEN RUN. It is placed here half-done, deliberately
-/// and inertly, so the next session picks up from a starting point instead
-/// of a blank page: no git hooks are installed (the shellHook in
-/// `flake.nix` says why), and `ci.yml` is on `workflow_dispatch` only, so
-/// NOTHING invokes these steps until someone verifies them.
-///
-/// TO FINISH (the remaining half of T6):
-///   1. `hk check --all` -- expect failures. taplo on Cargo.toml and typos
-///      somewhere in the prose are the likely first two. Fix the CAUSES;
-///      an exemption needs its reason in the config, at the failure site.
-///   2. Re-measure coverage AFTER this gate exists (doctest and rustdoc
-///      add surface). Set `--fail-under-lines` from THAT number, not from
-///      the 94 below, and not from any other project's floor (V21).
-///   3. Install the hooks in `flake.nix`'s shellHook, BY HAND, degrading
-///      when hk is absent (V23).
-///   4. Flip `ci.yml` to `on: push` / `pull_request` and add `actionlint`
-///      to the dev shell -- once there is a workflow that really runs.
-///   5. Flip T6 to `x` and delete this banner.
-/// =====================================================================
-///
 /// Every op below is a plain cargo command a human can paste into a shell.
 /// hk decides *when* they run; it never hides *what* runs, so a verdict
 /// never rests on the runner's own logic (V22).
