@@ -1,0 +1,28 @@
+# V16's baseline: the considered-and-REJECTED records that must SURVIVE.
+#
+# `<id>` then whitespace then the marker, which runs to end of line and may
+# contain spaces. `#` comments and blank lines are skipped.
+#
+# This file exists because V16 is the one rule not derivable from the spec
+# text alone. The others ask "is this file well formed"; V16 asks "is this
+# record still here", which is a claim about EDITS OVER TIME -- and no single
+# text can say what used to be in it. So the checker owns the rule and this
+# repo owns the list.
+#
+# The marker is a substring of the record, not the whole thing. Long enough to
+# be specific, short enough that rewording the surrounding prose does not fire
+# it: what must survive is the DECISION, not the sentence.
+#
+# Adding a line here is how a new rejected option becomes load-bearing.
+# Removing one is a reviewed decision -- it says the option is no longer worth
+# recording, which is exactly the trade V16 forbids making silently for bytes.
+
+# T6 named what it deliberately did NOT build, each with its reason. Without
+# this, a later reader re-proposes the cassette axis or shellcheck and nothing
+# says they were already considered and dropped.
+T6   DROPPED
+
+# V24 rejected shipping the dev shell a BUILT nanokit in favour of a cargo-run
+# shim: a package must compile before the shell opens, so one error locks you
+# out of the shell you need to fix it.
+V24  a built package

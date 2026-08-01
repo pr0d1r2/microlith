@@ -216,6 +216,67 @@ fn task_num(s: &str) -> Option<u32> {
     s.trim().strip_prefix('T')?.parse().ok()
 }
 
+/// V16: considered-and-REJECTED records SURVIVE.
+///
+/// An option recorded with its rejection & the trigger that would reopen it
+/// is what makes a decision AUDITABLE rather than merely obeyable, and
+/// compaction must never trade one away for bytes.
+///
+/// `expected` is the CALLER's, and that is the whole design: survival is a
+/// claim about edits over time, so no single text can say what used to be in
+/// it. The checker owns the rule; the repo being checked owns the list.
+///
+/// Checked by NAMED records rather than a word count, because an arbitrary
+/// threshold on how often a word appears either fires on nothing or fires on
+/// prose edits that changed no decision.
+#[must_use]
+pub fn records_survive(
+    text: &str,
+    expected: &[(String, String)],
+) -> Vec<String> {
+    expected
+        .iter()
+        .filter(|(id, marker)| !body(text, id).contains(marker.as_str()))
+        .map(|(id, marker)| format!("V16: {id} lost its `{marker}` record"))
+        .collect()
+}
+
+/// The body of one declaration, up to the next one.
+///
+/// Scoped rather than searching the whole file: a marker that moved to some
+/// other rule would otherwise still count as present, and "the record is
+/// somewhere" is not the claim V16 makes.
+#[must_use]
+pub fn body(text: &str, id: &str) -> String {
+    let mut out = String::new();
+    let mut inside = false;
+    for line in text.lines() {
+        match at_line_start(line) {
+            Some(found) if found.label() == id => inside = true,
+            Some(_) => inside = false,
+            None => {}
+        }
+        if inside {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// Parse a `.spec-records` baseline: `<id>` then whitespace then the marker,
+/// which runs to end of line so it may contain spaces. `#` comments and blank
+/// lines are skipped.
+#[must_use]
+pub fn parse_records(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split_once(char::is_whitespace))
+        .map(|(id, marker)| (id.to_owned(), marker.trim().to_owned()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -392,6 +453,46 @@ mod tests {
         assert_eq!(expand_cell(""), Vec::<u32>::new());
         // `T2a` has a row but is never claimed on its own -- it rides `T2`.
         assert!(tasks_in_one_milestone(&real()).is_empty());
+    }
+
+    fn records(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(i, m)| ((*i).to_owned(), (*m).to_owned()))
+            .collect()
+    }
+
+    /// V16, planted: the record is stripped out of the body that carried it.
+    #[test]
+    fn v16_rejects_a_record_that_was_edited_away() {
+        let want = records(&[("V1", "a rule")]);
+        assert!(records_survive(&real(), &want).is_empty(), "companion");
+        let stripped = real().replace("V1: **a rule.**", "V1: **a thing.**");
+        assert!(
+            records_survive(&stripped, &want)
+                .iter()
+                .any(|v| v.contains("V1 lost")),
+            "{:?}",
+            records_survive(&stripped, &want)
+        );
+    }
+
+    /// The body is SCOPED to its own declaration. A marker that survived only
+    /// by moving to a different rule has not survived: the decision it
+    /// documented now hangs off something that never made it.
+    #[test]
+    fn a_record_that_moved_to_another_rule_does_not_count() {
+        let moved = real()
+            .replace("V1: **a rule.** cited by T1.", "V1: **moved.**")
+            .replace("V3: **a gap", "V3: **a rule.** **a gap");
+        let want = records(&[("V1", "a rule")]);
+        assert!(!records_survive(&moved, &want).is_empty());
+    }
+
+    #[test]
+    fn a_records_file_parses_with_comments_and_spaces() {
+        let got = parse_records("# a note\n\nT6   DROPPED\nV24  a built pkg\n");
+        assert_eq!(got, records(&[("T6", "DROPPED"), ("V24", "a built pkg")]));
     }
 
     #[test]
