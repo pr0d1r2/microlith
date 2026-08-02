@@ -323,12 +323,19 @@ local all = (fast) {
     env { ["RUSTDOCFLAGS"] = "-D warnings" }
     check = "cargo doc --no-deps"
   }
-  // 94 is one point under this crate's own MEASURED 94.68% lines
-  // (format.rs 100, lib.rs 94.44, main.rs 89.91), taken from this gate's
-  // own run, with doctest and rustdoc already in the chain above -- so the
-  // number is the one the gate produces, not one predicted for it. It is
-  // NOT copied from another project: the first consumer floors at 98, and
-  // that number would have failed this repo on commit one (V21).
+  // 98 is one point under this crate's own MEASURED 98.83% lines
+  // (format.rs 100, cli.rs 99.34, lib.rs 95.35, main.rs 0), taken from this
+  // gate's own run, with doctest and rustdoc already in the chain above --
+  // so the number is the one the gate produces, not one predicted for it.
+  // It is NOT copied from another project: the first consumer floors at 98
+  // too, and that number WOULD have failed this repo on commit one (V21).
+  // It passes now because the coverage was earned, not because the number
+  // was borrowed -- which is the only reason two projects may share one.
+  //
+  // Raised 94 -> 98 once the V32 trim and its tests landed. 94 was one
+  // point under 94.68 when it was written and had drifted almost five
+  // points behind, which is a ratchet that stopped ratcheting: it would
+  // have accepted losing every test added since without a word.
   //
   // A floor is a RATCHET, so it sits just under current -- unlike a size
   // ceiling, which wants real headroom.
@@ -355,7 +362,7 @@ local all = (fast) {
     depends = List("rustdoc")
     check = """
       mkdir -p target
-      cargo llvm-cov nextest --fail-under-lines 94 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; echo 'hk: below the coverage floor. Cover the gap; lowering the floor needs a reason in SPEC.md. See AGENTS.md' >&2; exit 1; }
+      cargo llvm-cov nextest --fail-under-lines 98 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; echo 'hk: below the coverage floor. Cover the gap; lowering the floor needs a reason in SPEC.md. See AGENTS.md' >&2; exit 1; }
       cat target/coverage.txt
       measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
       cached=$(awk '/^lines /{print $2}' .coverage)
@@ -363,7 +370,7 @@ local all = (fast) {
       """
     fix = """
       mkdir -p target
-      cargo llvm-cov nextest --fail-under-lines 94 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; exit 1; }
+      cargo llvm-cov nextest --fail-under-lines 98 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; exit 1; }
       measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
       key=$(git ls-files -s -- '*.rs' SPEC.md .spec-records | git hash-object --stdin)
       awk -v k="$key" -v m="$measured" '/^key /{print "key " k; next} /^lines /{print "lines " m; next} {print}' .coverage > target/.coverage.new
