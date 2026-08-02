@@ -113,8 +113,24 @@ local fast = new Mapping<String, Step> {
     glob = List("**/*")
     check = "hk util check-merge-conflict --assume-in-merge {{files}}"
   }
-  // Irreversible if it ever fires late -- a key in git history stays in
-  // git history.
+  // OFFLINE half of cargo-deny (see deny.toml). `bans` is the one that
+  // earns its place today: an allowlist naming only this crate turns the
+  // zero-dependency claim -- made in README, Cargo.toml and AGENTS.md, and
+  // enforced nowhere -- into a runner. MEASURED: a planted `cfg-if` is
+  // rejected by name, with the chain that pulled it in.
+  //
+  // `advisories` is NOT here: it fetches the RustSec database, and this set
+  // runs on every commit. It lives in the slow set instead.
+  ["deny"] {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
+    // Absence before findings, as with ripsecrets: `no such command: deny`
+    // is also a non-zero exit, and reporting it as a rejected dependency
+    // tree names the wrong cause entirely (B8).
+    check = """
+      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail -- this crate ships zero, and that is what makes its supply chain claims true. See deny.toml.' >&2; exit 1; }
+      """
+  }
   // A leaked token in git history is IRREVERSIBLE -- the same property that
   // made removing one string from this repo's history a two-pass rewrite.
   // Before a repo goes public is the last moment that is cheap.
@@ -133,6 +149,8 @@ local fast = new Mapping<String, Step> {
       ripsecrets {{files}} || { echo 'hk: a possible secret is staged. If it is real it must never be committed -- a token in git history outlives its deletion. If it is a false positive, add it to .secretsignore.' >&2; exit 1; }
       """
   }
+  // Irreversible if it ever fires late -- a key in git history stays in
+  // git history.
   ["no-private-key"] {
     glob = List("**/*")
     check = "hk util detect-private-key {{files}}"
@@ -375,6 +393,21 @@ local all = (fast) {
   // the number is CHECKED against the measurement that just ran. Same shape
   // as the `mth docs` freeze on the command block (V33): render from one
   // source, then gate the copy.
+  // The NETWORK half of cargo-deny: fetches the RustSec advisory database,
+  // so it sits with the expensive axes rather than on every commit. Vacuous
+  // while the tree is empty -- and the `deny` step above is what keeps it
+  // that way, so the pair is honest rather than decorative.
+  ["deny-advisories"] {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
+    depends = List("coverage")
+    // Absence before findings, as with ripsecrets: `no such command: deny`
+    // is also a non-zero exit, and reporting it as a rejected dependency
+    // tree names the wrong cause entirely (B8).
+    check = """
+      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny check advisories || { echo 'hk: a dependency carries a security advisory or is yanked. See deny.toml.' >&2; exit 1; }
+      """
+  }
   ["coverage"] {
     glob = List("**/*.rs", "SPEC.md", ".spec-records", "README.md")
     depends = List("rustdoc")

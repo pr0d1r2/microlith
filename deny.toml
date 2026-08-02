@@ -1,0 +1,60 @@
+# cargo-deny: the supply chain, such as it is.
+#
+# ONE TOOL, NOT THREE. cargo-audit and osv-scanner ask the advisories
+# question this already answers, against the same or an overlapping
+# database. Three tools for one question is the shape V7 exists to prevent,
+# and it would be a poor look in the crate built because a format had two
+# implementations that disagreed.
+
+# THE ZERO-DEPENDENCY GUARANTEE, MECHANICALLY.
+#
+# "Zero dependencies" is claimed in README.md, Cargo.toml and AGENTS.md and
+# was enforced NOWHERE: adding one would have re-rendered the badge from 0
+# to 1 with the gate still green. An allowlist naming only this crate turns
+# that claim into a runner (V17) -- anything else in the tree is rejected by
+# name, with the chain that pulled it in.
+#
+# This is the check that makes the others nearly vacuous, and that is the
+# point: the honest way to back "there is nothing to scan" is to enforce the
+# nothing. Taking a first dependency should be a DECISION that turns the
+# gate red, not something noticed later.
+[bans]
+allow = [{ crate = "microlith" }]
+# A dep appearing twice at different versions is a merge waiting to happen.
+multiple-versions = "deny"
+# `*` in a version requirement means "whatever ships today".
+wildcards = "deny"
+
+# Permissive-only, and short on purpose. A list is a decision each time it
+# grows: adding an entry means accepting that licence for everything
+# downstream of us, which is a judgement, not a config tweak.
+#
+# Only MIT is reachable today -- this crate's own -- so the rest are the
+# terms a future dependency could carry without a second conversation.
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+]
+# Below this, a licence is "probably fine" rather than known to be. That is
+# not a standard this repo applies to anything else.
+confidence-threshold = 0.93
+
+# crates.io or nothing. A git dependency is not reproducible from the lock
+# alone and cannot be yanked, which is the property `nix build` relies on.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
+# NETWORK, unlike every other check here: this fetches the RustSec advisory
+# database. That is why the `deny-advisories` step is in the pre-push set
+# and not in pre-commit -- the gate stays offline where a developer runs it
+# most often, and pays for the network where a round trip already costs
+# minutes.
+[advisories]
+yanked = "deny"

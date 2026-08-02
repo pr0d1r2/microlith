@@ -169,6 +169,10 @@
             # it is NOT packaged -- using it would mean an install path
             # outside this shell, which is the skew ci.yml exists to avoid.
             pkgs.ripsecrets
+            # The supply chain, in ONE tool. cargo-audit and osv-scanner ask
+            # the advisories question this already answers; three tools for
+            # one question is the shape V7 exists to prevent.
+            pkgs.cargo-deny
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
