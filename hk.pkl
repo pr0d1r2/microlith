@@ -174,12 +174,15 @@ local fast = new Mapping<String, Step> {
     check = """
       fast=$(awk '/^local fast/,/^}/' hk.pkl | grep -cE '^  [[]["]')
       extra=$(awk '/^local all/,/^}/' hk.pkl | grep -cE '^  [[]["]')
+      pcx=$(awk '/^local precommit/,/^}/' hk.pkl | grep -cE '^  [[]["]')
       all=$((fast + extra))
+      pc=$((fast + pcx))
       stated=$(grep -oE '[0-9]+ steps?' docs/INTEGRATION.md | grep -oE '^[0-9]+' | sort -u)
       [ -n "$stated" ] || { echo "hk: docs/INTEGRATION.md states no step count at all. It is the document that explains the gate; a count that vanished is not the same as a count that is right." >&2; exit 1; }
-      bad=$(echo "$stated" | grep -vE "^($fast|$all)$" || true)
-      [ -z "$bad" ] || { echo "hk: docs/INTEGRATION.md claims $(echo $bad)steps; hk.pkl defines $fast fast and $all all. The doc describes the gate, so it goes stale every time the gate grows -- fix the numbers, and check whether the new steps are described at all." >&2; exit 1; }
-      echo "$stated" | grep -qx "$fast" && echo "$stated" | grep -qx "$all" || { echo "hk: docs/INTEGRATION.md must state BOTH counts -- $fast for the fast set and $all for all. Stating only one hides which half drifted." >&2; exit 1; }
+      bad=$(echo "$stated" | grep -vE "^($fast|$pc|$all)$" || true)
+      [ -z "$bad" ] || { echo "hk: docs/INTEGRATION.md claims $(echo $bad)steps; hk.pkl defines $fast fast, $pc pre-commit and $all all. The doc describes the gate, so it goes stale every time the gate grows -- fix the numbers, and check whether the new steps are described at all." >&2; exit 1; }
+      echo "$stated" | grep -qx "$all" || { echo "hk: docs/INTEGRATION.md never states the all-set count ($all). Stating only the commit-side number hides drift in the half that gates a push." >&2; exit 1; }
+      echo "$stated" | grep -qxE "$fast|$pc" || { echo "hk: docs/INTEGRATION.md never states the commit-side count ($fast fast, or $pc with the pre-commit-only guard). Stating only the all count hides drift in the half you meet on every commit." >&2; exit 1; }
       """
   }
   // WHAT THE TARBALL SHIPS, checked rather than described. Publishing does
@@ -562,6 +565,28 @@ local all = (fast) {
   }
 }
 
+// The pre-commit set: `fast`, plus the one guard that belongs to a WORKING
+// COPY rather than to a file.
+//
+// IT CANNOT LIVE IN `fast`. `all` is `fast` plus four, and CI runs
+// `hk check --all` on `main` after every merge -- so a no-commit-to-branch
+// in `fast` would fail every CI run on the branch it exists to protect.
+// That is not a tuning problem, it is a category error: the rule is about
+// WHERE YOU ARE COMMITTING, and CI never commits.
+//
+// It is the LOCAL half of a pair. GitHub refuses a push to `main` outright
+// (PR required, three status checks, admins not exempt), so this changes no
+// outcome -- it moves the refusal EARLIER, to before you have built a commit
+// you then have to move. V23 also makes it skip outside the dev shell, which
+// is exactly why the server-side rule is the one that actually defends the
+// branch and this one is a courtesy (T8a).
+local precommit = (fast) {
+  ["no-commit-to-branch"] {
+    glob = List("**/*")
+    check = "hk util no-commit-to-branch --branch main"
+  }
+}
+
 hooks {
   /// Fast set only: a hook you are tempted to bypass is worse than no hook.
   /// `stash = "git"` is correctness, not speed -- without it a partially
@@ -574,7 +599,7 @@ hooks {
   ["pre-commit"] {
     fix = true
     stash = "git"
-    steps = fast
+    steps = precommit
   }
   ["pre-push"] {
     steps = all

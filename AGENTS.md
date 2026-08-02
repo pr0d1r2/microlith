@@ -14,8 +14,10 @@ and rewrites them on every entry, so the hook you have is always the one
 **The hooks are the gate of record** (V22), and `ci.yml` calls that same
 definition rather than restating it — so a laptop and a runner cannot
 disagree about what passes. `all` is literally `fast` plus two steps.
-Worth knowing while reading a green local run: CI has still executed zero
-times, because the GitHub remote does not exist yet.
+Worth knowing while reading a green local run: CI now runs, and is
+REQUIRED. All three matrix jobs are branch-protection status checks on
+`main` and admins are not exempt, so nothing reaches `main` except through a
+pull request those jobs passed.
 
 The hook is also where you — or the agent loop — are told what to fix, so
 every step's failure text is written to be acted on rather than merely
