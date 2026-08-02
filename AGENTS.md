@@ -11,12 +11,20 @@ allow`, or `nix develop` — installs the `pre-commit` and `pre-push` hooks
 and rewrites them on every entry, so the hook you have is always the one
 `flake.nix` describes.
 
-Outside that shell the hooks **skip loudly**: one line on stderr, exit 0
-(V23). A gate exists to stop bad commits, not to stop git, and CI is the
-gate of record. If you see that line, you are ungated locally — enter the
-shell.
+**The hooks are the gate of record** (V22). `ci.yml` is a second caller of
+that one definition, not the authority: it has never run, because there is
+no GitHub remote and the only remote is a backup mirror with no pipelines.
+The hook is also where you — or the agent loop — are told what to fix, so
+every step's failure text is written to be acted on rather than merely
+read.
 
-The next thing to build is **T4**, the `check` verb, in `SPEC.md`.
+Outside that shell the hooks **skip loudly**: one line on stderr, exit 0
+(V23). A gate exists to stop bad commits, not to stop git. But nothing
+stands behind them, so that line means genuinely ungated rather than
+merely local — enter the shell (B19).
+
+The next unstarted task is **T8**, publish, in `SPEC.md`. T7 is `~` and
+blocked on it.
 
 ## The rule
 
