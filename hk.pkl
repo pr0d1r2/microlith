@@ -358,8 +358,16 @@ local all = (fast) {
       cargo llvm-cov nextest --fail-under-lines 94 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; echo 'hk: below the coverage floor. Cover the gap; lowering the floor needs a reason in SPEC.md. See AGENTS.md' >&2; exit 1; }
       cat target/coverage.txt
       measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
-      badge=$(grep -o 'coverage-[0-9.]*%25' README.md | head -1 | sed 's/coverage-//; s/%25//')
-      [ "$measured" = "$badge" ] || { echo "hk: README coverage badge says $badge%, measured $measured%. Update the badge in README.md, or explain the drop." >&2; exit 1; }
+      cached=$(awk '/^lines /{print $2}' .coverage)
+      [ "$measured" = "$cached" ] || { echo "hk: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to update the cache and the badge, then amend." >&2; exit 1; }
+      """
+    fix = """
+      mkdir -p target
+      cargo llvm-cov nextest --fail-under-lines 94 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; exit 1; }
+      measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
+      key=$(git ls-files -s -- '*.rs' SPEC.md .spec-records | git hash-object --stdin)
+      awk -v k="$key" -v m="$measured" '/^key /{print "key " k; next} /^lines /{print "lines " m; next} {print}' .coverage > target/.coverage.new
+      mv target/.coverage.new .coverage
       """
   }
 }
@@ -389,5 +397,12 @@ hooks {
   ["fix"] {
     fix = true
     steps = fast
+  }
+  /// `hk run refresh` -- the FULL set in fix mode. `fix` above runs only the
+  /// cheap steps, so the one expensive generator (the coverage measurement
+  /// behind .coverage and the README badge) has no other way to be written.
+  ["refresh"] {
+    fix = true
+    steps = all
   }
 }

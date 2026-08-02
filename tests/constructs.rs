@@ -17,7 +17,7 @@
 //! fixture fails" true rather than aspirational: adding a construct to the
 //! list forces a fixture, and adding a fixture forces it to be named.
 
-use microlith::check::parse_records;
+use microlith::parse_records;
 use microlith::{check_spec, format_spec};
 
 /// Every construct FORMAT.md permits, each with a fixture of the same name.

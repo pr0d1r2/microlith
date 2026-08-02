@@ -10,7 +10,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 98.52%](https://img.shields.io/badge/coverage-98.52%25-brightgreen)](hk.pkl)
+[![coverage 98.59%](https://img.shields.io/badge/coverage-98.59%25-brightgreen)](hk.pkl)
 [![floor 94%](https://img.shields.io/badge/floor-%E2%89%A594%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -181,7 +181,7 @@ The command reference above is **generated**: `mth docs` prints it, and a test f
 
 ## Use it as a library
 
-The binary is a thin shell. Every rule is a pure function over `&str`, so a consumer calls the rule instead of porting it:
+The binary really is a thin shell -- `src/main.rs` is sixteen lines that read argv, call the library and return an exit code. Everything the CLI does, a consumer can do in one call:
 
 ```rust
 let violations = microlith::check_spec(&text, &records);
@@ -189,6 +189,20 @@ for v in &violations {
     println!("{}: {} ({})", v.rule, v.msg, v.line);
 }
 ```
+
+**One function per verb**, so nothing has to be assembled out of internals:
+
+| verb | call |
+|------|------|
+| `fmt` | `format_spec(&text)` |
+| `check` | `check_spec(&text, &records)` |
+| `migrate` | `migrate_spec(&text)`, plus `migrate_report` and `migrate_declined` |
+| `derive` | `derive_report(&text)`, `derive_report_verbose` |
+| `anchors` | `anchors_report(&text)`, `anchors_report_verbose` |
+| `docs` | `docs_markdown()` |
+| *all of it* | `run(&args)` -- argv in, stdout/stderr/exit code out |
+
+That is the whole public surface: about twenty items, no public modules. The parser and the rules are `pub(crate)` on purpose -- exporting them would promise fifty-odd internals nobody asked for, and after `1.0` un-exporting is a breaking change. Widening later is a minor release; narrowing later is a major one.
 
 ## Guarantees
 

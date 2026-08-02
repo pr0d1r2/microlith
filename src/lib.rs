@@ -9,14 +9,92 @@
 //! CPU only -- no inference, no network (V6). Every operation is a
 //! deterministic function of the text it is given.
 
-pub mod anchors;
-pub mod check;
-pub mod derive;
-pub mod format;
-pub mod id;
-pub mod migrate;
-pub mod render;
-pub mod violation;
+// PUB(CRATE), NOT PUB (V32). These are the parser and the rules -- the
+// plumbing the verbs are built from. Exporting them would promise 54 items
+// nobody outside asked for, and un-exporting after 1.0 is the breaking
+// change nobody plans for. What a consumer gets instead is one function per
+// verb, below: the same operations the CLI offers, and nothing else.
+//
+// Widening later is a MINOR release. Narrowing later is a MAJOR one. That
+// asymmetry is the whole reason to start small.
+pub(crate) mod anchors;
+pub(crate) mod check;
+pub(crate) mod cli;
+pub(crate) mod derive;
+pub(crate) mod docs;
+pub(crate) mod format;
+pub(crate) mod id;
+pub(crate) mod migrate;
+pub(crate) mod render;
+pub(crate) mod violation;
+
+// The types a public signature mentions must themselves be public.
+pub use check::Record;
+pub use cli::{DEFAULT_PATH, run};
+pub use violation::{Direction, Fix, Violation};
+
+// ONE ENTRY POINT PER VERB. `run` is the whole CLI; these are its parts, so
+// a caller can reach any single operation without parsing an argv or reading
+// an exit code. Between them they are everything `mth` can do -- which is the
+// contract V32 freezes at 1.0, and the reason the modules above are not it.
+pub use check::parse_records;
+pub use format::{MAX_LINE, over_cap};
+
+/// `mth migrate`: section headers rewritten to canonical cavekit 4.1.0.
+///
+/// `Err` carries the reason a rewrite was declined -- a letter used for a
+/// DIFFERENT concept is reported rather than rewritten, because annotating
+/// one keeps the characters and inverts the meaning.
+pub fn migrate_spec(text: &str) -> Result<String, String> {
+    migrate::migrate(text)
+}
+
+/// Every header that is not canonical, whether or not it can be fixed.
+///
+/// The question `migrate_spec` does not answer: what WOULD change. Kept
+/// separate from [`migrate_declined`] because "not canonical" and "cannot
+/// be repaired" are different sets, and a caller usually wants the first.
+pub fn migrate_report(text: &str) -> String {
+    migrate::report(text)
+}
+
+/// The collisions `migrate_spec` refused to touch.
+///
+/// A letter used for a DIFFERENT concept is never rewritten -- annotating
+/// one keeps the characters and inverts the meaning -- so a run that
+/// rewrote everything it could may still leave the file non-canonical.
+pub fn migrate_declined(text: &str) -> String {
+    migrate::unfinished(text)
+}
+
+/// `mth derive`: statement sizes, the citation graph, orphans, duplication.
+///
+/// Report-only. An orphan is a question for a reader, not a build failure,
+/// so nothing here signals an error.
+pub fn derive_report(text: &str) -> String {
+    derive::report(text)
+}
+
+/// `derive_report` with every statement's size, biggest first.
+pub fn derive_report_verbose(text: &str) -> String {
+    derive::report_verbose(text)
+}
+
+/// `mth anchors`: the section address of every item beside the id it
+/// currently resolves to, and whether the two have drifted apart.
+pub fn anchors_report(text: &str) -> String {
+    anchors::report(text)
+}
+
+/// `anchors_report` with each item in full rather than a 60-char gist.
+pub fn anchors_report_verbose(text: &str) -> String {
+    anchors::report_verbose(text)
+}
+
+/// The command reference `mth docs` prints, as markdown.
+pub fn docs_markdown() -> String {
+    docs::markdown()
+}
 
 /// What a run produced: streams and an exit code. No I/O, so the whole
 /// command surface is testable without spawning the binary.
@@ -158,5 +236,60 @@ mod tests {
     fn already_formatted_text_is_unchanged() {
         let src = "# h\n\nV1: a rule\nV2: another\n";
         assert_eq!(format_spec(src).ok(), Some(src.to_owned()));
+    }
+
+    /// V32's surface is the CONTRACT, so every verb-level entry point is
+    /// exercised here. Untested public API is a promise nobody checked --
+    /// and the coverage floor caught these eight the moment they existed.
+    const CANON: &str = "## \u{a7}V INVARIANTS\nV1: a rule.\n\n\
+        ## \u{a7}T TASKS\n| id | scope | tasks | done-when |\n\
+        |----|-------|-------|-----------|\n| M1 | core | T1 | done |\n\
+        T1|x|a task|V1\n";
+
+    #[test]
+    fn the_writing_verbs_are_reachable_in_one_call() {
+        assert!(format_spec(CANON).is_ok());
+        assert!(migrate_spec(CANON).is_ok());
+    }
+
+    #[test]
+    fn the_reporting_verbs_are_reachable_in_one_call() {
+        assert!(check_spec(CANON, &[]).is_empty());
+        assert_eq!(migrate_report(CANON), "");
+        assert_eq!(migrate_declined(CANON), "");
+    }
+
+    #[test]
+    fn the_derived_reports_are_reachable_in_one_call() {
+        assert!(!derive_report(CANON).is_empty());
+        assert!(!anchors_report(CANON).is_empty());
+        assert!(docs_markdown().contains("## Commands"));
+    }
+
+    #[test]
+    fn verbose_reports_say_more_than_their_terse_form() {
+        assert!(
+            derive_report_verbose(CANON).len() >= derive_report(CANON).len()
+        );
+        assert!(
+            anchors_report_verbose(CANON).len() >= anchors_report(CANON).len()
+        );
+    }
+
+    /// `run` IS the CLI: same argv, same streams, same exit code, no process.
+    #[test]
+    fn run_is_the_whole_command_without_a_process() {
+        assert_eq!(run(&[]).code, 2, "no verb is a usage error");
+        assert_eq!(run(&["--version".into()]).code, 0);
+        assert!(run(&["docs".into()]).out.contains("## Commands"));
+        assert_eq!(run(&["nonesuch".into()]).code, 2);
+    }
+
+    /// The re-exports a caller needs to USE the surface above.
+    #[test]
+    fn the_reexported_helpers_work() {
+        assert!(parse_records("# comment\nV1 marker text\n").len() == 1);
+        assert!(over_cap(CANON, MAX_LINE).is_empty());
+        assert_eq!(DEFAULT_PATH, "SPEC.md");
     }
 }

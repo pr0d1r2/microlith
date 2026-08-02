@@ -4,8 +4,8 @@
 //! against the library being built, so the spec and the code cannot drift
 //! apart without the gate noticing.
 
-use microlith::check::parse_records;
-use microlith::format::{MAX_LINE, over_cap};
+use microlith::parse_records;
+use microlith::{MAX_LINE, over_cap};
 use microlith::{check_spec, format_spec};
 
 fn at_root(name: &str) -> String {
