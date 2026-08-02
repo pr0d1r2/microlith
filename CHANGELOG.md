@@ -22,7 +22,7 @@ arriving from crates.io can read the number without opening our spec.
 | `0.2` | even | it cannot regress locally — the gate runs in git hooks | reached |
 | `0.3` | odd | one implementation of the format rules, not two that disagree | reached |
 | `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | reached |
-| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | **current** |
+| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | **current**, published |
 | `0.6` | even | that surface stabilized — the fixes the first real users find | planned |
 | `0.7` | odd | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
 | `0.8` | even | mechanical editing and planning — every mutation through one verified write path | planned |
@@ -40,6 +40,34 @@ pipeline gets proven before a permanent number is spent.
 ## [Unreleased]
 
 Nothing yet.
+
+## [0.5.0] — 2026-08-02
+
+Promoted from `0.5.0-rc.1` unchanged — no code differs between them. The
+candidate did its job and found nothing, which is the outcome it was published
+to establish rather than a formality skipped:
+
+- the published tarball was **downloaded from crates.io** and its own test suite
+  run against it — 185 tests, 0 failures. The dogfood tests read `SPEC.md` and
+  `.spec-records`, so this proves the shipped `.crate` carries what it needs,
+  not merely that the repo does.
+- `cargo install microlith --version 0.5.0-rc.1 --locked` produced a working
+  `mth` binary from the registry.
+- docs.rs built it clean. That build runs in a different, network-less sandbox
+  and is the most common reason a first publish needs a second attempt.
+
+`0.5` is **odd**: public and usable, deliberately **partial** (§V.34). Depend on
+it for a trial. `0.6` is where the surface settles, and it carries the fixes the
+first real users find — which is why it is the next rung rather than a
+maintenance afterthought.
+
+### Known limits
+
+- The public API was trimmed to the verbs (§V.32) and has **not yet been
+  exercised by an outside consumer**. Adding a `pub` item is a non-breaking
+  minor change, so a gap here costs a version rather than a redesign.
+- `ci.yml` has run green on every commit since the repo went public, but a green
+  **streak** is a `0.7` condition and this is not one yet.
 
 ## [0.5.0-rc.1] — 2026-08-02
 
@@ -84,5 +112,6 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.5.0-rc.1...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0
 [0.5.0-rc.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0-rc.1
