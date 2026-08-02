@@ -13,10 +13,9 @@
 #   * build caching (nix store + cargo target)
 #   * release automation and publish            -- T8
 #
-# The matrix covers TWO of the three systems flake.nix declares:
-# x86_64-linux and aarch64-darwin. aarch64-linux is built by the flake but
-# has no runner here -- named rather than quietly omitted, so the gap is
-# readable from the file that would close it.
+# The matrix covers every system flake.nix declares, one runner each, so
+# `nix build .#default` proves each of them rather than one standing in
+# for the rest.
 #
 # NOT copied from the consumer's workflow, deliberately: `fetch-depth: 0`.
 # That exists there because its tests read `HEAD~n`; nothing here does, so
@@ -38,8 +37,13 @@ jobs:
       # is specific to the other OS -- the same argument as --no-fail-fast
       # one level up.
       fail-fast: false
+      # One runner per system flake.nix declares, so the platform claim in
+      # the README is gated rather than asserted:
+      #   ubuntu-latest    x86_64-linux
+      #   ubuntu-24.04-arm aarch64-linux
+      #   macos-latest     aarch64-darwin
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     steps:
       # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
       # the action can move `v4` to different code, and every workflow that
