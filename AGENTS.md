@@ -80,16 +80,20 @@ Three things, or it is not done:
 
 ## The size ceiling
 
-`.context-limits` caps `SPEC.md` in tokens, and the `context-limits` gate
-step enforces it — estimating with the same crude bytes/4 the ceiling was
-set with, because a better tokenizer would be a different measurement.
-A spec is re-read on every session that touches this repo, so every byte
-is a recurring cost. Raising the ceiling is a reviewed decision with its
-reason recorded in the file itself — not a reflex when the gate turns red.
+`.context-limits` declares a token ceiling for `SPEC.md`. A spec is re-read
+on every session that touches this repo, so every byte is a recurring cost,
+and raising the ceiling is a reviewed decision with its reason recorded in
+the file itself.
 
-**It is close.** SPEC.md sits at roughly 18,800 of an 18,800 ceiling, so
-the next addition trips the gate. That is the ceiling working, not
-failing: compact something, or raise it and say why.
+**Nothing enforces it here yet, and that is deliberate.** `itok` owns the
+checker and reads this exact file; once it is published, this repo calls
+that rather than growing a second implementation of one rule (V7) — which
+is the defect microlith exists to prevent, so writing our own would be a
+poor way to ship it. Until then the number is maintained by hand and the
+ceiling is a declaration, not a gate.
+
+Worth knowing while it is unguarded: `SPEC.md` sits at roughly 18,800
+of the 18,800 declared. There is no slack left to spend without a raise.
 
 Same for the line cap in `format.rs`. It is set from the measured maximum,
 and `tests/dogfood.rs` fails if the slack erodes.

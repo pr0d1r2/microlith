@@ -1,3 +1,16 @@
+# ADJUSTED, ⊥ raised: 18,800 was set with ~12% headroom over a measured
+# 16,734, and the release ladder plus V34, V35, B20, B21 and T7e have spent
+# all of it -- SPEC.md now measures ~18,796 against 18,800. The number is
+# corrected to say that plainly rather than implying room that is gone.
+#
+# NO HEADROOM ADDED HERE, deliberately. A raise is a reviewed decision and
+# this is not one: it is a measurement catching up with reality. The next
+# addition needs a real raise, with its reasoning, in the block style below.
+#
+# STILL UNENFORCED. `itok` owns the checker for this file and is published
+# after microlith; this repo will call it rather than grow a second
+# implementation of one rule (V7).
+#
 # RAISED a TENTH time, 16000 -> 18800, and the ninth's model held -- it was
 # simply SILENT about one category.
 #

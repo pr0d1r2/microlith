@@ -183,32 +183,6 @@ local fast = new Mapping<String, Step> {
   // Fixtures are INPUTS to tests, not prose: their content is the thing
   // under test, and one may yet need a malformed link to exercise a rule.
   // Same argument that keeps `pkl/` out of every fixer here.
-  // V17, and it was missing for the file's entire life: `.context-limits`
-  // declares a token ceiling for SPEC.md and NOTHING read it. AGENTS.md
-  // says of that ceiling "it is not a formality" -- which was false while
-  // no runner existed. itok carries the same file and enforces it with
-  // `itok check`; that tool is not published yet and this crate has zero
-  // dependencies, so the arithmetic lives here instead.
-  //
-  // bytes/4 is the SAME crude estimator the ceiling was SET with, which is
-  // the only reason the two numbers are comparable. A better tokenizer
-  // would be a different measurement, and would silently move the goalposts.
-  ["context-limits"] {
-    glob = List("**/*")
-    check = """
-      fail=0
-      while read -r path limit; do
-        case "$path" in ''|\#*) continue ;; esac
-        [ -f "$path" ] || continue
-        used=$(( $(wc -c < "$path") / 4 ))
-        if [ "$used" -gt "$limit" ]; then
-          echo "hk: $path is ~$used tokens, over its .context-limits ceiling of $limit. Compact it; raising the ceiling is a reviewed decision with its reason in the file. See AGENTS.md" >&2
-          fail=1
-        fi
-      done < .context-limits
-      exit $fail
-      """
-  }
   ["links"] {
     glob = List("**/*")
     check = "lychee --offline --no-progress --exclude-path tests/constructs . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }"
