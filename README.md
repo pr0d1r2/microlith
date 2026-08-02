@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
 
-[![Rust 2021](https://img.shields.io/badge/rust-2021-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![edition 2021](https://img.shields.io/badge/edition-2021-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
