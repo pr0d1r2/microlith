@@ -4,19 +4,20 @@
 [![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
 [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 [![edition 2021](https://img.shields.io/badge/edition-2021-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
-
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
 [![coverage floor](https://img.shields.io/badge/coverage_floor-%E2%89%A594%25-brightgreen)](hk.pkl)
-[![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
-[![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![nixpkgs 26.11](https://img.shields.io/badge/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
+[![platforms](https://img.shields.io/badge/platforms-linux_(x86__64,_aarch64)_%C2%B7_macos_(aarch64)-5277C3?logo=nixos&logoColor=white)](flake.nix)
+
+[![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+[![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
+[![built with SDD](https://img.shields.io/badge/built_with-spec--driven_development-D97757)](SPEC.md)
 
 > ### Built by an LLM, deliberately and in the open
 >
