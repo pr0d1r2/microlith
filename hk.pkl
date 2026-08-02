@@ -155,6 +155,33 @@ local fast = new Mapping<String, Step> {
       cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail -- this crate ships zero, and that is what makes its supply chain claims true. See deny.toml.' >&2; exit 1; }
       """
   }
+  // INTEGRATION.md DESCRIBES THE GATE, so it rots every time the gate grows.
+  // MEASURED at the moment this landed: the doc said 19 fast / 21 all while
+  // the real numbers were 25 and 29, and it did not mention `deny`,
+  // `deny-advisories`, `ripsecrets`, `semver` or `smart-quotes` at all. Five
+  // steps were added in one session and the document explaining them said
+  // they did not exist -- for a repo whose entire argument is that a claim
+  // needs a runner, that is the defect on the letterhead.
+  //
+  // WHAT IS CHECKED is only the arithmetic, deliberately. Every `N steps` in
+  // the doc must equal the fast or the all count, and both must appear, so a
+  // doc that quietly dropped its numbers cannot pass by saying nothing. The
+  // PROSE is not checked and could not be: whether a paragraph still
+  // describes what a step does is a judgement, and V6 keeps judgement out of
+  // mechanical checks. This catches the half that is countable.
+  ["integration-doc"] {
+    glob = List("hk.pkl", "docs/INTEGRATION.md")
+    check = """
+      fast=$(awk '/^local fast/,/^}/' hk.pkl | grep -cE '^  [[]["]')
+      extra=$(awk '/^local all/,/^}/' hk.pkl | grep -cE '^  [[]["]')
+      all=$((fast + extra))
+      stated=$(grep -oE '[0-9]+ steps?' docs/INTEGRATION.md | grep -oE '^[0-9]+' | sort -u)
+      [ -n "$stated" ] || { echo "hk: docs/INTEGRATION.md states no step count at all. It is the document that explains the gate; a count that vanished is not the same as a count that is right." >&2; exit 1; }
+      bad=$(echo "$stated" | grep -vE "^($fast|$all)$" || true)
+      [ -z "$bad" ] || { echo "hk: docs/INTEGRATION.md claims $(echo $bad)steps; hk.pkl defines $fast fast and $all all. The doc describes the gate, so it goes stale every time the gate grows -- fix the numbers, and check whether the new steps are described at all." >&2; exit 1; }
+      echo "$stated" | grep -qx "$fast" && echo "$stated" | grep -qx "$all" || { echo "hk: docs/INTEGRATION.md must state BOTH counts -- $fast for the fast set and $all for all. Stating only one hides which half drifted." >&2; exit 1; }
+      """
+  }
   // WHAT THE TARBALL SHIPS, checked rather than described. Publishing does
   // not upload the repo: it uploads a `.crate` whose file set is DERIVED --
   // git-tracked, minus `exclude`. That is a SECOND file set, and until now
@@ -187,13 +214,19 @@ local fast = new Mapping<String, Step> {
   // dropped both words from the text it was trying to print. This comment
   // lives OUT here for the same class of reason: `//` inside the script
   // block is a PATH, not a comment, and cost one gate run at exit 126.
+  //
+  // NO BACKSLASHES IN ANY SCRIPT HERE. Pkl passes `\\` through to the shell
+  // as two characters, so `grep -E '\\["'` matches a literal backslash and
+  // finds NOTHING -- a pattern that silently counts 0 rather than erroring.
+  // Where a bracket must be matched, `[[]` does it with no escape at all,
+  // and `echo "$var"` replaces `printf '%s\\n'`.
   ["package"] {
     glob = List("**/*")
     check = """
       list=$(cargo package --list --allow-dirty 2>/dev/null) || { echo 'hk: `cargo package --list` failed -- the manifest cannot produce a tarball at all. Fix Cargo.toml before worrying about its contents.' >&2; exit 1; }
       missing=""
       for p in $(taplo get -f Cargo.toml 'package.metadata.microlith.must-package[*]'); do
-        printf '%s\\n' "$list" | grep -qxF "$p" || missing="$missing $p"
+        echo "$list" | grep -qxF "$p" || missing="$missing $p"
       done
       [ -z "$missing" ] || { echo "hk: the published .crate would ship WITHOUT:$missing -- and the repo's own tests would stay GREEN, because the repo still has them. Either fix the exclude list in Cargo.toml, or drop the path from must-package and say why it is no longer needed." >&2; exit 1; }
       """

@@ -14,20 +14,22 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 21 steps
+              one definition, 30 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   fast: 19 steps     all: 21 steps      all: 21 steps
+   fast: 26 steps     all: 30 steps      all: 30 steps
 ```
 
-`all` is not a second list. In `hk.pkl` it is literally the fast set plus two:
+`all` is not a second list. In `hk.pkl` it is literally the fast set plus four:
 
 ```pkl
 local all = (fast) {
-  ["rustdoc"]  { ... }
-  ["coverage"] { ... }
+  ["rustdoc"]         { ... }
+  ["deny-advisories"] { ... }
+  ["semver"]          { ... }
+  ["coverage"]        { ... }
 }
 ```
 
@@ -40,21 +42,21 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (fast, 19 steps) ---fails---> fix, retry
+  git commit ---> pre-commit  (fast, 26 steps) ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 21 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 30 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 21 steps -- same definition)
+  pull request ---> ci.yml    (all, 30 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -67,9 +69,11 @@ than speed: without it a partially staged file (`git add -p`) would be judged as
 it looks in the worktree, giving you a verdict about code you are not
 committing.
 
-**pre-push** runs everything, adding the two expensive axes — `rustdoc` and
-`coverage`. They sit here rather than on every commit because a hook you are
-tempted to bypass is worse than no hook.
+**pre-push** runs everything, adding the four steps too costly for every
+commit: `rustdoc`, `coverage`, and the two that need the **network** —
+`deny-advisories` fetches the RustSec database, and `semver` diffs the public
+API against the last release tag. Everything in `fast` stays offline, because a
+hook you are tempted to bypass is worse than no hook.
 
 **CI** runs `hk check --all --check --no-fail-fast`, then `nix build .#default`
 to prove the package builds reproducibly from the tracked lock alone. It is
@@ -77,7 +81,7 @@ already wired to fire on `pull_request` as well as on pushes to `main`.
 
 **From the first public release, changes reach `main` through pull requests.**
 Nothing lands by pushing to `main` directly. That does not add a check — CI runs
-the same 21 steps your pre-push hook just ran — it adds a *reader*. The gate
+the same 30 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
@@ -88,12 +92,29 @@ above. Which **files** they see is separate:
 
 | stage | steps | files examined |
 |---|---|---|
-| `pre-commit` | `fast` — 19 | **staged files only** (hk's default) |
-| `pre-push` | `all` — 21 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
-| CI | `all` — 21 | **every file in the repo** (`hk check --all`) |
+| `pre-commit` | `fast` — 26 | **staged files only** (hk's default) |
+| `pre-push` | `all` — 30 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
+| CI | `all` — 30 | **every file in the repo** (`hk check --all`) |
 
 `fast` is a strict subset of `all`, so every step that gated your commit gates
 your push again — over a wider set of files.
+
+## The steps that guard claims, not code
+
+Four steps here do something different from linting: they check that a sentence
+written somewhere else in this repo is still **true**.
+
+| step | the claim it enforces | where the claim lives |
+|---|---|---|
+| `deny` | zero dependencies | `README.md`, `Cargo.toml`, `AGENTS.md` |
+| `package` | the `.crate` ships the files the test suite reads | `Cargo.toml`'s `must-package` |
+| `semver` | the version number means what V30 says it means | `SPEC.md` §V.30, §V.34 |
+| `readme-badges` | the coverage percentage, MSRV, edition and platform list | `README.md` badges |
+
+Each exists because the claim was already being made and nothing was checking
+it. A number or a guarantee stated in prose is true the day it is written and
+silently wrong afterwards — which is V17 in one sentence: a rule with no runner
+gates nothing.
 
 `README.md` is in the `coverage` step's glob for the same reason `SPEC.md` is in
 `test`'s: that step reads it. The coverage percentage in the README badge is
@@ -129,15 +150,18 @@ serialization explicit and leaves hk free to run everything else concurrently:
     fmt --> clippy --> test --> doctest --> microlith --+--> microlith-check
                                             fmt own     |    check own spec
                                             spec        |
-                                                        +--> rustdoc --> coverage
-                                                                         floor 94%
+                                                        +--> rustdoc --> coverage --> semver
+                                                                         floor 98%   vs last tag
 
   no depends, so these run concurrently:
 
     trailing-whitespace   final-newline       line-endings
-    no-bom                no-merge-conflict   no-private-key
-    no-large-files        no-case-conflict    no-broken-symlinks
-    actionlint            typos               taplo              nixfmt
+    smart-quotes          no-bom              no-merge-conflict
+    no-private-key        ripsecrets          no-large-files
+    no-case-conflict      no-broken-symlinks  actionlint
+    typos                 links               taplo
+    nixfmt                deny                package
+    readme-badges
 ```
 
 Ordering is cheapest-first on purpose. `fail_fast = true` locally, so the first
@@ -215,7 +239,11 @@ cargo test --doc
 cargo run -- fmt --check SPEC.md                     # the dogfood
 cargo run -- check --records .spec-records SPEC.md
 cargo doc --no-deps                                  # RUSTDOCFLAGS="-D warnings"
-cargo llvm-cov nextest --fail-under-lines 94
+cargo llvm-cov nextest --fail-under-lines 98
+cargo deny check bans licenses sources               # offline: the zero-dep guarantee
+cargo deny check advisories                          # network: RustSec
+cargo semver-checks check-release --baseline-rev v0.5.0
+cargo package --list                                 # what the .crate would ship
 ```
 
 hk decides *when* things run. It never hides *what* runs.
