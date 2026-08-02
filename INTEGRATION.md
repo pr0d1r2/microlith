@@ -81,6 +81,35 @@ the same 21 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
+## What runs on which files
+
+Two things vary by stage, not one. Which **steps** run is the `fast`/`all` split
+above. Which **files** they see is separate:
+
+| stage | steps | files examined |
+|---|---|---|
+| `pre-commit` | `fast` — 19 | **staged files only** (hk's default) |
+| `pre-push` | `all` — 21 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
+| CI | `all` — 21 | **every file in the repo** (`hk check --all`) |
+
+`fast` is a strict subset of `all`, so every step that gated your commit gates
+your push again — over a wider set of files.
+
+hk offers a `--pr` flag, *"check only files changed in the current PR/branch"*,
+and CI deliberately does **not** use it. A changed-files scope cannot see damage
+to files nobody touched: widen a glob, rename a step, let a fixture rot, and
+nothing in the diff points at the breakage. Pre-push proves *your change* is
+clean; CI proves *the repo* is.
+
+**Scope and glob multiply.** A step runs only when a file in scope also matches
+its `glob`. This repo has been bitten by exactly that: `SPEC.md` was missing from
+the `test` step's glob, so a spec-only commit matched nothing and skipped the
+entire suite — including the dogfood assertions whose whole subject is
+`SPEC.md`. Four commits landed that way before a hand-run `hk check --all` found
+a slack breach the hook had never looked for. Hence `SPEC.md` and
+`.spec-records` now sit in the globs of `test`, `microlith`, `microlith-check`
+and `coverage`.
+
 ## Why the steps are chained
 
 Cargo takes a lock on the target directory, so two cargo jobs launched in
@@ -192,12 +221,10 @@ adding `#[allow]` to silence clippy all ship the defect with the alarm switched
 off. If the check itself is wrong, that is a spec change — say so in
 [`SPEC.md`](SPEC.md), in its own commit.
 
-**A step's glob must name every input its tests read.** `test`, `microlith`,
-`microlith-check` and `coverage` all list `SPEC.md` and `.spec-records`
-alongside `**/*.rs`, because `tests/dogfood.rs` reads them. Before that, a
-spec-only commit skipped the entire suite — including the assertions whose whole
-subject is `SPEC.md`. Four such commits landed before a hand-run
-`hk check --all` caught a breach the hook had never looked for.
+**A step's glob must name every input its tests read**, not just the language it
+is written in. `tests/dogfood.rs` reads `SPEC.md` and `.spec-records`, so every
+step that runs it lists them — see *What runs on which files* above for what
+happened before they did.
 
 ## Known gaps
 
