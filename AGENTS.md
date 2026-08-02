@@ -100,7 +100,8 @@ and `tests/dogfood.rs` fails if the slack erodes.
 
 ## Cross-project references
 
-Both this repo and `itok`, its first consumer, are public. Naming the other
+`itok` is this crate's first consumer, and the two are released together —
+every measurement in `SPEC.md` was taken against it. Naming the other
 is fine — but always **qualified** (`itok's V82`, never a bare `V82`, which
 reads as ours) and always **see-also**: every rule here carries its own
 evidence, so nobody has to fetch another repo to understand it (V19).

@@ -2,7 +2,7 @@
 
 Self-contained spec. `microlith` owns the cavekit SPEC format and the CPU operations over it. It exists because that format had TWO hand-maintained implementations and no home: a checker in a host workspace that does not travel, and a ported copy in a consumer's test suite. They disagreed, both gates stayed green, and 88 tasks belonged to no milestone before anything noticed. One implementation, or the rule is decoration.
 
-Lineage: the format is cavekit's, and every measurement below was taken in `itok`, the first consumer, which is public alongside this repo. A SEE-ALSO, ⊥ load-bearing (V19).
+Lineage: the format is cavekit's, and every measurement below was taken in `itok`, the first consumer, RELEASED alongside this repo. A SEE-ALSO, ⊥ load-bearing (V19).
 
 ## §G GOAL
 
