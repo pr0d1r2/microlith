@@ -1,9 +1,9 @@
 # microlith (mth)
 
 [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
 [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![edition 2021](https://img.shields.io/badge/edition-2021-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
