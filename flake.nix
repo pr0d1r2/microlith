@@ -173,6 +173,15 @@
             # the advisories question this already answers; three tools for
             # one question is the shape V7 exists to prevent.
             pkgs.cargo-deny
+            # The VERSION LADDER, mechanically. V30 says which rung means
+            # what and V34 splits even from odd, but until now the only
+            # thing standing between a breaking change and a minor bump was
+            # somebody remembering. This diffs the pub API (V32) against the
+            # last published release and names what broke.
+            #
+            # It cannot run before there IS a published release, and it says
+            # so rather than passing quietly -- see the step in hk.pkl.
+            pkgs.cargo-semver-checks
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
