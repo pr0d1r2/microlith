@@ -3,6 +3,8 @@
 //! a process -- and so a consumer can call the same code instead of
 //! re-porting it (V7). `main` does only the I/O the core avoids.
 
+mod docs;
+
 use cavespec::check::{parse_records, Record};
 use cavespec::render;
 use cavespec::violation::Violation;
@@ -33,6 +35,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "derive" => reporting(rest, derive_report(rest)),
         "anchors" => reporting(rest, anchors_report(rest)),
         "migrate" => migrate(rest),
+        "docs" => Output::ok(docs::markdown()),
         other => unknown(other),
     }
 }
@@ -66,73 +69,15 @@ fn derive_report(rest: &[String]) -> fn(&str) -> String {
     }
 }
 
-/// The usage text.
+/// The usage text, rendered from the ONE command registry (V33).
 ///
-/// A const so the string literal is not counted as function length -- that
-/// limit exists to bound BRANCHING, and prose has none.
-///
-/// A RAW string, laid out exactly as it prints. The previous version was
-/// assembled from continuations, which meant the source gave no clue what
-/// the output looked like and the wrapping could only be checked by running
-/// it. Help text is the one output every user sees first; it should be
-/// readable in the file that defines it.
-///
-/// Blank line between commands, and prose wrapped near 72 columns so it
-/// stays readable in a narrow terminal rather than running to 200.
-const USAGE: &str = r"cavespec -- the cavekit SPEC format, enforced
-
-usage: cavespec <command> [args]
-
-commands:
-  fmt [--check] [--verbose] [<path>]
-      One line per statement: joins hard wraps, enforces the line
-      cap. Rewrites the file; `--check` reports drift and exits 1
-      instead. The transform is proven whitespace-only before any
-      write. `--verbose` confirms what was examined, with the
-      longest line against the cap.
-
-  check [--records <file>] [--format human|json] [--verbose] [<path>]
-      The structural rules: sections present and ordered, ids
-      unique, citations resolve, rows sorted, every task in exactly
-      one milestone, every status one of . ~ x. Each violation
-      carries a line and a ranked fix, marked mechanical (safe to
-      apply) or judgment (needs a human). `--records` adds the
-      rejected-option check, whose baseline the caller owns because
-      survival is a claim about edits rather than about the file.
-      `--verbose` confirms what was examined, and says when the
-      records check did not run.
-
-  migrate [--check] [--verbose] [<path>]
-      Section headers to canonical 4.1.0. A case or punctuation
-      difference is rewritten silently; a label carrying real text
-      is rewritten with the original kept beneath it, so nothing is
-      discarded. Every alphanumeric run of the original is proven
-      to survive before any write. A letter used for a DIFFERENT
-      concept is never touched -- annotating one keeps the
-      characters and inverts the meaning -- so those are reported
-      and exit 1. `--check` reports without writing.
-
-  derive [--verbose] [<path>]
-      Sizes, the citation graph, and invariants cited by nothing.
-      Report-only: exits 0 even with findings, because an orphan is
-      a question for a reader, not a build failure. `--verbose`
-      adds every statement's size, biggest first: what to cut.
-
-  anchors [--verbose] [<path>]
-      The section address of every item, with the id it resolves to
-      and whether the two have drifted apart. Report-only.
-      `--verbose` prints each item in full, not a 60-char gist.
-
-<path> defaults to SPEC.md, the one file FORMAT.md says every
-cavekit command reads. Run from a project root and omit it.
-
-built in this binary: fmt, check, migrate, derive, anchors
-
-exit: 0 ok | 1 drift or violation | 2 usage
-";
-
+/// It used to be a raw string laid out exactly as it printed, which read
+/// well and rotted anyway: the README carried a second copy by hand, and
+/// both drifted -- `migrate` was missing from one and `derive`'s
+/// duplication report from the other. A registry makes a new verb a
+/// one-place edit and `docs.rs`'s freeze makes staleness red.
 fn usage() -> String {
-    USAGE.to_owned()
+    docs::usage()
 }
 
 /// `fmt [--check] <path>`. The check mode never writes, so it is safe in a
@@ -502,13 +447,41 @@ mod tests {
         assert_eq!(run(&args(&["derive"])).code, 0);
     }
 
-    /// §I's four verbs are all built now, and the usage says so without a
-    /// "not yet" list to keep in sync with reality.
+    /// §I's verbs are all built now, and the usage says so without a "not
+    /// yet" list to keep in sync with reality.
     #[test]
     fn usage_lists_every_built_verb() {
         let u = usage();
-        assert!(u.contains("fmt, check, migrate, derive, anchors"), "{u}");
+        let built = docs::names().join(", ");
+        assert!(u.contains(&format!("built in this binary: {built}")), "{u}");
         assert!(!u.contains("not yet built"), "{u}");
+    }
+
+    /// Every verb the registry documents is a verb `dispatch` answers to.
+    /// A row for a command that does not exist would document a lie, and
+    /// `--help` is where a reader would find it.
+    #[test]
+    fn every_documented_verb_dispatches() {
+        for name in docs::names() {
+            let o = dispatch(name, &args(&["no/such/file"]));
+            assert!(
+                !o.err.contains("unknown command"),
+                "documented but not dispatched: {name}"
+            );
+        }
+    }
+
+    /// `docs` is report-only (V10): it prints the reference to stdout and
+    /// leaves the README alone. The redirect is the user's to type.
+    #[test]
+    fn docs_prints_the_reference_and_writes_nothing() {
+        let readme =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md");
+        let before = std::fs::read_to_string(&readme).unwrap_or_default();
+        let o = run(&args(&["docs"]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.starts_with("## Commands"), "{}", o.out);
+        assert_eq!(std::fs::read_to_string(&readme).ok(), Some(before));
     }
 
     /// `migrate` writes once, then is a no-op -- V2, at the process level.

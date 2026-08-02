@@ -16,19 +16,9 @@ cargo install cavespec
 
 ## Use
 
-```sh
-cavespec fmt --check      # gate: report drift, exit 1, never write
-cavespec fmt              # rewrite: one line per statement
-cavespec check            # gate: the structural rules
-cavespec derive           # report: sizes, citations, orphans
-cavespec anchors          # report: the section address of every item
-cavespec migrate --check  # report which headers and rows would convert
-cavespec migrate          # rewrite: canonical 4.1.0 headers, dialects converted
-```
+Every verb, its synopsis and its exit codes are in [Commands](#commands) below -- generated from the binary, so the list cannot go stale. What follows is why each one exists.
 
 The path defaults to `SPEC.md` -- the one file [FORMAT.md](FORMAT.md) says every command reads -- so run from a project root and omit it. Pass a path for anything else.
-
-Exit codes are the same everywhere: `0` clean, `1` a violation the command gates on, `2` a usage error.
 
 Silence is success. Every command is quiet when there is nothing to report; `--verbose` opts out of that. What it prints differs by command: `fmt` and `check` are mute when clean, so it confirms what was examined; `derive` and `anchors` already speak, so it deepens -- per-statement sizes biggest first, and full text instead of a truncated gist.
 
@@ -64,6 +54,70 @@ A **mechanical** direction is deterministic and reversible, so an agent may appl
 These answer questions rather than passing judgement, so they **exit 0 even with findings**. An invariant nothing cites might be a dead rule or a missing citation, and only a reader can say which; a gate would answer by fiat.
 
 `derive` reports statement sizes, how often each invariant is cited, and which are cited by nothing. `anchors` lists the `§S.n` address of every item alongside the id it currently resolves to -- addresses are ordinal, so retiring an id shifts every address below it, and printing both makes that visible instead of surprising.
+
+<!-- BEGIN cavespec docs -->
+## Commands
+
+Every verb, its synopsis and what it does. Regenerate with `cavespec docs`.
+
+### `fmt`
+
+```text
+fmt [--check] [--verbose] [<path>]
+```
+
+One line per statement: joins hard wraps and enforces the line cap. Rewrites the file; `--check` reports drift and exits 1 instead. The transform is proven whitespace-only before any write. `--verbose` confirms what was examined, with the longest line against the cap.
+
+### `check`
+
+```text
+check [--records <file>] [--format human|json] [--verbose] [<path>]
+```
+
+The structural rules: sections present and ordered, ids unique, citations resolve, rows sorted, every task in exactly one milestone, every status one of `.` `~` `x`. Each violation carries a line and a ranked fix, marked mechanical (safe to apply unattended) or judgment (needs a human). `--records` adds the rejected-option check, whose baseline the caller owns because survival is a claim about edits rather than about the file. `--verbose` confirms what was examined, and says when the records check did not run.
+
+### `migrate`
+
+```text
+migrate [--check] [--verbose] [<path>]
+```
+
+Section headers to canonical 4.1.0. A case or punctuation difference is rewritten silently; a label carrying real text is rewritten with the original kept beneath it, so nothing is discarded. Every alphanumeric run of the original is proven to survive before any write. A letter used for a DIFFERENT concept is never touched -- annotating one keeps the characters and inverts the meaning -- so those are reported and exit 1. `--check` reports without writing.
+
+### `derive`
+
+```text
+derive [--verbose] [<path>]
+```
+
+Sizes, the citation graph, invariants cited by nothing, and statements said twice. Report-only: exits 0 even with findings, because an orphan is a question for a reader, not a build failure. `--verbose` adds every statement's size, biggest first: what to cut.
+
+### `anchors`
+
+```text
+anchors [--verbose] [<path>]
+```
+
+The section address of every item, with the id it resolves to and whether the two have drifted apart. Report-only. `--verbose` prints each item in full, not a 60-char gist.
+
+### `docs`
+
+```text
+docs
+```
+
+Print this command reference as markdown -- the source for README's generated block, kept in sync by a test. Report-only: it writes to stdout, never to the README.
+
+## Exit codes
+
+| code | meaning |
+|------|---------|
+| `0` | clean |
+| `1` | drift, or a violation the command gates on |
+| `2` | usage error |
+<!-- END cavespec docs -->
+
+The command reference above is **generated**: `cavespec docs` prints it, and a test fails if this block drifts from the code. Edit the registry in `src/docs.rs`, never the block by hand.
 
 ## Use it as a library
 
