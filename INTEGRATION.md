@@ -236,7 +236,6 @@ failure as a gap you cannot.
 | `ci.yml` has never actually run — there is no GitHub remote yet | resolved by publishing |
 | `aarch64-linux` is built by the flake but has no CI runner | T26 |
 | build caching (nix store + cargo target) | T26 |
-| actions pinned to SHAs rather than tags | T26 |
 | release automation and publish | T8 |
 | coverage badge is a static number, not a service | T26 |
 

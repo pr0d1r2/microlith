@@ -11,7 +11,6 @@
 # PENDING -- listed rather than silently absent, because a gap you can read
 # is not the same failure as a gap you cannot:
 #   * build caching (nix store + cargo target)
-#   * actions pinned to SHAs rather than tags
 #   * release automation and publish            -- T8
 #
 # The matrix covers TWO of the three systems flake.nix declares:
@@ -42,8 +41,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
+      # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
+      # the action can move `v4` to different code, and every workflow that
+      # trusts the tag runs it on the next push. The tag stays in the
+      # comment because a SHA alone tells a reader nothing about what
+      # version they are on, or whether it is behind.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
 
       # --check, because `hk check` defaults to running FIX commands; CI
       # must report, never rewrite. --all, because CI has no staged set.
