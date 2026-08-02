@@ -155,6 +155,49 @@ local fast = new Mapping<String, Step> {
       cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail -- this crate ships zero, and that is what makes its supply chain claims true. See deny.toml.' >&2; exit 1; }
       """
   }
+  // WHAT THE TARBALL SHIPS, checked rather than described. Publishing does
+  // not upload the repo: it uploads a `.crate` whose file set is DERIVED --
+  // git-tracked, minus `exclude`. That is a SECOND file set, and until now
+  // nothing here examined it. The claim about it lived in a Cargo.toml
+  // comment, which is a rule with no runner (V17).
+  //
+  // The failure it catches is invisible locally BY CONSTRUCTION. Drop
+  // `.spec-records` from the package and the repo's own suite stays green --
+  // the repo still has the file. MEASURED on the real tarball: 184 of 184
+  // pass unpacked; delete that one file and `cli::tests::check_says_what_it_
+  // examined` panics at src/cli.rs:642. The first person to see it would be
+  // a consumer, and crates.io is IMMUTABLE, so it costs a version number.
+  //
+  // LIST ONLY, deliberately. `cargo package` also VERIFY-BUILDS the unpacked
+  // tarball, which catches more -- a dropped module, an unresolvable path
+  // dep -- but from a COLD target dir, on every commit. `--list` is metadata:
+  // 21ms. It does not run the tarball's tests either way, so the wider net is
+  // `cargo package` + unpack + `cargo test`, which is T8's job ONCE at
+  // release, not this hook's job every commit.
+  //
+  // The required paths are read from `package.metadata.microlith`, ⊥ listed
+  // here: this step and the `exclude` it guards are two halves of ONE
+  // decision, and a second copy is the defect this crate exists to prevent
+  // (V7). Glob is `**/*` for the same reason as `links` -- DELETING a
+  // required file must trip this, and a deleted file is not in `{{files}}`.
+  //
+  // No backticks in the failure message: it is inside a DOUBLE-quoted echo,
+  // so it interpolates `$missing` -- and a backtick there is command
+  // substitution. The first draft ran `must-package` as a command and
+  // dropped both words from the text it was trying to print. This comment
+  // lives OUT here for the same class of reason: `//` inside the script
+  // block is a PATH, not a comment, and cost one gate run at exit 126.
+  ["package"] {
+    glob = List("**/*")
+    check = """
+      list=$(cargo package --list --allow-dirty 2>/dev/null) || { echo 'hk: `cargo package --list` failed -- the manifest cannot produce a tarball at all. Fix Cargo.toml before worrying about its contents.' >&2; exit 1; }
+      missing=""
+      for p in $(taplo get -f Cargo.toml 'package.metadata.microlith.must-package[*]'); do
+        printf '%s\\n' "$list" | grep -qxF "$p" || missing="$missing $p"
+      done
+      [ -z "$missing" ] || { echo "hk: the published .crate would ship WITHOUT:$missing -- and the repo's own tests would stay GREEN, because the repo still has them. Either fix the exclude list in Cargo.toml, or drop the path from must-package and say why it is no longer needed." >&2; exit 1; }
+      """
+  }
   // A leaked token in git history is IRREVERSIBLE -- the same property that
   // made removing one string from this repo's history a two-pass rewrite.
   // Before a repo goes public is the last moment that is cheap.

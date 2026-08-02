@@ -42,15 +42,9 @@ categories = ["command-line-utilities", "development-tools"]
 # anything inside the git repo. A `.crate` is source a consumer builds, not
 # a clone of how it is developed.
 #
-# What deliberately STAYS, because excluding it would break something:
-#   FORMAT.md       cavekit's format, VENDORED VERBATIM. §V is what this
-#                   tool enforces; this ships so a reader can see the
-#                   format the rules are written against
-#   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
-#   .spec-records   the unpacked crate fails rather than dogfooding
-#   .context-limits the ceiling and the reasoning behind three raises
-#   clippy.toml     the code limits this source was written against, so it
-#   rustfmt.toml    lints and formats identically once unpacked
+# What deliberately STAYS is NOT listed here -- it is `must-package` below,
+# where a gate step can read it. This list and that one are the two halves of
+# one decision, and only one of them can be checked.
 exclude = [
   ".envrc",
   ".github/",
@@ -59,6 +53,38 @@ exclude = [
   "flake.lock",
   "hk.pkl",
   "pkl/",
+]
+
+# What a `.crate` MUST carry, checked rather than described. Cargo ignores
+# `package.metadata`, so this is a declaration for our own gate: the
+# `package` step asserts every path here appears in `cargo package --list`.
+#
+# It exists because publishing does not ship the REPO, it ships a tarball
+# whose file set is DERIVED -- git-tracked, minus `exclude`. That is a second
+# file set nothing else in this repo examines, and these paths are exactly
+# the ones that look like dev clutter while the test suite depends on them.
+#
+# MEASURED: unpack the real tarball and `cargo test` passes, 184 of 184.
+# Delete `.spec-records` from it and `cli::tests::check_says_what_it_examined`
+# panics at src/cli.rs:642 -- while the repo's own suite stays GREEN, because
+# the repo still has the file. Nobody would find that before a consumer did.
+#
+#   FORMAT.md       cavekit's format, VENDORED VERBATIM. §V is what this
+#                   tool enforces; this ships so a reader can see the format
+#                   the rules are written against
+#   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
+#   .spec-records   the unpacked crate fails rather than dogfooding
+#   .context-limits the ceiling and the reasoning behind eleven raises
+#   clippy.toml     the code limits this source was written against, so it
+#   rustfmt.toml    lints and formats identically once unpacked
+[package.metadata.microlith]
+must-package = [
+  "FORMAT.md",
+  "SPEC.md",
+  ".spec-records",
+  ".context-limits",
+  "clippy.toml",
+  "rustfmt.toml",
 ]
 
 [[bin]]
