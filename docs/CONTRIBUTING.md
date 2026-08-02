@@ -97,7 +97,7 @@ directly.
 5. One topic per PR. Two unrelated fixes are two pull requests.
 
 CI is not a second opinion about correctness — it runs the identical definition
-from [`hk.pkl`](hk.pkl). What review adds is a reader. The gate catches what is
+from [`hk.pkl`](../hk.pkl). What review adds is a reader. The gate catches what is
 mechanically wrong; a person catches what is merely a bad idea.
 
 ## Reporting a bug
@@ -108,14 +108,14 @@ plenty — the spec row is our job.
 
 ## Going deeper
 
-[`INTEGRATION.md`](INTEGRATION.md) is the guardrails in full: what runs at
+[`INTEGRATION.md`](../INTEGRATION.md) is the guardrails in full: what runs at
 commit, at push and on CI, why the steps are chained the way they are, and how to
-reproduce any verdict with plain cargo. [`AGENTS.md`](AGENTS.md) is the working
+reproduce any verdict with plain cargo. [`AGENTS.md`](../AGENTS.md) is the working
 guide — how to add a check, the size ceiling, and what deliberately does not
-belong in this crate. [`FORMAT.md`](FORMAT.md) is the cavekit format this tool
+belong in this crate. [`FORMAT.md`](../FORMAT.md) is the cavekit format this tool
 reads, vendored verbatim.
 
 ## License
 
 By contributing you agree that your work is licensed under the
-[MIT License](LICENSE), the same terms covering the rest of the project.
+[MIT License](../LICENSE), the same terms covering the rest of the project.

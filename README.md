@@ -33,7 +33,7 @@
 >
 > **The guardrails are git hooks that also run on CI.** Entering the dev shell (`nix develop`, or `direnv allow`) installs `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk) against one definition of the gate in [`hk.pkl`](hk.pkl). Pre-commit takes the fast set — format, clippy, tests, and the tool checking its own spec. Pre-push adds the expensive axes: doctests, rustdoc, and `cargo llvm-cov` against a **94% line-coverage floor** — a ratchet, not a target; at `0.4.0` the suite sits at 98.52% lines over 176 tests. [`ci.yml`](.github/workflows/ci.yml) calls that same definition, so a laptop and a runner cannot disagree. [`INTEGRATION.md`](INTEGRATION.md) has the full flow.
 >
-> Deeper: [`AGENTS.md`](AGENTS.md) is the working guide · [`CONTRIBUTING.md`](CONTRIBUTING.md) is the loop · [`SPEC.md`](SPEC.md) is what must hold and what remains · [`FORMAT.md`](FORMAT.md) is the format itself.
+> Deeper: [`AGENTS.md`](AGENTS.md) is the working guide · [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is the loop · [`SPEC.md`](SPEC.md) is what must hold and what remains · [`FORMAT.md`](FORMAT.md) is the format itself.
 
 Mechanical operations on a [caveman](https://github.com/JuliusBrussee/caveman) [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
@@ -222,10 +222,10 @@ The theme is honest, too. The notation is [caveman](https://github.com/JuliusBru
 
 ## Contributing
 
-The spec changes first, then the code -- [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the loop and how to get set up. [`INTEGRATION.md`](INTEGRATION.md) is the guardrails: what runs at commit, at push and on CI, and why in that order. [`AGENTS.md`](AGENTS.md) is the deeper working guide, for humans and agents alike.
+The spec changes first, then the code -- [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) explains the loop and how to get set up. [`INTEGRATION.md`](INTEGRATION.md) is the guardrails: what runs at commit, at push and on CI, and why in that order. [`AGENTS.md`](AGENTS.md) is the deeper working guide, for humans and agents alike.
 
 ## License
 
 [MIT](LICENSE).
 
-[`FORMAT.md`](FORMAT.md) is vendored from [cavekit](https://github.com/JuliusBrussee/cavekit) and carries its own MIT licence, reproduced in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) along with trademark acknowledgements. There are no runtime dependencies, so that file is the whole of the third-party surface.
+[`FORMAT.md`](FORMAT.md) is vendored from [cavekit](https://github.com/JuliusBrussee/cavekit) and carries its own MIT licence, reproduced in [`THIRD-PARTY-NOTICES.md`](docs/THIRD-PARTY-NOTICES.md) along with trademark acknowledgements. There are no runtime dependencies, so that file is the whole of the third-party surface.

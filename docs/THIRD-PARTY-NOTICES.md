@@ -5,7 +5,7 @@ file, plus the trademark acknowledgements a public project should make.
 
 ## FORMAT.md — vendored from cavekit
 
-[`FORMAT.md`](FORMAT.md) is not microlith's work. It is the cavekit `SPEC.md`
+[`FORMAT.md`](../FORMAT.md) is not microlith's work. It is the cavekit `SPEC.md`
 format specification, version 4.1.0, vendored here **byte-for-byte** so that a
 tool citing the format ships the format it cites. It is not forked, not
 generated, and not edited — any change to it is a re-sync from upstream, never a
@@ -15,7 +15,7 @@ local patch.
 - Copyright (c) 2026 Julius Brussee
 - Licensed under the MIT License, reproduced in full below
 
-What microlith *enforces* lives in its own [`SPEC.md`](SPEC.md) under §V and is
+What microlith *enforces* lives in its own [`SPEC.md`](../SPEC.md) under §V and is
 a superset of the vendored document. The format is an input, not the identity.
 
 ### MIT License — cavekit
@@ -58,4 +58,4 @@ Nominative use only; no affiliation or endorsement is implied.
 ## microlith itself
 
 Everything else in this repository is licensed under the MIT License — see
-[`LICENSE`](LICENSE).
+[`LICENSE`](../LICENSE).

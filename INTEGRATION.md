@@ -179,7 +179,7 @@ one definition      a rule lives HERE, once, called by consumers (V7)
 never bypass        a check that is wrong is a SPEC change, ⊥ a --no-verify
 ```
 
-Read [`SPEC.md`](SPEC.md) for the full set. [`CONTRIBUTING.md`](CONTRIBUTING.md)
+Read [`SPEC.md`](SPEC.md) for the full set. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md)
 walks the loop for a first-time change.
 
 ## Getting the hooks
@@ -250,5 +250,5 @@ and a linter with nothing to lint is the same shape as a rule with no runner.
 
 [`hk.pkl`](hk.pkl) is the definition and is heavily commented — every step says
 why it exists. [`AGENTS.md`](AGENTS.md) is the working guide,
-[`CONTRIBUTING.md`](CONTRIBUTING.md) the arrival path, and [`SPEC.md`](SPEC.md)
+[`CONTRIBUTING.md`](docs/CONTRIBUTING.md) the arrival path, and [`SPEC.md`](SPEC.md)
 holds the invariants this all enforces (V17, V22, V23, V24).

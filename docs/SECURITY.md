@@ -17,7 +17,7 @@ advisory go out together, and you are credited unless you ask otherwise.
 ## Supported versions
 
 Pre-1.0, only the latest published version is supported. There are no backports
-to earlier minors — see [`CHANGELOG.md`](CHANGELOG.md) for what each rung means.
+to earlier minors — see [`CHANGELOG.md`](../CHANGELOG.md) for what each rung means.
 
 ## What the attack surface actually is
 
@@ -50,4 +50,4 @@ If you found something in category 1, say so first — those get priority.
 - Findings against `FORMAT.md`. It is [vendored from
   cavekit](THIRD-PARTY-NOTICES.md) verbatim; report those upstream.
 - The absence of a feature, or a rule you disagree with. That is
-  [`SPEC.md`](SPEC.md) and an ordinary issue.
+  [`SPEC.md`](../SPEC.md) and an ordinary issue.
