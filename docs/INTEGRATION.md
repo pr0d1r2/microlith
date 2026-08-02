@@ -19,7 +19,8 @@ none of them redefines anything:
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   fast: 26 steps     all: 30 steps      all: 30 steps
+   27 steps           all: 30 steps      all: 30 steps
+   (fast + 1 local)
 ```
 
 `all` is not a second list. In `hk.pkl` it is literally the fast set plus four:
@@ -42,7 +43,7 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (fast, 26 steps) ---fails---> fix, retry
+  git commit ---> pre-commit  (27 steps)       ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
@@ -64,7 +65,12 @@ is no second copy to forget.
 ```
 
 **pre-commit** runs the fast set with `fix = true`, so formatters rewrite rather
-than merely complain. It also sets `stash = "git"`, which is correctness rather
+than merely complain. It adds one step the other two callers do not have:
+`no-commit-to-branch`, which refuses a commit made on `main`. It cannot live in
+`fast` — `all` is `fast` plus four, and CI runs `hk check --all` **on `main`**
+after every merge, so a branch guard in `fast` would fail every CI run on the
+branch it protects. The rule is about *where you are committing*, and CI never
+commits. It also sets `stash = "git"`, which is correctness rather
 than speed: without it a partially staged file (`git add -p`) would be judged as
 it looks in the worktree, giving you a verdict about code you are not
 committing.
@@ -79,9 +85,23 @@ hook you are tempted to bypass is worse than no hook.
 to prove the package builds reproducibly from the tracked lock alone. It is
 already wired to fire on `pull_request` as well as on pushes to `main`.
 
-**From the first public release, changes reach `main` through pull requests.**
-Nothing lands by pushing to `main` directly. That does not add a check — CI runs
-the same 30 steps your pre-push hook just ran — it adds a *reader*. The gate
+**Changes reach `main` through pull requests, and this is enforced.** GitHub
+refuses a direct push to `main`: a pull request is required, all three `gate`
+matrix jobs are required status checks, the branch must be up to date, force
+pushes and deletions are off, and **admins are not exempt**. Proven, not
+configured and assumed:
+
+```text
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+remote: - Changes must be made through a pull request.
+remote: - 3 of 3 required status checks are expected.
+```
+
+The local `no-commit-to-branch` hook changes no outcome — it moves that refusal
+earlier, to before you have built a commit you then have to move. The server
+rule is the one that defends the branch, because V23 makes every hook here skip
+outside the dev shell. Requiring a PR does not add a check either — CI runs the
+same 30 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
@@ -92,7 +112,7 @@ above. Which **files** they see is separate:
 
 | stage | steps | files examined |
 |---|---|---|
-| `pre-commit` | `fast` — 26 | **staged files only** (hk's default) |
+| `pre-commit` | 27 | **staged files only** (hk's default) |
 | `pre-push` | `all` — 30 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
 | CI | `all` — 30 | **every file in the repo** (`hk check --all`) |
 
@@ -267,7 +287,7 @@ failure as a gap you cannot.
 
 | gap | where it goes |
 |---|---|
-| `ci.yml` has never actually run — there is no GitHub remote yet | resolved by publishing |
+| a green **streak** before `0.7.0` — one green run is not a streak | T26 |
 | build caching (nix store + cargo target) | T26 |
 | release automation and publish | T8 |
 
