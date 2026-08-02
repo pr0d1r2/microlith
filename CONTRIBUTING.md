@@ -67,10 +67,12 @@ a spec change. Say so in `SPEC.md`, in its own commit, with the reasoning.
   be computed locally.
 - **A second definition of something that already exists.** The first question
   about any new rule is *where does it live* — here, once.
-- **Raising a ceiling to turn a gate green.** `.context-limits` caps `SPEC.md`
-  and `format.rs` caps a line; both are set from measurement with real slack, and
-  `tests/dogfood.rs` fails if the slack erodes. Raising either is a reviewed
-  decision with its reason in the commit, not a reflex.
+- **Raising a ceiling to turn a gate green.** `format.rs` caps a line, set from
+  the measured maximum, and `tests/dogfood.rs` fails if that slack erodes.
+  `.context-limits` declares a size ceiling for `SPEC.md` on top of that.
+  Raising either is a reviewed decision with its reason in the commit, not a
+  reflex — the spec is re-read on every session that touches this repo, so every
+  byte is a recurring cost.
 
 ## Commits
 

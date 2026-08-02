@@ -173,6 +173,18 @@ All six commands are built and gate this repo's own spec.
 
 `SPEC.md` records what remains, what was deliberately dropped, and every bug found so far with the rule that now catches it.
 
+## The name
+
+A [microlith](https://en.wikipedia.org/wiki/Microlith) is a small stone blade -- rarely more than a few centimetres -- knapped in the Mesolithic. Three things about it are the whole reason for the name.
+
+**It was never used alone.** Microliths were hafted in rows into arrow shafts, spear tips and sickles, several to a tool. Each was one part of a job that no single piece could do by itself. `mth` is not the thing that develops your software; it is one small hard edge that other tools get assembled around. It does the mechanical operations on `SPEC.md` and nothing else -- no inference, no network, no judgement -- so an agent, a git hook, a CI job or a person can haft it into whatever they are actually building. The library exists for exactly that reason: a consumer calls the rule instead of carrying their own copy of it.
+
+**It was basic, and powerful, and took almost no training.** That is the part worth stealing. Microlithic technology spread because a standard small blade did not need a master knapper -- ordinary people could make them, use them, and repair a tool by replacing one blade rather than remaking the whole thing. So: six verbs, no configuration file, no flags you must learn before the tool is useful, and silence when there is nothing to report. `mth fmt` and `mth check` are the entire learning curve. Power here means the guarantees underneath -- lossless, idempotent, deterministic -- not surface area you have to study.
+
+**It was standardised.** Interchangeable by design, which is what made replacement cheap. Same bet here: every rule is a pure function over `&str` with one definition, so there is one implementation to agree with rather than several to reconcile.
+
+The theme is honest, too. The notation is [caveman](https://github.com/JuliusBrussee/caveman), the toolkit is [cavekit](https://github.com/JuliusBrussee/cavekit), and a microlith is the thing you would actually be holding.
+
 ## Contributing
 
 The spec changes first, then the code -- [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the loop and how to get set up. [`AGENTS.md`](AGENTS.md) is the deeper working guide, for humans and agents alike.
