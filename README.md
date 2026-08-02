@@ -9,7 +9,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 98.56%](https://img.shields.io/badge/coverage-98.56%25-brightgreen)](hk.pkl)
+[![coverage 98.52%](https://img.shields.io/badge/coverage-98.52%25-brightgreen)](hk.pkl)
 [![floor 94%](https://img.shields.io/badge/floor-%E2%89%A594%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -26,7 +26,7 @@
 >
 > **The method is spec-driven development.** [`SPEC.md`](SPEC.md) is the law rather than a description written afterwards: it holds the invariants that must stay true, the tasks that remain, and a record of every bug found so far paired with the rule that now catches it. A rule and its checker land in the *same commit*, because a rule with no runner gates nothing. Every guard is proven by planting the violation it exists to catch, plus a companion proving it still accepts every real shape.
 >
-> **The guardrails are git hooks that also run on CI.** Entering the dev shell (`nix develop`, or `direnv allow`) installs `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk) against one definition of the gate in [`hk.pkl`](hk.pkl). Pre-commit takes the fast set — format, clippy, tests, and the tool checking its own spec. Pre-push adds the expensive axes: doctests, rustdoc, and `cargo llvm-cov` against a **94% line-coverage floor** — a ratchet, not a target; at `0.4.0` the suite sits at 98.56% lines over 176 tests. [`ci.yml`](.github/workflows/ci.yml) calls that same definition, so a laptop and a runner cannot disagree. [`INTEGRATION.md`](INTEGRATION.md) has the full flow.
+> **The guardrails are git hooks that also run on CI.** Entering the dev shell (`nix develop`, or `direnv allow`) installs `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk) against one definition of the gate in [`hk.pkl`](hk.pkl). Pre-commit takes the fast set — format, clippy, tests, and the tool checking its own spec. Pre-push adds the expensive axes: doctests, rustdoc, and `cargo llvm-cov` against a **94% line-coverage floor** — a ratchet, not a target; at `0.4.0` the suite sits at 98.52% lines over 176 tests. [`ci.yml`](.github/workflows/ci.yml) calls that same definition, so a laptop and a runner cannot disagree. [`INTEGRATION.md`](INTEGRATION.md) has the full flow.
 >
 > Deeper: [`AGENTS.md`](AGENTS.md) is the working guide · [`CONTRIBUTING.md`](CONTRIBUTING.md) is the loop · [`SPEC.md`](SPEC.md) is what must hold and what remains · [`FORMAT.md`](FORMAT.md) is the format itself.
 
