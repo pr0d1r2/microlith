@@ -165,13 +165,17 @@ for v in &violations {
 
 ## Status
 
-`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder.
+`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
 
 **An even minor is stable; an odd minor is functional but not for production** -- the Linux 2.x and GNOME convention, and the parity describes the *release*, not the work in it. So `0.5` is the first public rung and says so in the number: usable, worth depending on for a trial, deliberately **partial** -- what ships works, and not everything ships yet. `0.6` is where that surface settles and becomes production-ready.
 
-All five commands are built and gate this repo's own spec.
+All six commands are built and gate this repo's own spec.
 
 `SPEC.md` records what remains, what was deliberately dropped, and every bug found so far with the rule that now catches it.
+
+## Contributing
+
+The spec changes first, then the code -- [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the loop and how to get set up. [`AGENTS.md`](AGENTS.md) is the deeper working guide, for humans and agents alike.
 
 ## License
 
