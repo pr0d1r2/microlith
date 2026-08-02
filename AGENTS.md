@@ -11,12 +11,19 @@ allow`, or `nix develop` — installs the `pre-commit` and `pre-push` hooks
 and rewrites them on every entry, so the hook you have is always the one
 `flake.nix` describes.
 
-**The hooks are the gate of record** (V22). `ci.yml` is a second caller of
-that one definition, not the authority: it has never run, because there is
-no GitHub remote and the only remote is a backup mirror with no pipelines.
+**The hooks are the gate of record** (V22), and `ci.yml` calls that same
+definition rather than restating it — so a laptop and a runner cannot
+disagree about what passes. `all` is literally `fast` plus two steps.
+Worth knowing while reading a green local run: CI has still executed zero
+times, because the GitHub remote does not exist yet.
+
 The hook is also where you — or the agent loop — are told what to fix, so
 every step's failure text is written to be acted on rather than merely
 read.
+
+[`INTEGRATION.md`](INTEGRATION.md) has the whole flow: which steps run at
+each stage, which **files** each stage examines, and why the cargo steps
+are chained.
 
 Outside that shell the hooks **skip loudly**: one line on stderr, exit 0
 (V23). A gate exists to stop bad commits, not to stop git. But nothing
