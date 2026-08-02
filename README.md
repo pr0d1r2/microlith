@@ -222,3 +222,5 @@ The spec changes first, then the code -- [`CONTRIBUTING.md`](CONTRIBUTING.md) ex
 ## License
 
 [MIT](LICENSE).
+
+[`FORMAT.md`](FORMAT.md) is vendored from [cavekit](https://github.com/JuliusBrussee/cavekit) and carries its own MIT licence, reproduced in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) along with trademark acknowledgements. There are no runtime dependencies, so that file is the whole of the third-party surface.
