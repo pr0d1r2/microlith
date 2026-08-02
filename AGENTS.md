@@ -80,10 +80,16 @@ Three things, or it is not done:
 
 ## The size ceiling
 
-`.context-limits` caps `SPEC.md`. It is set with real slack and it is not a
-formality: a spec is re-read on every session that touches this repo, so
-every byte is a recurring cost. Raising the ceiling is a reviewed decision
-with its reason in the commit — not a reflex when the gate turns red.
+`.context-limits` caps `SPEC.md` in tokens, and the `context-limits` gate
+step enforces it — estimating with the same crude bytes/4 the ceiling was
+set with, because a better tokenizer would be a different measurement.
+A spec is re-read on every session that touches this repo, so every byte
+is a recurring cost. Raising the ceiling is a reviewed decision with its
+reason recorded in the file itself — not a reflex when the gate turns red.
+
+**It is close.** SPEC.md sits at roughly 18,800 of an 18,800 ceiling, so
+the next addition trips the gate. That is the ceiling working, not
+failing: compact something, or raise it and say why.
 
 Same for the line cap in `format.rs`. It is set from the measured maximum,
 and `tests/dogfood.rs` fails if the slack erodes.
