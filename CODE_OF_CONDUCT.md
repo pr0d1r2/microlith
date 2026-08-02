@@ -23,14 +23,20 @@ whether you are addressing the argument or the human making it.
   evidence. Both are legitimate; relitigating it unchanged is not.
 - Assume good faith in an unclear message before assuming malice.
 
-## Not acceptable
+## Boundaries
 
-- Harassment, insults, or demeaning comments — including about someone's
-  experience level, background, identity, or first language.
-- Sexualised language or imagery, or unwelcome attention of any kind.
-- Publishing anyone's private information without their explicit permission.
-- Sustained disruption: derailing threads, or reopening settled decisions with
-  no new argument until people give up.
+Stated as norms rather than as a catalogue, because the categories cover more
+than any list would and a list invites arguing about its edges:
+
+- Address the work, not the person. Conduct aimed at someone rather than at
+  their argument falls outside these norms, whatever form it takes.
+- Nobody's background, experience level, identity or first language is relevant
+  to whether their point is correct.
+- Personal information stays private unless the person it belongs to shares it.
+- Attention that has been declined is not continued.
+- A settled decision reopens on new evidence, not on repetition.
+
+Where something is unclear, the maintainers decide, and will say why.
 
 ## Scope
 
@@ -42,13 +48,16 @@ representing this project.
 Report to **pr0d1r2@gmail.com**. Reports are handled privately and the reporter
 is not named without their consent.
 
-Responses are proportionate — usually a clarification, sometimes an edit or a
-removal, and for repeated or serious behaviour a block. If you think a call was
-wrong, say so; that is covered by the first section like anything else.
+Responses aim at restoring a workable environment rather than at punishment,
+and scale with what is needed — usually a clarification, sometimes an edit, and
+where participation cannot continue constructively, its withdrawal. If you think
+a call was wrong, say so; that is covered by the first section like anything
+else.
 
 ## Attribution
 
 Adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
-version 2.1, and rewritten in this project's own terms rather than vendored, so
-that the evidence expectation above is part of the document rather than a note
-beside it.
+version 2.1, and rewritten in this project's own terms rather than vendored, for
+two reasons: the evidence expectation above belongs in the document rather than
+in a note beside it, and the boundaries are stated as norms rather than as an
+enumeration of specifics.
