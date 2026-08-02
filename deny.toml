@@ -25,22 +25,19 @@ multiple-versions = "deny"
 # `*` in a version requirement means "whatever ships today".
 wildcards = "deny"
 
-# Permissive-only, and short on purpose. A list is a decision each time it
-# grows: adding an entry means accepting that licence for everything
-# downstream of us, which is a judgement, not a config tweak.
+# EXACTLY what is used, which today is one licence: this crate's own.
 #
-# Only MIT is reachable today -- this crate's own -- so the rest are the
-# terms a future dependency could carry without a second conversation.
+# The first draft pre-allowed the usual permissive set -- Apache-2.0, BSD,
+# ISC, Unicode -- and cargo-deny answered with six `license-not-encountered`
+# warnings. It was right to. Those entries were permission granted in
+# advance for dependencies that do not exist, and a list nobody had to think
+# about is not a policy.
+#
+# Growing this is a JUDGEMENT: an entry accepts that licence for everything
+# downstream of us, forever. Making that a deliberate edit at the moment a
+# dependency actually arrives is the whole value of the file.
 [licenses]
-allow = [
-  "MIT",
-  "Apache-2.0",
-  "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
-  "ISC",
-  "Unicode-3.0",
-]
+allow = ["MIT"]
 # Below this, a licence is "probably fine" rather than known to be. That is
 # not a standard this repo applies to anything else.
 confidence-threshold = 0.93
