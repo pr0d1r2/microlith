@@ -4,17 +4,34 @@ Mechanical operations on a [caveman](https://github.com/JuliusBrussee/caveman) [
 
 ## Why
 
-`SPEC.md` is a single file at the root of a project saying what the software must do, what must stay true, and what is left to build. An AI coding agent reads it before it works and edits it afterwards. [cavekit](https://github.com/JuliusBrussee/cavekit) defines that file's format; [caveman](https://github.com/JuliusBrussee/caveman) is the compressed notation it is written in, trading English for symbols so the same meaning costs fewer tokens.
+Some projects keep a single `SPEC.md` at the root: what the software must do, what must stay true, and what is left to build. The AI coding agent reads it before it works and updates it afterwards, so that file -- not the chat log -- is the durable memory. The practice is called **spec-driven development**.
 
-**The main reason this exists: an agent should not spend tokens on work a CPU does for free.**
+[cavekit](https://github.com/JuliusBrussee/cavekit) defines a format for that file. [caveman](https://github.com/JuliusBrussee/caveman) is the compressed notation it is written in, trading English for symbols so the same meaning costs fewer tokens. A spec in that format looks roughly like this:
 
-Much of what happens to a spec is mechanical. Rewrapping a statement onto one line. Checking that every `V13` a rule cites is actually declared somewhere. Keeping rows in id order. Confirming each task belongs to exactly one milestone. An agent doing that by hand reads the whole file, reasons about it, and writes it back -- tokens spent, latency added, and a judgement call made where no judgement was required. It can also simply be wrong. Every one of those operations is a pure function of the text, so `mth` runs them on the CPU instead: no model, no network, deterministic, free.
+```text
+## §V INVARIANTS
+V1: every write is proven lossless BEFORE it happens.
+V2: formatting twice changes nothing the second time.
+
+## §T TASKS
+| id | scope    | tasks | done-when            |
+|----|----------|-------|----------------------|
+| M1 | the core | T1-T2 | V1 holds under test  |
+T1|x|prove the transform keeps every word|V1
+T2|.|make the formatter idempotent|V2
+```
+
+Statements carry ids (`V1`, `T2`). Rows cite other ids (the trailing `|V1`). Tasks claim a milestone (`M1`) and a status (`x` done, `.` todo). Sections come in a fixed order. None of that is enforced by anything on its own -- it is a convention held up by whoever is editing.
+
+**The main reason this tool exists: an agent should not spend tokens on work a CPU does for free.**
+
+Most of what happens to such a file is mechanical. Joining a statement that got hard-wrapped back onto one line. Checking that a rule citing `V2` really does declare `V2` somewhere. Keeping rows in id order. Confirming every task claims exactly one milestone. An agent doing that by hand reads the whole file, reasons about it, and writes it back -- tokens spent, latency added, and a judgement call invited where none was needed. It can also simply get it wrong. Every one of those operations is a pure function of the text, so `mth` does them on the CPU instead: no model, no network, deterministic, free.
 
 **The second reason: one standard, enforced the same way every time.**
 
-Before this crate the format had **two** hand-maintained implementations and no home. They disagreed with each other, both of their test suites stayed green, and 88 tasks belonged to no milestone at all before anything noticed. A rule each tool interprets for itself is not a rule. One implementation, or the rule is decoration.
+Before this crate the format had **two** hand-maintained implementations and no home. They disagreed with each other, both of their test suites stayed green, and 88 tasks belonged to no milestone at all before anyone noticed. A rule each tool interprets for itself is not a rule. One implementation, or the rule is decoration.
 
-[`FORMAT.md`](FORMAT.md) is cavekit's, vendored here **verbatim** so a tool that cites the format can read it. What microlith *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
+[`FORMAT.md`](FORMAT.md) is cavekit's, vendored here **verbatim** so a tool that cites the format can read it. What microlith *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the proof that no write loses a word, the guarantee that formatting twice changes nothing, the line cap, citations that must resolve, rows that must stay ordered, and a check that a decision you once rejected has not quietly crept back in. None of those have a counterpart upstream. The format is an input, not the identity.
 
 ## Install
 
