@@ -95,6 +95,12 @@ above. Which **files** they see is separate:
 `fast` is a strict subset of `all`, so every step that gated your commit gates
 your push again — over a wider set of files.
 
+`README.md` is in the `coverage` step's glob for the same reason `SPEC.md` is in
+`test`'s: that step reads it. The coverage percentage in the README badge is
+**checked against the measurement that just ran**, so it cannot quietly go stale
+— the same freeze the `mth docs` block gets, rather than a third-party coverage
+service and the account, token and network dependency that would come with it.
+
 hk offers a `--pr` flag, *"check only files changed in the current PR/branch"*,
 and CI deliberately does **not** use it. A changed-files scope cannot see damage
 to files nobody touched: widen a glob, rename a step, let a fixture rot, and
@@ -237,7 +243,6 @@ failure as a gap you cannot.
 | `aarch64-linux` is built by the flake but has no CI runner | T26 |
 | build caching (nix store + cargo target) | T26 |
 | release automation and publish | T8 |
-| coverage badge is a static number, not a service | T26 |
 
 `shellcheck` is **deliberately** absent: there are no shell scripts here yet,
 and a linter with nothing to lint is the same shape as a rule with no runner.
