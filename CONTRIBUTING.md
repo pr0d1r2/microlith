@@ -89,10 +89,12 @@ plenty — the spec row is our job.
 
 ## Going deeper
 
-[`AGENTS.md`](AGENTS.md) is the full working guide, for humans and agents alike:
-the gate's structure, how to add a check, the size ceiling, and what deliberately
-does not belong in this crate. [`FORMAT.md`](FORMAT.md) is the cavekit format
-this tool reads, vendored verbatim.
+[`INTEGRATION.md`](INTEGRATION.md) is the guardrails in full: what runs at
+commit, at push and on CI, why the steps are chained the way they are, and how to
+reproduce any verdict with plain cargo. [`AGENTS.md`](AGENTS.md) is the working
+guide — how to add a check, the size ceiling, and what deliberately does not
+belong in this crate. [`FORMAT.md`](FORMAT.md) is the cavekit format this tool
+reads, vendored verbatim.
 
 ## License
 
