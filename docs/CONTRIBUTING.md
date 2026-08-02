@@ -108,7 +108,7 @@ plenty — the spec row is our job.
 
 ## Going deeper
 
-[`INTEGRATION.md`](../INTEGRATION.md) is the guardrails in full: what runs at
+[`INTEGRATION.md`](INTEGRATION.md) is the guardrails in full: what runs at
 commit, at push and on CI, why the steps are chained the way they are, and how to
 reproduce any verdict with plain cargo. [`AGENTS.md`](../AGENTS.md) is the working
 guide — how to add a check, the size ceiling, and what deliberately does not

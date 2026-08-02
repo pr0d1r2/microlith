@@ -21,7 +21,7 @@ The hook is also where you — or the agent loop — are told what to fix, so
 every step's failure text is written to be acted on rather than merely
 read.
 
-[`INTEGRATION.md`](INTEGRATION.md) has the whole flow: which steps run at
+[`INTEGRATION.md`](docs/INTEGRATION.md) has the whole flow: which steps run at
 each stage, which **files** each stage examines, and why the cargo steps
 are chained.
 

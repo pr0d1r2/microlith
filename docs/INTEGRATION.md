@@ -9,7 +9,7 @@ same definition — not a parallel pipeline that can disagree with your laptop.
 
 ## One definition, three callers
 
-[`hk.pkl`](hk.pkl) defines every check exactly once. Three things call it, and
+[`hk.pkl`](../hk.pkl) defines every check exactly once. Three things call it, and
 none of them redefines anything:
 
 ```text
@@ -179,13 +179,13 @@ one definition      a rule lives HERE, once, called by consumers (V7)
 never bypass        a check that is wrong is a SPEC change, ⊥ a --no-verify
 ```
 
-Read [`SPEC.md`](SPEC.md) for the full set. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md)
+Read [`SPEC.md`](../SPEC.md) for the full set. [`CONTRIBUTING.md`](CONTRIBUTING.md)
 walks the loop for a first-time change.
 
 ## Getting the hooks
 
 Entering the dev shell installs them and rewrites them every time, so the hook
-you have is always the one [`flake.nix`](flake.nix) describes:
+you have is always the one [`flake.nix`](../flake.nix) describes:
 
 ```sh
 nix develop          # or: direnv allow
@@ -225,7 +225,7 @@ hk decides *when* things run. It never hides *what* runs.
 **Never bypass.** `--no-verify`, lowering a threshold, deleting a test, or
 adding `#[allow]` to silence clippy all ship the defect with the alarm switched
 off. If the check itself is wrong, that is a spec change — say so in
-[`SPEC.md`](SPEC.md), in its own commit.
+[`SPEC.md`](../SPEC.md), in its own commit.
 
 **A step's glob must name every input its tests read**, not just the language it
 is written in. `tests/dogfood.rs` reads `SPEC.md` and `.spec-records`, so every
@@ -248,7 +248,7 @@ and a linter with nothing to lint is the same shape as a rule with no runner.
 
 ## Deeper
 
-[`hk.pkl`](hk.pkl) is the definition and is heavily commented — every step says
-why it exists. [`AGENTS.md`](AGENTS.md) is the working guide,
-[`CONTRIBUTING.md`](docs/CONTRIBUTING.md) the arrival path, and [`SPEC.md`](SPEC.md)
+[`hk.pkl`](../hk.pkl) is the definition and is heavily commented — every step says
+why it exists. [`AGENTS.md`](../AGENTS.md) is the working guide,
+[`CONTRIBUTING.md`](CONTRIBUTING.md) the arrival path, and [`SPEC.md`](../SPEC.md)
 holds the invariants this all enforces (V17, V22, V23, V24).
