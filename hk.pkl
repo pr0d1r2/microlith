@@ -204,7 +204,7 @@ local fast = new Mapping<String, Step> {
             esac
           done | sort \
         | while read r v o; do
-            echo "[![$v $o](https://img.shields.io/badge/$v-$o-5277C3?logo=$v&logoColor=white)](flake.nix)"
+            echo "[![$v $o](https://img.shields.io/badge/$o-5277C3?logo=$v&logoColor=white)](flake.nix)"
           done)
       { cat <<EOF
       [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
@@ -249,7 +249,7 @@ local fast = new Mapping<String, Step> {
             esac
           done | sort \
         | while read r v o; do
-            echo "[![$v $o](https://img.shields.io/badge/$v-$o-5277C3?logo=$v&logoColor=white)](flake.nix)"
+            echo "[![$v $o](https://img.shields.io/badge/$o-5277C3?logo=$v&logoColor=white)](flake.nix)"
           done)
       { cat <<EOF
       [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
