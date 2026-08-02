@@ -220,4 +220,4 @@ The spec changes first, then the code -- [`CONTRIBUTING.md`](CONTRIBUTING.md) ex
 
 ## License
 
-MIT.
+[MIT](LICENSE).
