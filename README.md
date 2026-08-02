@@ -4,15 +4,17 @@
 [![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
 [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
-![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-blue)
-![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)
-![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)
-![coverage floor 94%](https://img.shields.io/badge/coverage_floor-%E2%89%A594%25-brightgreen)
-[![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
-[![gate: hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
 [![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+
+[![Rust 2021](https://img.shields.io/badge/rust-2021-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
+[![coverage floor](https://img.shields.io/badge/coverage_floor-%E2%89%A594%25-brightgreen)](hk.pkl)
+[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
+
+[![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
+[![nixpkgs 26.11](https://img.shields.io/badge/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
 
 > ### Built by an LLM, deliberately and in the open
 >
