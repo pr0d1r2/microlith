@@ -13,12 +13,11 @@ same definition — not a parallel pipeline that can disagree with your laptop.
 none of them redefines anything:
 
 ```mermaid
-flowchart LR
-    HK["hk.pkl<br/><i>21 steps, defined once</i>"]
-    PC["pre-commit<br/><b>fast</b> · 19 steps"]
-    PP["pre-push<br/><b>all</b> · 21 steps"]
-    CI["ci.yml<br/><b>all</b> · 21 steps"]
-
+graph LR
+    HK["hk.pkl - 21 steps, defined once"]
+    PC["pre-commit - fast, 19 steps"]
+    PP["pre-push - all, 21 steps"]
+    CI["ci.yml - all, 21 steps"]
     HK --> PC
     HK --> PP
     HK --> CI
@@ -39,18 +38,17 @@ is no second copy to forget.
 ## The path a change takes
 
 ```mermaid
-flowchart TD
+graph TD
     E["edit"] --> C["git commit"]
-    C --> PC{"pre-commit<br/>fast set"}
-    PC -->|fails| F["fix and retry<br/><i>formatters already wrote<br/>what they could</i>"]
+    C --> PC{"pre-commit - fast set"}
+    PC -->|fails| F["fix and retry"]
     F --> C
     PC -->|passes| CM["commit lands"]
     CM --> P["git push"]
-    P --> PP{"pre-push<br/>all steps"}
-    PP -->|fails| F2["fix and retry"]
-    F2 --> C
+    P --> PP{"pre-push - all steps"}
+    PP -->|fails| F
     PP -->|passes| R["pushed"]
-    R --> GH{"ci.yml<br/>hk check --all"}
+    R --> GH{"ci.yml - hk check all"}
     GH -->|same steps| M["on main"]
 ```
 
@@ -75,19 +73,18 @@ file lock on build directory"*, which reads as a hang. The chain makes that
 serialization explicit and leaves hk free to run everything else concurrently:
 
 ```mermaid
-flowchart LR
-    subgraph cargo["cargo steps — serialized"]
-        direction LR
-        FMT["fmt"] --> CLIPPY["clippy"] --> TEST["test"] --> DOC["doctest"] --> ML["microlith<br/><i>fmt its own spec</i>"]
-        ML --> MLC["microlith-check<br/><i>check its own spec</i>"]
-        ML --> RD["rustdoc"] --> COV["coverage<br/><i>floor 94%</i>"]
+graph LR
+    subgraph cargo steps serialized by depends
+        FMT["fmt"] --> CLIPPY["clippy"] --> TEST["test"] --> DOC["doctest"]
+        DOC --> ML["microlith - fmt its own spec"]
+        ML --> MLC["microlith-check - check its own spec"]
+        ML --> RD["rustdoc"] --> COV["coverage - floor 94 percent"]
     end
-    subgraph hyg["hygiene — parallel"]
-        direction TB
-        H1["trailing-whitespace · final-newline · line-endings"]
-        H2["no-bom · no-merge-conflict · no-private-key"]
-        H3["no-large-files · no-case-conflict · no-broken-symlinks"]
-        H4["actionlint · typos · taplo · nixfmt"]
+    subgraph hygiene steps run in parallel
+        H1["trailing-whitespace, final-newline, line-endings"]
+        H2["no-bom, no-merge-conflict, no-private-key"]
+        H3["no-large-files, no-case-conflict, no-broken-symlinks"]
+        H4["actionlint, typos, taplo, nixfmt"]
     end
 ```
 
@@ -107,12 +104,12 @@ it**. Four steps list `SPEC.md` and `.spec-records` in their globs, and two of
 them do nothing but check the spec itself.
 
 ```mermaid
-flowchart LR
-    S["SPEC.md<br/><i>the law</i>"] --> R["rule + runner<br/><i>same commit</i>"]
-    R --> P["planted violation<br/><i>proves it rejects</i>"]
-    P --> C["companion<br/><i>proves it accepts</i>"]
+graph LR
+    S["SPEC.md - the law"] --> R["rule plus runner, same commit"]
+    R --> P["planted violation - proves it rejects"]
+    P --> C["companion - proves it accepts"]
     C --> G["gate"]
-    G -->|"dogfood"| S
+    G -->|dogfood| S
 ```
 
 That last edge is the point: `microlith` and `microlith-check` run the binary
