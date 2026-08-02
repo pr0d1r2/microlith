@@ -92,8 +92,11 @@ is the defect microlith exists to prevent, so writing our own would be a
 poor way to ship it. Until then the number is maintained by hand and the
 ceiling is a declaration, not a gate.
 
-Worth knowing while it is unguarded: `SPEC.md` sits at roughly 18,800
-of the 18,800 declared. There is no slack left to spend without a raise.
+Worth knowing while it is unguarded: `SPEC.md` measures **20,733 of 23,200**
+declared — and always quote which estimator you used, because it matters by
+about 9%. `itok check` is pinned to `--bpe` (the o200k tokenizer); plain
+`itok estimate` is bytes/4 and reads ~1,700 lower on this file. A number
+recorded without its estimator was already wrong here once.
 
 Same for the line cap in `format.rs`. It is set from the measured maximum,
 and `tests/dogfood.rs` fails if the slack erodes.

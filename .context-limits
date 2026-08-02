@@ -1,15 +1,58 @@
-# ADJUSTED, ⊥ raised: 18,800 was set with ~12% headroom over a measured
-# 16,734, and the release ladder plus V34, V35, B20, B21 and T7e have spent
-# all of it -- SPEC.md now measures ~18,796 against 18,800. The number is
-# corrected to say that plainly rather than implying room that is gone.
+# RAISED an ELEVENTH time, 18800 -> 23200, and the block below it was WRONG
+# about the number in a way worth reading before the raise itself.
 #
-# NO HEADROOM ADDED HERE, deliberately. A raise is a reviewed decision and
-# this is not one: it is a measurement catching up with reality. The next
-# addition needs a real raise, with its reasoning, in the block style below.
+# THE CEILING WAS COMPARED AGAINST THE WRONG ESTIMATOR. That block says
+# SPEC.md "measures ~18,796 against 18,800" -- four tokens under, no slack
+# left. It was ~18,796 by `itok estimate`, which is BYTES/4. `itok check`,
+# the thing that actually gates this file, is pinned to `--bpe` (o200k) and
+# reports 20,483 for the identical bytes. So the file was ~9% OVER a ceiling
+# a comment described as four tokens under, and had been for some time.
+#
+# THAT is the finding, not the raise. A threshold checked with a different
+# measure than the one that enforces it is green for the wrong reason --
+# the same family as B15, where 16 specs PASSED on a §T the parser could not
+# see. Two things hid it: this rule is UNENFORCED here, so nothing ran the
+# real checker; and a hand-written estimate reads exactly like a measurement
+# once it is in a file. The estimator is now NAMED wherever a number is
+# recorded, because a bare figure here is ambiguous by 9%.
+#
+# THE STANDING PRECONDITION HELD, and found something for the SIXTH straight
+# time, in the same shape: V34 restated V30's ordering argument -- "putting a
+# trusted gate BEFORE a verb that writes a consumer's spec", 8 words, in the
+# rule that exists to defer to V30 on exactly that point. The rule owns the
+# reasoning; the later rule cites it. Cut, -13 tokens.
+#
+# WHAT THE TENTH BLOCK ASKED THE ELEVENTH TO SETTLE, answered: is FORMAT.md's
+# 500-LINE compaction trigger the right one for a spec whose cost is tokens?
+#
+#   NO, and the numbers are not close. SPEC.md is 147 lines -- 29% of the
+#   trigger -- carrying 20,733 tokens. V3 (one statement per line) means a
+#   line count tracks how MANY statements exist, never how BIG they are, and
+#   every raise recorded below came from statements getting DENSER rather
+#   than more numerous. Across eleven raises and a file that has grown 5x,
+#   the 500-line trigger would not have fired ONCE.
+#
+#   It is not ours to change. FORMAT.md is upstream's, vendored VERBATIM
+#   (V8), and forking it to add a token trigger is the precise defect
+#   microlith exists to prevent (V7).
+#
+#   So the honest reading: THIS FILE IS THE TOKEN-SIDE TRIGGER, and it is the
+#   only one this spec will ever hit. That makes the TWELFTH firing a
+#   decision about CONTENT, not about a number -- compact the oldest §B rows
+#   here, deliberately, rather than wait for a line count that is not coming.
+#
+# 23,200 is ~12% over the measured 20,733 (`--bpe`), per V21.
+#
+# WHAT IT BUYS: T8a and T8's tagging clause landed here (+276). What remains
+# specced is T8, T26 and T27 -- status flips and a `1.0` freeze, not new
+# rules -- so this number should outlast the release rather than the day.
 #
 # STILL UNENFORCED. `itok` owns the checker for this file and is published
 # after microlith; this repo will call it rather than grow a second
-# implementation of one rule (V7).
+# implementation of one rule (V7). The 20,483 above was measured by running
+# `itok check` from a sibling checkout BY HAND, which is exactly the
+# remembering that an unenforced rule depends on -- and exactly what let the
+# wrong estimator sit in this file unnoticed.
 #
 # RAISED a TENTH time, 16000 -> 18800, and the ninth's model held -- it was
 # simply SILENT about one category.
@@ -273,4 +316,4 @@
 # landed and did NOT take this over: `mth check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    18800
+SPEC.md    23200
