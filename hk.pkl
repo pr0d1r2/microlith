@@ -163,6 +163,19 @@ local fast = new Mapping<String, Step> {
     check = "typos --force-exclude {{files}}"
     fix = "typos --force-exclude --write-changes {{files}}"
   }
+  // OFFLINE ONLY. `--offline` checks relative paths and skips every http
+  // link, which is the half that breaks when a file moves and the half no
+  // other step can see. External URLs are deliberately NOT checked here:
+  // they need the network the rest of this gate refuses to use, and a 404
+  // on someone else's site is not a reason to reject your commit.
+  ["links"] {
+    glob = List("**/*.md")
+    // Fixtures are INPUTS to tests, not prose: their content is the thing
+    // under test, and one may yet need a malformed link to exercise a rule.
+    // Same argument that keeps `pkl/` out of every fixer here.
+    exclude = List("tests/constructs/**")
+    check = "lychee --offline --no-progress {{files}} || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }"
+  }
   ["taplo"] {
     glob = List("**/*.toml")
     exclude = List("pkl/**")

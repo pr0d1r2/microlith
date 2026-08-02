@@ -151,6 +151,13 @@
             # this a mistake there is found only by pushing. It arrives now
             # that the workflow really runs, and not before.
             pkgs.actionlint
+            # Relative links break when a file MOVES, and nothing else here
+            # would notice: eleven docs carry 31 of them, and two directory
+            # moves rewrote them in both directions. Run `--offline` so the
+            # gate never reaches the network -- the 37 external URLs are a
+            # different problem with a different failure mode, and someone
+            # else's 404 must not fail your commit.
+            pkgs.lychee
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
