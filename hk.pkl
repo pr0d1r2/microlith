@@ -172,6 +172,102 @@ local fast = new Mapping<String, Step> {
   // The flake decides what every other step runs with, so drift there is
   // drift everywhere. CHECK mode only: this file is hand-commented, and a
   // formatter that rewrites on commit would fight the comments.
+  // README's badge block is GENERATED, like the `mth docs` block above it.
+  // Eleven numbers -- edition, MSRV, dependency count, coverage floor,
+  // coverage, and one badge per OS the flake builds -- each read from the
+  // file that owns it. Hand-maintaining them is eleven chances to be wrong,
+  // and the coverage one already went stale once within hours.
+  //
+  // CHEAP ON PURPOSE, so it can live in `fast` and run on every commit: the
+  // expensive input (coverage) is read from `.coverage`, which the `coverage`
+  // step writes. `depends` orders the two when both are in the set, and is
+  // ignored in `fast` where coverage is absent -- so pre-commit regenerates
+  // from the cache and pre-push checks against a fresh measurement.
+  ["readme-badges"] {
+    glob = List("README.md", ".coverage", "Cargo.toml", "flake.nix", "hk.pkl")
+    depends = List("coverage")
+    check = """
+      mkdir -p target
+      ed=$(sed -n 's/^edition = "\(.*\)"/\1/p' Cargo.toml)
+      msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+      deps=$(awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&NF' Cargo.toml | wc -l | tr -d ' ')
+      floor=$(grep -oE 'fail-under-lines [0-9]+' hk.pkl | head -1 | grep -oE '[0-9]+')
+      cov=$(awk '/^lines /{print $2}' .coverage)
+      R=https://img.shields.io/badge
+      plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
+        | while read t; do echo "${t##*-} ${t%-*}"; done | sort \
+        | awk '{a[$1]=(a[$1]?a[$1]"_%C2%B7_":"") gensub(/_/,"__","g",$2)}
+               END{for(o in a){n=o;l=o; if(o=="darwin"){n="macos";l="apple"}
+                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",n,n,n,a[o],l}}' \
+        | sort | cut -f2-)
+      { cat <<EOF
+      [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
+      [![License: MIT]($R/license-MIT-blue.svg)](LICENSE)
+      [![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
+      [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
+      [![edition $ed]($R/edition-$ed-000000?logo=rust&logoColor=white)](Cargo.toml)
+      [![MSRV $msrv]($R/MSRV-$msrv-000000?logo=rust&logoColor=white)](Cargo.toml)
+      [![dependencies $deps]($R/dependencies-$deps-brightgreen)](Cargo.toml)
+      [![unsafe forbidden]($R/unsafe-forbidden-brightgreen)](Cargo.toml)
+      [![gate hk]($R/gate-hk-6E4AFF)](hk.pkl)
+      [![coverage $cov%]($R/coverage-$cov%25-brightgreen)](hk.pkl)
+      [![floor $floor%]($R/floor-%E2%89%A5$floor%25-brightgreen)](hk.pkl)
+
+      [![nix flake]($R/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
+      [![nixpkgs 26.11]($R/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
+      $plat
+
+      [![built with Claude Code]($R/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+      [![built with Opus 5]($R/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
+      [![built with SDD]($R/built_with-spec--driven_development-D97757)](SPEC.md)
+      EOF
+      } | sed 's/^      //' > target/badges.txt
+      awk '/^<!-- BEGIN badges -->$/{f=1;next} /^<!-- END badges -->$/{f=0} f' README.md > target/badges-current.txt
+      diff -q target/badges-current.txt target/badges.txt >/dev/null || { echo 'hk: README badge block is stale. Run `hk fix` to regenerate it from Cargo.toml, flake.nix, hk.pkl and .coverage.' >&2; diff target/badges-current.txt target/badges.txt >&2; exit 1; }
+      """
+    fix = """
+      mkdir -p target
+      ed=$(sed -n 's/^edition = "\(.*\)"/\1/p' Cargo.toml)
+      msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+      deps=$(awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&NF' Cargo.toml | wc -l | tr -d ' ')
+      floor=$(grep -oE 'fail-under-lines [0-9]+' hk.pkl | head -1 | grep -oE '[0-9]+')
+      cov=$(awk '/^lines /{print $2}' .coverage)
+      R=https://img.shields.io/badge
+      plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
+        | while read t; do echo "${t##*-} ${t%-*}"; done | sort \
+        | awk '{a[$1]=(a[$1]?a[$1]"_%C2%B7_":"") gensub(/_/,"__","g",$2)}
+               END{for(o in a){n=o;l=o; if(o=="darwin"){n="macos";l="apple"}
+                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",n,n,n,a[o],l}}' \
+        | sort | cut -f2-)
+      { cat <<EOF
+      [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
+      [![License: MIT]($R/license-MIT-blue.svg)](LICENSE)
+      [![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
+      [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
+      [![edition $ed]($R/edition-$ed-000000?logo=rust&logoColor=white)](Cargo.toml)
+      [![MSRV $msrv]($R/MSRV-$msrv-000000?logo=rust&logoColor=white)](Cargo.toml)
+      [![dependencies $deps]($R/dependencies-$deps-brightgreen)](Cargo.toml)
+      [![unsafe forbidden]($R/unsafe-forbidden-brightgreen)](Cargo.toml)
+      [![gate hk]($R/gate-hk-6E4AFF)](hk.pkl)
+      [![coverage $cov%]($R/coverage-$cov%25-brightgreen)](hk.pkl)
+      [![floor $floor%]($R/floor-%E2%89%A5$floor%25-brightgreen)](hk.pkl)
+
+      [![nix flake]($R/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
+      [![nixpkgs 26.11]($R/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
+      $plat
+
+      [![built with Claude Code]($R/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+      [![built with Opus 5]($R/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
+      [![built with SDD]($R/built_with-spec--driven_development-D97757)](SPEC.md)
+      EOF
+      } | sed 's/^      //' > target/badges.txt
+      awk 'BEGIN{while((getline l < "target/badges.txt")>0) b=b l "\n"}
+           /^<!-- BEGIN badges -->$/{print; printf "%s", b; skip=1; next}
+           /^<!-- END badges -->$/{skip=0}
+           !skip' README.md > target/README.new
+      mv target/README.new README.md
+      """
+  }
   ["nixfmt"] {
     glob = List("**/*.nix")
     check = "nixfmt --check {{files}}"

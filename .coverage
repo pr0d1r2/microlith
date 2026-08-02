@@ -1,0 +1,17 @@
+# Cached line coverage, written by hk's `coverage` step in fix mode.
+#
+# WHY A CACHE: measuring costs a full instrumented test run, which is why
+# coverage lives in the pre-push set and not in pre-commit. The README badge
+# has to be regenerated on every commit, though, so it reads this instead of
+# measuring. `readme-badges` is cheap because this file exists.
+#
+# key is a git SHA over the files that can move coverage -- every tracked
+# `*.rs` plus SPEC.md and .spec-records, which tests/dogfood.rs reads:
+#
+#   git ls-files -s -- '*.rs' SPEC.md .spec-records | git hash-object --stdin
+#
+# If the key still matches, the number below is current by construction and
+# no measurement is needed. If it does not, the cache is stale and pre-push
+# says so rather than trusting it.
+key 7e15fc136efce4dd1df6c18de7f7b46803ab33ec
+lines 98.52
