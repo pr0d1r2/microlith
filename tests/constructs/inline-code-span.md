@@ -7,4 +7,4 @@ V1: **a rule.** a literal `V99` in backticks is NOT a citation -- backticks are 
 | id | scope | tasks | done-when |
 |----|-------|-------|-----------|
 | M1 | first | T1 | done |
-T1|x|run `cavespec check --records .spec-records`|V1
+T1|x|run `mth check --records .spec-records`|V1

@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     /// V25, planted: a status outside the set. This is the rule the host
-    /// checker had and cavespec did not (B4), so it gets the same treatment
+    /// checker had and microlith did not (B4), so it gets the same treatment
     /// as the rest -- a plant and a companion.
     #[test]
     fn v25_rejects_a_status_outside_the_set() {

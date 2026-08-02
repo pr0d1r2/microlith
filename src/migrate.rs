@@ -36,7 +36,7 @@ pub enum Plan {
 }
 
 /// The note written beneath an annotated header.
-pub const NOTE: &str = "Migrated by cavespec from: ";
+pub const NOTE: &str = "Migrated by microlith from: ";
 
 /// What would happen to this line, if it is a canonical header at all.
 #[must_use]
@@ -391,7 +391,7 @@ V1: **a rule.**
         assert!(out.contains("## \u{a7}B BUGS\n"), "{out}");
         assert!(
             out.contains(
-                "Migrated by cavespec from: \u{2014} Bugs / Known Issues"
+                "Migrated by microlith from: \u{2014} Bugs / Known Issues"
             ),
             "{out}"
         );

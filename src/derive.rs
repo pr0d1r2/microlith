@@ -160,7 +160,7 @@ impl Duplicate {
 /// Every statement's id and its comparable words.
 ///
 /// Backticked spans are stripped by V13's own boundary rather than a second
-/// one: a shared command name is not shared REASONING, and `cavespec check
+/// one: a shared command name is not shared REASONING, and `mth check
 /// --records` appearing in two rows says nothing about either. Lowercased,
 /// because case was a bug in the hand-run version -- the same clause in two
 /// registers is the same clause.
@@ -483,8 +483,7 @@ T1|x|a task|V1
     /// nothing about each other.
     #[test]
     fn a_shared_backticked_span_is_not_duplication() {
-        let cmd =
-            "`cavespec check --records .spec-records SPEC.md --format json`";
+        let cmd = "`mth check --records .spec-records SPEC.md --format json`";
         let text = format!(
             "## \u{a7}V INVARIANTS\nV1: run {cmd} now\nV2: run {cmd} later\n"
         );

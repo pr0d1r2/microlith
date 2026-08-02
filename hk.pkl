@@ -1,4 +1,4 @@
-/// cavespec's gate, defined ONCE (V22).
+/// microlith's gate, defined ONCE (V22).
 ///
 /// Every op below is a plain cargo command a human can paste into a shell.
 /// hk decides *when* they run; it never hides *what* runs, so a verdict
@@ -62,23 +62,23 @@ local fast = new Mapping<String, Step> {
     depends = List("test")
     check = "cargo test --doc"
   }
-  // THE DOGFOOD (V24). cavespec formats its own law, using the binary being
+  // THE DOGFOOD (V24). microlith formats its own law, using the binary being
   // built -- so a rule this crate cannot pass is a rule it cannot ship.
   // Triggered by the spec itself as well as the code, so a docs-only
   // commit is still gated.
-  ["cavespec"] {
+  ["microlith"] {
     glob = List("SPEC.md", ".spec-records", "**/*.rs")
     depends = List("doctest")
-    check = "cargo run -q --bin cavespec -- fmt --check SPEC.md || { echo 'hk: SPEC.md is not formatted. Run `cavespec fmt SPEC.md`. If a line is over the cap, split the statement -- raising the cap is a reviewed decision. See AGENTS.md' >&2; exit 1; }"
+    check = "cargo run -q --bin mth -- fmt --check SPEC.md || { echo 'hk: SPEC.md is not formatted. Run `mth fmt SPEC.md`. If a line is over the cap, split the statement -- raising the cap is a reviewed decision. See AGENTS.md' >&2; exit 1; }"
   }
   // The other half of the dogfood: the STRUCTURAL rules, run on our own law
   // with our own records. `fmt` says the file is shaped right; this says it
   // is still correct -- sections in order, ids unique, citations resolving,
   // and the rejected-option records still present.
-  ["cavespec-check"] {
+  ["microlith-check"] {
     glob = List("SPEC.md", ".spec-records", "**/*.rs")
-    depends = List("cavespec")
-    check = "cargo run -q --bin cavespec -- check --records .spec-records SPEC.md || { echo 'hk: SPEC.md failed its own structural rules. Each line above names the invariant it broke. See AGENTS.md' >&2; exit 1; }"
+    depends = List("microlith")
+    check = "cargo run -q --bin mth -- check --records .spec-records SPEC.md || { echo 'hk: SPEC.md failed its own structural rules. Each line above names the invariant it broke. See AGENTS.md' >&2; exit 1; }"
   }
   // Hygiene, all of it `hk util` -- native to the runner, so it needs no
   // extra binary in the shell or on a CI runner. These are also the first
@@ -187,7 +187,7 @@ local all = (fast) {
   // after publish, where they cost most.
   ["rustdoc"] {
     glob = List("**/*.rs")
-    depends = List("cavespec")
+    depends = List("microlith")
     env { ["RUSTDOCFLAGS"] = "-D warnings" }
     check = "cargo doc --no-deps"
   }

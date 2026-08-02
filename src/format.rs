@@ -345,7 +345,7 @@ mod tests {
     /// them -- and V1's proof passed, as it does for every merge.
     #[test]
     fn a_fenced_block_survives_intact() {
-        let src = "V1: a rule\n\n```sh\ncavespec check\ncavespec fmt\n```\n";
+        let src = "V1: a rule\n\n```sh\nmth check\nmth fmt\n```\n";
         assert_eq!(unwrap_wraps(src), src);
     }
 

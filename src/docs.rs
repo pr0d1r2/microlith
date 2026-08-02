@@ -1,5 +1,5 @@
 //! The single command registry (V33): one table of verb, synopsis and
-//! blurb, rendered two ways so `--help` and `cavespec docs` can never
+//! blurb, rendered two ways so `--help` and `mth docs` can never
 //! disagree. `usage()` is the terse help; `markdown()` is the reference
 //! block a test freezes into README. Add a verb HERE and both views update.
 //!
@@ -55,9 +55,9 @@ const COMMANDS: &[Command] = &[
 
 /// What opens `--help`.
 const HEAD: &str = "\
-cavespec -- the cavekit SPEC format, enforced
+microlith (mth) -- the cavekit SPEC format, enforced
 
-usage: cavespec <command> [args]
+usage: mth <command> [args]
 
 commands:
 ";
@@ -84,7 +84,7 @@ const EXIT: &str = "\
 const INTRO: &str = "\
 ## Commands
 
-Every verb, its synopsis and what it does. Regenerate with `cavespec docs`.
+Every verb, its synopsis and what it does. Regenerate with `mth docs`.
 
 ";
 
@@ -110,8 +110,8 @@ fn terse(c: &Command) -> String {
     format!("  {}\n{}\n", c.synopsis, wrap(c.blurb, INDENT, WIDTH))
 }
 
-/// The markdown command reference (`cavespec docs`), frozen into README.
-/// This IS the block between README's `cavespec docs` markers.
+/// The markdown command reference (`mth docs`), frozen into README.
+/// This IS the block between README's `mth docs` markers.
 pub(crate) fn markdown() -> String {
     markdown_from(COMMANDS)
 }
@@ -177,13 +177,13 @@ mod tests {
         let p =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md");
         let full = std::fs::read_to_string(p).unwrap_or_default();
-        let after = full.split_once("<!-- BEGIN cavespec docs -->\n");
+        let after = full.split_once("<!-- BEGIN mth docs -->\n");
         let inner =
-            after.and_then(|(_, r)| r.split_once("<!-- END cavespec docs -->"));
+            after.and_then(|(_, r)| r.split_once("<!-- END mth docs -->"));
         inner.map(|(b, _)| b.to_owned()).unwrap_or_default()
     }
 
-    /// The freeze (V33): README's generated block IS `cavespec docs` output.
+    /// The freeze (V33): README's generated block IS `mth docs` output.
     /// Drift -- a hand-edit, or a verb added without regenerating -- fails
     /// here rather than being merely regenerable by someone who noticed.
     #[test]
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(
             readme_block().trim(),
             markdown().trim(),
-            "README block is stale -- regenerate: `cavespec docs`"
+            "README block is stale -- regenerate: `mth docs`"
         );
     }
 
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn the_help_carries_every_verb() {
         let u = usage();
-        assert!(u.contains("usage: cavespec"), "{u}");
+        assert!(u.contains("usage: mth"), "{u}");
         for c in COMMANDS {
             assert!(u.contains(c.synopsis), "help missing {}", c.name);
         }

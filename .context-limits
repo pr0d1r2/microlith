@@ -14,7 +14,7 @@
 #
 # 18,800 is ~12% over the measured 16,734, per V21's ceiling rule.
 #
-# THE STANDING PRECONDITION HELD, mechanically, twice: `cavespec derive |
+# THE STANDING PRECONDITION HELD, mechanically, twice: `mth derive |
 # grep dup` reported NONE before the additions and NONE after. It did work
 # in between -- the first run on the new rows found T24 restating V33's
 # report-only clause, 10 words, written minutes earlier. Fifth consecutive
@@ -48,7 +48,7 @@
 # MEASUREMENT, not at the rate of the task list. 16,000 is the first number
 # here chosen for that rate.
 #
-# The mechanical test held: `cavespec derive | grep dup` reported none before
+# The mechanical test held: `mth derive | grep dup` reported none before
 # this moved. That is now the standing precondition and it did its job.
 #
 # WHAT THIS CEILING IS FOR, since it diverges sharply from upstream's rule.
@@ -89,7 +89,7 @@
 # status flips and measurements. 13,000 is ~13% over 11,529.
 #
 # THE STANDING TEST IS NOW MECHANICAL, which changes what a future raise has
-# to show. `cavespec derive | grep dup` must report NONE before the number
+# to show. `mth derive | grep dup` must report NONE before the number
 # moves. A raise while that says otherwise is a raise made to avoid an edit.
 
 # SIZED ONCE, 9400 -> 11500, and this is meant to be the LAST raise.
@@ -124,12 +124,12 @@
 # not refuse anything. It has not refused anything yet, so that is a change
 # of honesty rather than of behaviour. If it fires an EIGHTH time, the
 # reading is that the spec outgrew its own plan -- and the answer then is
-# NOT a raise. It is that cavespec's law has become too big to be one file,
+# NOT a raise. It is that microlith's law has become too big to be one file,
 # which is a design finding, not a number to edit.
 
 # Per-path token ceilings, set from COMMIT ONE (V9).
 #
-# This is the lesson cavespec exists to carry, transplanted as a number:
+# This is the lesson microlith exists to carry, transplanted as a number:
 # itok set its first ceiling at 19,542 -- the size its SPEC.md ALREADY was
 # -- and then raised it four times, to 27,500. A ceiling that arrives after
 # the growth RATIFIES it; one that arrives first CATCHES it.
@@ -257,7 +257,7 @@
 # that 4,500 was also chosen too small, which is worth knowing.
 #
 # Checked by `itok check` (`--bpe`, so the verdict is deterministic). T4 has
-# landed and did NOT take this over: `cavespec check` reads SPEC.md's structure,
+# landed and did NOT take this over: `mth check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
 SPEC.md    18800

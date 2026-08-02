@@ -17,8 +17,8 @@
 //! fixture fails" true rather than aspirational: adding a construct to the
 //! list forces a fixture, and adding a fixture forces it to be named.
 
-use cavespec::check::parse_records;
-use cavespec::{check_spec, format_spec};
+use microlith::check::parse_records;
+use microlith::{check_spec, format_spec};
 
 /// Every construct FORMAT.md permits, each with a fixture of the same name.
 ///
@@ -136,7 +136,7 @@ fn the_three_recorded_merges_are_planted() {
     for (name, marker) in [
         ("nested-sub-points", "  - a genuine sub-point"),
         ("ordered-list", "2. the second step."),
-        ("fenced-block", "cavespec fmt"),
+        ("fenced-block", "mth fmt"),
     ] {
         let text = fixture(name);
         assert!(text.contains(marker), "{name} lost its planted shape");

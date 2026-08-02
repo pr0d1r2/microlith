@@ -4,8 +4,8 @@
 - cmd: run it like this
 
 ```sh
-cavespec check
-cavespec fmt
+mth check
+mth fmt
 ```
 
 ## §V INVARIANTS
