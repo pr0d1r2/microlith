@@ -21,8 +21,8 @@ arriving from crates.io can read the number without opening our spec.
 | `0.1` | odd | it builds reproducibly anywhere | reached |
 | `0.2` | even | it cannot regress locally — the gate runs in git hooks | reached |
 | `0.3` | odd | one implementation of the format rules, not two that disagree | reached |
-| `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | **current** |
-| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | next |
+| `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | reached |
+| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | **current** |
 | `0.6` | even | that surface stabilized — the fixes the first real users find | planned |
 | `0.7` | odd | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
 | `0.8` | even | mechanical editing and planning — every mutation through one verified write path | planned |
@@ -39,8 +39,17 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
-Nothing here has been published yet. Everything below is what `0.5.0-rc.1` will
-carry on its first release.
+Nothing yet.
+
+## [0.5.0-rc.1] — 2026-08-02
+
+The first public artifact. A **release candidate** on purpose: cargo does not
+select a pre-release by default, so the publish pipeline is proven before a
+permanent number is spent on an immutable registry. `0.5.0` follows once this
+one installs from crates.io and the consumer builds against it.
+
+`0.5` is **odd**, and the number is saying so: public and usable, deliberately
+partial. Depend on it for a trial; `0.6` is where the surface settles.
 
 ### Added
 
@@ -75,4 +84,5 @@ carry on its first release.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.5.0-rc.1...HEAD
+[0.5.0-rc.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0-rc.1

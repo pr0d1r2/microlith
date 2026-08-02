@@ -214,7 +214,7 @@ That is the whole public surface: about twenty items, no public modules. The par
 
 ## Status
 
-`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
+`0.5.0-rc.1`, the first public artifact. A minor version here is a level of **guarantee**, not a feature count: `0.5` means public and usable, deliberately **partial** — an odd minor says so by itself (§V.34). It ships as a release candidate because cargo does not select a pre-release by default, so the pipeline is proven before a permanent number is spent on an immutable registry; `0.6` is where the surface settles. `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
 
 **An even minor is stable; an odd minor is functional but not for production** -- the Linux 2.x and GNOME convention, and the parity describes the *release*, not the work in it. So `0.5` is the first public rung and says so in the number: usable, worth depending on for a trial, deliberately **partial** -- what ships works, and not everything ships yet. `0.6` is where that surface settles and becomes production-ready.
 
