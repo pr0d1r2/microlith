@@ -20,7 +20,7 @@
 //! judgement (V6), so it is not inferred -- V27's audited `SYNONYMS` table
 //! decides, and absence from it means collision.
 
-use crate::check::{is_header_for, CANONICAL_WORDS, KINDS, SECTIONS, SYNONYMS};
+use crate::check::{CANONICAL_WORDS, KINDS, SECTIONS, SYNONYMS, is_header_for};
 
 /// What `migrate` would do to one header line.
 #[derive(Debug, PartialEq, Eq)]
@@ -410,7 +410,9 @@ V1: **a rule.**
     fn a_listed_synonym_is_migrated_with_a_note() {
         let out = migrate("## \u{a7}I SURFACES\n- a\n").unwrap_or_default();
         assert!(out.contains("## \u{a7}I INTERFACES"), "{out}");
-        assert!(out.contains("{NOTE}SURFACES".replace("{NOTE}", NOTE).as_str()));
+        assert!(
+            out.contains("{NOTE}SURFACES".replace("{NOTE}", NOTE).as_str())
+        );
     }
 
     /// THE ONE IT MUST NOT TOUCH. A collision keeps every character if you

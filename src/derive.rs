@@ -15,9 +15,9 @@
 //! the id grammar and V13's citation boundary, so the graph is a regroup of
 //! code that exists rather than a second parser for the same text (V7).
 
-use crate::check::{cited, declared, outside_backticks, ITEM_KINDS};
-use crate::id::at_line_start;
+use crate::check::{ITEM_KINDS, cited, declared, outside_backticks};
 use crate::id::Id;
+use crate::id::at_line_start;
 
 /// How often each invariant is cited, and by which rows.
 #[derive(Debug, PartialEq, Eq)]

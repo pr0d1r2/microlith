@@ -13,4 +13,9 @@
 # cross-project reference must be QUALIFIED and its reasoning restated locally
 # (V19), so the reasoning is above instead of a number.
 max_width = 80
-edition = "2021"
+# MUST track `edition` in Cargo.toml. rustfmt takes its edition from here, not
+# from the manifest, so a mismatch means the formatter and the compiler are
+# reading two different dialects -- and `cargo fmt --check` starts reporting a
+# diff nobody asked for. 2024 reorders imports (uppercase sorts first), which
+# is the whole visible change from 2021.
+edition = "2024"

@@ -14,7 +14,7 @@
 //! copy of these rules today, and T7 deletes it; a rule whose evidence lived
 //! only in the copy would lose that evidence with it (V19).
 
-use crate::id::{at_line_start, Id};
+use crate::id::{Id, at_line_start};
 use crate::violation::{Fix, Violation};
 
 /// The section LETTER of each entry in `SECTIONS`, in the same order.

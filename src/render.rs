@@ -116,11 +116,13 @@ mod tests {
     use crate::violation::Fix;
 
     fn sample() -> Vec<Violation> {
-        vec![Violation::new("V13", "`V99` is cited but never declared")
-            .at(12)
-            .why("a dangling reference reads as authoritative")
-            .try_(Fix::Mechanical, "point it at the rule that was meant")
-            .try_(Fix::Judgment, "declare V99")]
+        vec![
+            Violation::new("V13", "`V99` is cited but never declared")
+                .at(12)
+                .why("a dangling reference reads as authoritative")
+                .try_(Fix::Mechanical, "point it at the rule that was meant")
+                .try_(Fix::Judgment, "declare V99"),
+        ]
     }
 
     /// Silence is success, in BOTH renderings. An agent polling a clean spec

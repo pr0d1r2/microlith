@@ -5,7 +5,7 @@
 //! apart without the gate noticing.
 
 use microlith::check::parse_records;
-use microlith::format::{over_cap, MAX_LINE};
+use microlith::format::{MAX_LINE, over_cap};
 use microlith::{check_spec, format_spec};
 
 fn at_root(name: &str) -> String {

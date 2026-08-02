@@ -15,7 +15,7 @@
 //! `§G`, `§C` and `§I` are prose and bullets with no ids at all, so they print
 //! `-`: for those sections the ordinal is the only address there is.
 
-use crate::check::{is_header_for, KINDS};
+use crate::check::{KINDS, is_header_for};
 use crate::id::at_line_start;
 
 /// One addressable item.

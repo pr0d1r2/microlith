@@ -5,10 +5,10 @@
 
 mod docs;
 
-use microlith::check::{parse_records, Record};
+use microlith::check::{Record, parse_records};
 use microlith::render;
 use microlith::violation::Violation;
-use microlith::{check_spec, format_spec, Output};
+use microlith::{Output, check_spec, format_spec};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
