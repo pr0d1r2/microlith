@@ -115,6 +115,24 @@ local fast = new Mapping<String, Step> {
   }
   // Irreversible if it ever fires late -- a key in git history stays in
   // git history.
+  // A leaked token in git history is IRREVERSIBLE -- the same property that
+  // made removing one string from this repo's history a two-pass rewrite.
+  // Before a repo goes public is the last moment that is cheap.
+  //
+  // Runs beside `no-private-key`, not instead of it: that step catches PEM
+  // blocks, this catches the token shapes it does not.
+  ["ripsecrets"] {
+    glob = List("**/*")
+    exclude = List("pkl/**")
+    // `||` alone would report a LEAK when the tool is merely missing --
+    // "command not found" is also a non-zero exit. A check that names the
+    // wrong cause is worse than one that misses (B8), so absence is
+    // distinguished from a finding before either is announced.
+    check = """
+      command -v ripsecrets >/dev/null 2>&1 || { echo 'hk: ripsecrets is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      ripsecrets {{files}} || { echo 'hk: a possible secret is staged. If it is real it must never be committed -- a token in git history outlives its deletion. If it is a false positive, add it to .secretsignore.' >&2; exit 1; }
+      """
+  }
   ["no-private-key"] {
     glob = List("**/*")
     check = "hk util detect-private-key {{files}}"

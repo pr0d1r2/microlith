@@ -158,6 +158,17 @@
             # different problem with a different failure mode, and someone
             # else's 404 must not fail your commit.
             pkgs.lychee
+            # Secrets, BESIDE `no-private-key` rather than instead of it:
+            # `hk util detect-private-key` does exactly what its name says
+            # and nothing else -- MEASURED, an `AWS_SECRET_ACCESS_KEY=...`
+            # line walks straight past it. ripsecrets covers the token
+            # shapes it cannot. Rust, and in nixpkgs, so it pins here like
+            # every other linter rather than arriving by a second path.
+            #
+            # hk ships a `betterleaks` builtin that would also do this, but
+            # it is NOT packaged -- using it would mean an install path
+            # outside this shell, which is the skew ci.yml exists to avoid.
+            pkgs.ripsecrets
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
