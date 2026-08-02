@@ -234,8 +234,7 @@ failure as a gap you cannot.
 | gap | where it goes |
 |---|---|
 | `ci.yml` has never actually run — there is no GitHub remote yet | resolved by publishing |
-| platform matrix (macos-arm beside ubuntu) | T26 |
-| MSRV 1.82 axis — the floor is declared but never exercised | T26 |
+| `aarch64-linux` is built by the flake but has no CI runner | T26 |
 | build caching (nix store + cargo target) | T26 |
 | actions pinned to SHAs rather than tags | T26 |
 | release automation and publish | T8 |

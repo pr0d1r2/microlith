@@ -10,11 +10,14 @@
 #
 # PENDING -- listed rather than silently absent, because a gap you can read
 # is not the same failure as a gap you cannot:
-#   * platform matrix (macos-arm beside ubuntu)
-#   * MSRV 1.82 axis
 #   * build caching (nix store + cargo target)
 #   * actions pinned to SHAs rather than tags
 #   * release automation and publish            -- T8
+#
+# The matrix covers TWO of the three systems flake.nix declares:
+# x86_64-linux and aarch64-darwin. aarch64-linux is built by the flake but
+# has no runner here -- named rather than quietly omitted, so the gap is
+# readable from the file that would close it.
 #
 # NOT copied from the consumer's workflow, deliberately: `fetch-depth: 0`.
 # That exists there because its tests read `HEAD~n`; nothing here does, so
@@ -30,7 +33,14 @@ on:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Every platform reports, so one failure does not hide another that
+      # is specific to the other OS -- the same argument as --no-fail-fast
+      # one level up.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
