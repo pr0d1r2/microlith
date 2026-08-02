@@ -81,6 +81,25 @@ derived from a measurement, give the number; this repo's history is full of
 "MEASURED: 2 of 51 passed" for a reason. Keep separate topics in separate
 commits, and keep a spec change apart from the code that follows it.
 
+## Submitting a change
+
+Changes reach `main` through **pull requests** — nothing is pushed to `main`
+directly.
+
+1. Branch off `main`. Fork first if you do not have push access.
+2. Make the change, following the loop above. Keep a spec change in its own
+   commit, separate from the code that follows it.
+3. Push. The `pre-push` hook runs the full gate, so a red PR should be rare —
+   and if the hook skipped loudly because you were outside the dev shell, that
+   is exactly when it will not be.
+4. Open the PR. CI runs the same 21 steps your hook just ran, plus
+   `nix build .#default`.
+5. One topic per PR. Two unrelated fixes are two pull requests.
+
+CI is not a second opinion about correctness — it runs the identical definition
+from [`hk.pkl`](hk.pkl). What review adds is a reader. The gate catches what is
+mechanically wrong; a person catches what is merely a bad idea.
+
 ## Reporting a bug
 
 A `§B` row in `SPEC.md` records the cause, the fix, and the rule that now catches

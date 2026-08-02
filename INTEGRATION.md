@@ -51,10 +51,14 @@ is no second copy to forget.
     |
     | passes
     v
-  pushed     ---> ci.yml      (all, 21 steps -- same definition)
+  branch pushed
     |
     v
-  on main
+  pull request ---> ci.yml    (all, 21 steps -- same definition)
+    |                          + nix build .#default
+    | green, and reviewed
+    v
+  merged to main
 ```
 
 **pre-commit** runs the fast set with `fix = true`, so formatters rewrite rather
@@ -68,7 +72,14 @@ committing.
 tempted to bypass is worse than no hook.
 
 **CI** runs `hk check --all --check --no-fail-fast`, then `nix build .#default`
-to prove the package builds reproducibly from the tracked lock alone.
+to prove the package builds reproducibly from the tracked lock alone. It is
+already wired to fire on `pull_request` as well as on pushes to `main`.
+
+**From the first public release, changes reach `main` through pull requests.**
+Nothing lands by pushing to `main` directly. That does not add a check — CI runs
+the same 21 steps your pre-push hook just ran — it adds a *reader*. The gate
+catches what is mechanically wrong; a reviewer catches what is merely a bad
+idea, and those are different failures.
 
 ## Why the steps are chained
 
