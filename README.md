@@ -1,5 +1,29 @@
 # microlith (mth)
 
+[![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/microlith.svg)](https://crates.io/crates/microlith)
+[![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
+![MSRV 1.82](https://img.shields.io/badge/MSRV-1.82-blue)
+![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)
+![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)
+![coverage floor 94%](https://img.shields.io/badge/coverage_floor-%E2%89%A594%25-brightgreen)
+[![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
+[![gate: hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
+[![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+
+> ### Built by an LLM, deliberately and in the open
+>
+> This repository — code, spec, tests and prose — was written by [Claude Code](https://claude.com/claude-code) running Anthropic's **Claude Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer, and every commit is signed. A human owns every decision, reviews every diff, and is accountable for what ships.
+>
+> **The method is spec-driven development.** [`SPEC.md`](SPEC.md) is the law rather than a description written afterwards: it holds the invariants that must stay true, the tasks that remain, and a record of every bug found so far paired with the rule that now catches it. A rule and its checker land in the *same commit*, because a rule with no runner gates nothing. Every guard is proven by planting the violation it exists to catch, plus a companion proving it still accepts every real shape.
+>
+> **Integration and guardrails run in git hooks, not in CI.** Entering the dev shell (`nix develop`, or `direnv allow`) installs `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk) against one definition of the gate in [`hk.pkl`](hk.pkl). Pre-commit takes the fast set — format, clippy, tests, and the tool checking its own spec. Pre-push adds the expensive axes: doctests, rustdoc, and `cargo llvm-cov` against a **94% line-coverage floor** — a ratchet, not a target; at `0.4.0` the suite sits at 98.56% lines over 176 tests. [`ci.yml`](.github/workflows/ci.yml) is a second caller of that same definition, never a second copy of it.
+>
+> Deeper: [`AGENTS.md`](AGENTS.md) is the working guide · [`CONTRIBUTING.md`](CONTRIBUTING.md) is the loop · [`SPEC.md`](SPEC.md) is what must hold and what remains · [`FORMAT.md`](FORMAT.md) is the format itself.
+
 Mechanical operations on a [caveman](https://github.com/JuliusBrussee/caveman) [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
 ## Why
