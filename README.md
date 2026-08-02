@@ -15,8 +15,8 @@
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![nixpkgs 26.11](https://img.shields.io/badge/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
-[![linux](https://img.shields.io/badge/linux-aarch64_%C2%B7_x86__64-5277C3?logo=linux&logoColor=white)](flake.nix)
-[![macos](https://img.shields.io/badge/macos-aarch64-5277C3?logo=apple&logoColor=white)](flake.nix)
+[![arm](https://img.shields.io/badge/arm-linux_%C2%B7_macos-5277C3?logo=arm&logoColor=white)](flake.nix)
+[![intel/amd](https://img.shields.io/badge/intel%2Famd-linux-5277C3?logo=intel&logoColor=white)](flake.nix)
 
 [![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
 [![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)

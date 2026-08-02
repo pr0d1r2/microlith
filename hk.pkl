@@ -195,10 +195,12 @@ local fast = new Mapping<String, Step> {
       cov=$(awk '/^lines /{print $2}' .coverage)
       R=https://img.shields.io/badge
       plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
-        | while read t; do echo "${t##*-} ${t%-*}"; done | sort \
-        | awk '{a[$1]=(a[$1]?a[$1]"_%C2%B7_":"") gensub(/_/,"__","g",$2)}
-               END{for(o in a){n=o;l=o; if(o=="darwin"){n="macos";l="apple"}
-                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",n,n,n,a[o],l}}' \
+        | while read t; do o=${t##*-}; [ "$o" = darwin ] && o=macos; echo "${t%-*} $o"; done | sort \
+        | awk '{m[$1]=(m[$1]?m[$1]"_%C2%B7_":"") $2}
+               END{for(a in m){d=a;u=a;l=a
+                   if(a=="aarch64"){d="arm";u="arm";l="arm"}
+                   if(a=="x86_64"){d="intel/amd";u="intel%2Famd";l="intel"}
+                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",d,d,u,m[a],l}}' \
         | sort | cut -f2-)
       { cat <<EOF
       [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
@@ -234,10 +236,12 @@ local fast = new Mapping<String, Step> {
       cov=$(awk '/^lines /{print $2}' .coverage)
       R=https://img.shields.io/badge
       plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
-        | while read t; do echo "${t##*-} ${t%-*}"; done | sort \
-        | awk '{a[$1]=(a[$1]?a[$1]"_%C2%B7_":"") gensub(/_/,"__","g",$2)}
-               END{for(o in a){n=o;l=o; if(o=="darwin"){n="macos";l="apple"}
-                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",n,n,n,a[o],l}}' \
+        | while read t; do o=${t##*-}; [ "$o" = darwin ] && o=macos; echo "${t%-*} $o"; done | sort \
+        | awk '{m[$1]=(m[$1]?m[$1]"_%C2%B7_":"") $2}
+               END{for(a in m){d=a;u=a;l=a
+                   if(a=="aarch64"){d="arm";u="arm";l="arm"}
+                   if(a=="x86_64"){d="intel/amd";u="intel%2Famd";l="intel"}
+                   printf "%s\t[![%s](https://img.shields.io/badge/%s-%s-5277C3?logo=%s&logoColor=white)](flake.nix)\n",d,d,u,m[a],l}}' \
         | sort | cut -f2-)
       { cat <<EOF
       [![CI](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/microlith/actions/workflows/ci.yml)
