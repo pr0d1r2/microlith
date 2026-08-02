@@ -710,4 +710,48 @@ mod tests {
         assert_eq!(again.code, 0, "already formatted: {}", again.err);
         let _ = std::fs::remove_file(&p);
     }
+
+    /// `--verbose` picks a DIFFERENT renderer for the report verbs, so the
+    /// flag is a branch in dispatch rather than a formatting detail. Both
+    /// arms were unexercised: the terse one is what every other test uses.
+    /// A spec with one of everything the report verbs address.
+    fn reportable(name: &str) -> String {
+        write_temp(
+            name,
+            "## \u{a7}V INVARIANTS\nV1: a rule cited by T1.\n\n\
+             ## \u{a7}T TASKS\n| id | scope | tasks | done-when |\n\
+             |----|-------|-------|-----------|\n\
+             | M1 | core | T1 | done |\nT1|x|a task|V1\n",
+        )
+    }
+
+    fn deepens(verb: &str, path: &str) {
+        let terse = run(&args(&[verb, path]));
+        let deep = run(&args(&[verb, "--verbose", path]));
+        assert_eq!(terse.code, 0, "{}", terse.err);
+        assert!(deep.out.len() >= terse.out.len(), "{verb} said less");
+    }
+
+    #[test]
+    fn verbose_selects_the_deeper_report_verb() {
+        let path = reportable("verbrep");
+        deepens("anchors", &path);
+        deepens("derive", &path);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The `migrate` success summary, which only `--verbose` prints: silence
+    /// is success, so this line exists precisely to opt out of it.
+    #[test]
+    fn migrate_verbose_confirms_a_canonical_file() {
+        let src = "## \u{a7}G GOAL\none line.\n";
+        let path = write_temp("migverb", src);
+        let quiet = run(&args(&["migrate", &path]));
+        assert_eq!(quiet.code, 0, "{}", quiet.err);
+        assert!(quiet.out.is_empty(), "silence is success: {}", quiet.out);
+        let loud = run(&args(&["migrate", "--verbose", &path]));
+        assert_eq!(loud.code, 0, "{}", loud.err);
+        assert!(loud.out.contains("headers canonical"), "{}", loud.out);
+        let _ = std::fs::remove_file(&path);
+    }
 }

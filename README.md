@@ -10,7 +10,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 98.59%](https://img.shields.io/badge/coverage-98.59%25-brightgreen)](hk.pkl)
+[![coverage 98.83%](https://img.shields.io/badge/coverage-98.83%25-brightgreen)](hk.pkl)
 [![floor 94%](https://img.shields.io/badge/floor-%E2%89%A594%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)

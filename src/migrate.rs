@@ -585,4 +585,19 @@ V1: **a rule.**
         let out = migrate("## \u{a7}G Goal").unwrap_or_default();
         assert_eq!(out, "## \u{a7}G GOAL\n");
     }
+
+    /// `report` answers "what is NOT canonical", including the headers that
+    /// CAN be fixed -- the arm `unfinished` never reaches, because that one
+    /// reports only what migrate refuses to touch. Exposed as
+    /// `microlith::migrate_report`, so this is public contract.
+    #[test]
+    fn report_names_a_header_that_would_be_rewritten() {
+        let text = "## \u{a7}V\nV1: **a rule.**\n";
+        let out = report(text);
+        assert!(out.contains("-> `"), "expected a rewrite line, got {out:?}");
+        assert!(
+            unfinished(text).is_empty(),
+            "a fixable header is not unfinished work"
+        );
+    }
 }
