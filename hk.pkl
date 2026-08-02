@@ -105,6 +105,30 @@ local fast = new Mapping<String, Step> {
     check_diff = "hk util mixed-line-ending --diff {{files}}"
     fix = "hk util mixed-line-ending --fix {{files}}"
   }
+  // The one text fixer here aimed at HOW this repo is written rather than at
+  // a generic hygiene rule. Every document in it is LLM-authored, and a
+  // model emits U+2018/2019/201C/201D where a keyboard emits `" '` -- so the
+  // artifact that gives away generated prose is also the one nothing was
+  // watching.
+  //
+  // Those codepoints are NAMED rather than shown, because writing them as
+  // examples is what this step rejects -- which it did, to this comment, on
+  // its first run. A rule that catches its own documentation is working.
+  //
+  // It is not only cosmetic. A smart quote inside a fenced command is a
+  // command that does not run when a reader copies it, and `docs/` is full
+  // of commands meant to be copied.
+  //
+  // MEASURED before landing: zero in our own files, one hit in
+  // `pkl/Config.pkl` -- which is upstream's, excluded here for the same
+  // reason it is excluded from every other fixer, and is precisely the file
+  // that shows this can find something.
+  ["smart-quotes"] {
+    glob = List("**/*")
+    exclude = List("pkl/**")
+    check_diff = "hk util fix-smart-quotes --diff {{files}}"
+    fix = "hk util fix-smart-quotes {{files}}"
+  }
   ["no-bom"] {
     glob = List("**/*")
     check = "hk util check-byte-order-marker {{files}}"
