@@ -12,12 +12,14 @@ same definition — not a parallel pipeline that can disagree with your laptop.
 [`hk.pkl`](hk.pkl) defines every check exactly once. Three things call it, and
 none of them redefines anything:
 
-```mermaid
-graph LR
-  A[hk.pkl one definition]
-  A --> B[pre-commit fast 19 steps]
-  A --> C[pre-push all 21 steps]
-  A --> D[ci.yml all 21 steps]
+```text
+                        hk.pkl
+              one definition, 21 steps
+                          |
+        +-----------------+-----------------+
+        |                 |                 |
+   pre-commit         pre-push           ci.yml
+   fast: 19 steps     all: 21 steps      all: 21 steps
 ```
 
 `all` is not a second list. In `hk.pkl` it is literally the fast set plus two:
@@ -34,19 +36,25 @@ is no second copy to forget.
 
 ## The path a change takes
 
-```mermaid
-graph TD
-  A[edit] --> B[git commit]
-  B --> C{pre-commit fast set}
-  C -->|fails| D[fix and retry]
-  D --> B
-  C -->|passes| E[commit lands]
-  E --> F[git push]
-  F --> G{pre-push all steps}
-  G -->|fails| D
-  G -->|passes| H[pushed]
-  H --> I{ci.yml runs hk check}
-  I -->|same steps| J[on main]
+```text
+  edit
+    |
+    v
+  git commit ---> pre-commit  (fast, 19 steps) ---fails---> fix, retry
+    |                                                           |
+    | passes                                                    |
+    v                                                           |
+  commit lands <------------------------------------------------+
+    |
+    v
+  git push   ---> pre-push    (all, 21 steps)  ---fails---> fix, retry
+    |
+    | passes
+    v
+  pushed     ---> ci.yml      (all, 21 steps -- same definition)
+    |
+    v
+  on main
 ```
 
 **pre-commit** runs the fast set with `fix = true`, so formatters rewrite rather
@@ -69,23 +77,22 @@ parallel do not run in parallel — the second blocks on *"Blocking waiting for
 file lock on build directory"*, which reads as a hang. The chain makes that
 serialization explicit and leaves hk free to run everything else concurrently:
 
-```mermaid
-graph LR
-  A[fmt] --> B[clippy]
-  B --> C[test]
-  C --> D[doctest]
-  D --> E[microlith fmt own spec]
-  E --> F[microlith-check own spec]
-  E --> G[rustdoc]
-  G --> H[coverage floor 94 percent]
-```
+```text
+  serialized by depends -- cargo locks the target dir:
 
-Everything **not** in that chain declares no `depends` and runs concurrently —
-the thirteen hygiene steps (`trailing-whitespace`, `final-newline`,
-`line-endings`, `no-bom`, `no-merge-conflict`, `no-private-key`,
-`no-large-files`, `no-case-conflict`, `no-broken-symlinks`) plus `actionlint`,
-`typos`, `taplo` and `nixfmt`. They touch no cargo target directory, so nothing
-serializes them.
+    fmt --> clippy --> test --> doctest --> microlith --+--> microlith-check
+                                            fmt own     |    check own spec
+                                            spec        |
+                                                        +--> rustdoc --> coverage
+                                                                         floor 94%
+
+  no depends, so these run concurrently:
+
+    trailing-whitespace   final-newline       line-endings
+    no-bom                no-merge-conflict   no-private-key
+    no-large-files        no-case-conflict    no-broken-symlinks
+    actionlint            typos               taplo              nixfmt
+```
 
 Ordering is cheapest-first on purpose. `fail_fast = true` locally, so the first
 failure is the one you see and it arrives quickly. CI inverts this with
@@ -102,13 +109,12 @@ The spec is not documentation sitting beside the gate — it is an **input to
 it**. Four steps list `SPEC.md` and `.spec-records` in their globs, and two of
 them do nothing but check the spec itself.
 
-```mermaid
-graph LR
-  A[SPEC.md the law] --> B[rule plus runner same commit]
-  B --> C[planted violation proves it rejects]
-  C --> D[companion proves it accepts]
-  D --> E[gate]
-  E -->|dogfood| A
+```text
+   SPEC.md  -->  rule + runner  -->  planted violation  -->  companion
+   the law       same commit         proves it rejects       proves it accepts
+      ^                                                            |
+      |                                                            v
+      +---------------------  dogfood  <------------------------  gate
 ```
 
 That last edge is the point: `microlith` and `microlith-check` run the binary
