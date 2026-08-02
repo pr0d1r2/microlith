@@ -1,12 +1,20 @@
 # microlith (mth)
 
-Mechanical operations on a caveman [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
+Mechanical operations on a [caveman](https://github.com/JuliusBrussee/caveman) [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
 ## Why
 
-The format had **two** hand-maintained implementations and no home. They disagreed, both gates stayed green, and 88 tasks belonged to no milestone before anything noticed. One implementation, or the rule is decoration.
+`SPEC.md` is a single file at the root of a project saying what the software must do, what must stay true, and what is left to build. An AI coding agent reads it before it works and edits it afterwards. [cavekit](https://github.com/JuliusBrussee/cavekit) defines that file's format; [caveman](https://github.com/JuliusBrussee/caveman) is the compressed notation it is written in, trading English for symbols so the same meaning costs fewer tokens.
 
-[`FORMAT.md`](FORMAT.md) is [cavekit](https://github.com/JuliusBrussee/cavekit)'s, vendored here **verbatim** so a tool that cites the format can read it. What microlith *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
+**The main reason this exists: an agent should not spend tokens on work a CPU does for free.**
+
+Much of what happens to a spec is mechanical. Rewrapping a statement onto one line. Checking that every `V13` a rule cites is actually declared somewhere. Keeping rows in id order. Confirming each task belongs to exactly one milestone. An agent doing that by hand reads the whole file, reasons about it, and writes it back -- tokens spent, latency added, and a judgement call made where no judgement was required. It can also simply be wrong. Every one of those operations is a pure function of the text, so `mth` runs them on the CPU instead: no model, no network, deterministic, free.
+
+**The second reason: one standard, enforced the same way every time.**
+
+Before this crate the format had **two** hand-maintained implementations and no home. They disagreed with each other, both of their test suites stayed green, and 88 tasks belonged to no milestone at all before anything noticed. A rule each tool interprets for itself is not a rule. One implementation, or the rule is decoration.
+
+[`FORMAT.md`](FORMAT.md) is cavekit's, vendored here **verbatim** so a tool that cites the format can read it. What microlith *enforces* lives in its own `SPEC.md` under §V, and that set is a superset -- the losslessness proof, idempotence, the line cap, citation resolution, row order and the survival of rejected-option records have no counterpart upstream. The format is an input, not the identity.
 
 ## Install
 
@@ -140,7 +148,9 @@ for v in &violations {
 
 ## Status
 
-`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder; `0.5` is the public rung.
+`0.4.0`, unpublished. A minor version here is a level of **guarantee**, not a feature count: `0.4` means the rules hold on real-world markdown rather than only on this repo's own file. `SPEC.md` §V.30 carries the ladder.
+
+**An even minor is stable; an odd minor is functional but not for production** -- the Linux 2.x and GNOME convention, and the parity describes the *release*, not the work in it. So `0.5` is the first public rung and says so in the number: usable, worth depending on for a trial, deliberately **partial** -- what ships works, and not everything ships yet. `0.6` is where that surface settles and becomes production-ready.
 
 All five commands are built and gate this repo's own spec.
 
