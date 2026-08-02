@@ -22,7 +22,7 @@ name = "microlith"
 # because crates.io is immutable.
 version = "0.4.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.96"
 license = "MIT"
 description = "mechanical operations on caveman SPEC.md: lossless minify, structural check, derived reports. CPU only, zero deps"
 readme = "README.md"
