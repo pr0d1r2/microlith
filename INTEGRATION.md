@@ -14,13 +14,10 @@ none of them redefines anything:
 
 ```mermaid
 graph LR
-    HK["hk.pkl - 21 steps, defined once"]
-    PC["pre-commit - fast, 19 steps"]
-    PP["pre-push - all, 21 steps"]
-    CI["ci.yml - all, 21 steps"]
-    HK --> PC
-    HK --> PP
-    HK --> CI
+  A[hk.pkl one definition]
+  A --> B[pre-commit fast 19 steps]
+  A --> C[pre-push all 21 steps]
+  A --> D[ci.yml all 21 steps]
 ```
 
 `all` is not a second list. In `hk.pkl` it is literally the fast set plus two:
@@ -39,17 +36,17 @@ is no second copy to forget.
 
 ```mermaid
 graph TD
-    E["edit"] --> C["git commit"]
-    C --> PC{"pre-commit - fast set"}
-    PC -->|fails| F["fix and retry"]
-    F --> C
-    PC -->|passes| CM["commit lands"]
-    CM --> P["git push"]
-    P --> PP{"pre-push - all steps"}
-    PP -->|fails| F
-    PP -->|passes| R["pushed"]
-    R --> GH{"ci.yml - hk check all"}
-    GH -->|same steps| M["on main"]
+  A[edit] --> B[git commit]
+  B --> C{pre-commit fast set}
+  C -->|fails| D[fix and retry]
+  D --> B
+  C -->|passes| E[commit lands]
+  E --> F[git push]
+  F --> G{pre-push all steps}
+  G -->|fails| D
+  G -->|passes| H[pushed]
+  H --> I{ci.yml runs hk check}
+  I -->|same steps| J[on main]
 ```
 
 **pre-commit** runs the fast set with `fix = true`, so formatters rewrite rather
@@ -74,19 +71,21 @@ serialization explicit and leaves hk free to run everything else concurrently:
 
 ```mermaid
 graph LR
-    subgraph cargo steps serialized by depends
-        FMT["fmt"] --> CLIPPY["clippy"] --> TEST["test"] --> DOC["doctest"]
-        DOC --> ML["microlith - fmt its own spec"]
-        ML --> MLC["microlith-check - check its own spec"]
-        ML --> RD["rustdoc"] --> COV["coverage - floor 94 percent"]
-    end
-    subgraph hygiene steps run in parallel
-        H1["trailing-whitespace, final-newline, line-endings"]
-        H2["no-bom, no-merge-conflict, no-private-key"]
-        H3["no-large-files, no-case-conflict, no-broken-symlinks"]
-        H4["actionlint, typos, taplo, nixfmt"]
-    end
+  A[fmt] --> B[clippy]
+  B --> C[test]
+  C --> D[doctest]
+  D --> E[microlith fmt own spec]
+  E --> F[microlith-check own spec]
+  E --> G[rustdoc]
+  G --> H[coverage floor 94 percent]
 ```
+
+Everything **not** in that chain declares no `depends` and runs concurrently —
+the thirteen hygiene steps (`trailing-whitespace`, `final-newline`,
+`line-endings`, `no-bom`, `no-merge-conflict`, `no-private-key`,
+`no-large-files`, `no-case-conflict`, `no-broken-symlinks`) plus `actionlint`,
+`typos`, `taplo` and `nixfmt`. They touch no cargo target directory, so nothing
+serializes them.
 
 Ordering is cheapest-first on purpose. `fail_fast = true` locally, so the first
 failure is the one you see and it arrives quickly. CI inverts this with
@@ -105,11 +104,11 @@ them do nothing but check the spec itself.
 
 ```mermaid
 graph LR
-    S["SPEC.md - the law"] --> R["rule plus runner, same commit"]
-    R --> P["planted violation - proves it rejects"]
-    P --> C["companion - proves it accepts"]
-    C --> G["gate"]
-    G -->|dogfood| S
+  A[SPEC.md the law] --> B[rule plus runner same commit]
+  B --> C[planted violation proves it rejects]
+  C --> D[companion proves it accepts]
+  D --> E[gate]
+  E -->|dogfood| A
 ```
 
 That last edge is the point: `microlith` and `microlith-check` run the binary
