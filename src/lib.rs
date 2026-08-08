@@ -26,6 +26,7 @@ pub(crate) mod format;
 pub(crate) mod id;
 pub(crate) mod migrate;
 pub(crate) mod render;
+pub(crate) mod tasks;
 pub(crate) mod violation;
 
 // The types a public signature mentions must themselves be public.
@@ -78,6 +79,29 @@ pub fn derive_report(text: &str) -> String {
 /// `derive_report` with every statement's size, biggest first.
 pub fn derive_report_verbose(text: &str) -> String {
     derive::report_verbose(text)
+}
+
+/// `mth tasks`: every `§T` row's id, status, text and cites, in V14 order.
+///
+/// ENUMERATE, never SELECT: which rows are pending is mechanical, which one
+/// to work next is judgement and stays with the caller (V6).
+pub fn tasks_report(text: &str) -> String {
+    tasks::report(text, false)
+}
+
+/// `tasks_report` with each task's full text rather than a 60-char gist.
+pub fn tasks_report_verbose(text: &str) -> String {
+    tasks::report(text, true)
+}
+
+/// The same enumeration as JSON -- the rendering a consumer parses.
+///
+/// `file` is echoed back in the object, so a caller running this over several
+/// specs can tell the answers apart. Always emitted, including `"tasks":[]`
+/// for a spec with no `§T`: an empty stream would be indistinguishable from a
+/// run that never reached the file.
+pub fn tasks_json(file: &str, text: &str) -> String {
+    tasks::json(file, text)
 }
 
 /// `mth anchors`: the section address of every item beside the id it
@@ -266,6 +290,16 @@ mod tests {
         assert!(docs_markdown().contains("## Commands"));
     }
 
+    /// The enumeration is reachable in one call, in both renderings -- and
+    /// the JSON one takes the file name, because a caller running it over
+    /// several specs has to tell the answers apart.
+    #[test]
+    fn the_task_enumeration_is_reachable_in_one_call() {
+        assert!(tasks_report(CANON).contains("task T1: x"));
+        assert!(tasks_json("SPEC.md", CANON).contains("\"id\":\"T1\""));
+        assert!(tasks_json("SPEC.md", CANON).contains("\"file\":\"SPEC.md\""));
+    }
+
     #[test]
     fn verbose_reports_say_more_than_their_terse_form() {
         assert!(
@@ -274,6 +308,7 @@ mod tests {
         assert!(
             anchors_report_verbose(CANON).len() >= anchors_report(CANON).len()
         );
+        assert!(tasks_report_verbose(CANON).len() >= tasks_report(CANON).len());
     }
 
     /// `run` IS the CLI: same argv, same streams, same exit code, no process.

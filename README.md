@@ -10,7 +10,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 98.83%](https://img.shields.io/badge/coverage-98.83%25-brightgreen)](hk.pkl)
+[![coverage 98.93%](https://img.shields.io/badge/coverage-98.93%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -151,6 +151,14 @@ derive [--verbose] [<path>]
 ```
 
 Sizes, the citation graph, invariants cited by nothing, and statements said twice. Report-only: exits 0 even with findings, because an orphan is a question for a reader, not a build failure. `--verbose` adds every statement's size, biggest first: what to cut.
+
+### `tasks`
+
+```text
+tasks [--format human|json] [--verbose] [<path>]
+```
+
+Every task row's id, status, text and citations, in id order -- a suffixed id rides its base, so `T7a` follows `T7`. Report-only, and it ENUMERATES rather than SELECTS: which rows are pending is mechanical, which one to work next is judgement and stays with the caller. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one. `--verbose` prints each task in full, not a 60-char gist.
 
 ### `anchors`
 

@@ -23,7 +23,7 @@ arriving from crates.io can read the number without opening our spec.
 | `0.3` | odd | one implementation of the format rules, not two that disagree | reached |
 | `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | reached |
 | `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | **current**, published |
-| `0.6` | even | that surface stabilized — the fixes the first real users find | planned |
+| `0.6` | even | that surface stabilized — the fixes the first real users find, and a backlog a consumer can read without re-porting the grammar | planned |
 | `0.7` | odd | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
 | `0.8` | even | mechanical editing and planning — every mutation through one verified write path | planned |
 | `1.0` | even | the contract frozen: the CLI surface, the JSON output, and the library API | planned |
@@ -39,7 +39,22 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `mth tasks` — enumerates `§T`: every row's id, status, text and citations, in
+  id order, with `--format json` for a caller that parses it. It **enumerates
+  and does not select**: which rows are pending is mechanical, which one to work
+  next is judgement and stays with the caller (§V.6).
+- `microlith::tasks_report`, `tasks_report_verbose` and `tasks_json` — the same
+  enumeration for a caller that links the library instead of running the binary.
+
+### Fixed
+
+- a literal `|` in a table cell, which FORMAT.md says to write `\|`, was read as
+  a field boundary. Every cell after it shifted by one, so a task's text was
+  truncated and its citations were looked for in the wrong column. Three rows of
+  this repo's own `SPEC.md` are written that way. One splitter now serves the
+  status rule, the milestone rule and the new verb.
 
 ## [0.5.0] — 2026-08-02
 

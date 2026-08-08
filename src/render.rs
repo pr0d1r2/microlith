@@ -92,7 +92,11 @@ fn direction_json(d: &crate::violation::Direction) -> String {
 /// the control range, which JSON forbids raw. Multi-byte text passes through
 /// unescaped: JSON is UTF-8 and `∴` needs no `\u` form, so escaping it would
 /// only make the output unreadable to the human who ends up debugging it.
-fn quote(s: &str) -> String {
+///
+/// Shared with `tasks`, which emits the other JSON this crate produces (V7).
+/// Two hand-written encoders in a zero-dependency crate is the drift this
+/// crate exists to end, at the smallest scale it can appear.
+pub(crate) fn quote(s: &str) -> String {
     let mut out = String::from("\"");
     for c in s.chars() {
         match c {

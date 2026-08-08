@@ -568,7 +568,7 @@ pub fn statuses_valid(text: &str) -> Vec<Violation> {
         .enumerate()
         .filter_map(|(i, line)| {
             let id = at_line_start(line).filter(|id| id.kind == 'T')?;
-            let status = line.split('|').nth(1)?;
+            let status = crate::id::cells(line).get(1).copied()?;
             (!STATUSES.contains(&status)).then(|| {
                 bad_status(&id.label(), status).at(i.saturating_add(1))
             })
@@ -603,7 +603,7 @@ pub fn claims(text: &str) -> Vec<u32> {
     text.lines()
         .filter(|l| l.starts_with("| M"))
         .flat_map(|l| {
-            let fields: Vec<&str> = l.split('|').collect();
+            let fields = crate::id::cells(l);
             expand_cell(fields.get(3).copied().unwrap_or(""))
         })
         .collect()

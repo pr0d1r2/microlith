@@ -19,6 +19,7 @@
 
 use microlith::parse_records;
 use microlith::{check_spec, format_spec};
+use microlith::{tasks_json, tasks_report};
 
 /// Every construct FORMAT.md permits, each with a fixture of the same name.
 ///
@@ -126,6 +127,61 @@ fn check_is_clean_on_every_construct() {
             found.iter().map(ToString::to_string).collect();
         assert_eq!(named, Vec::<String>::new(), "check fired on {name}");
     }
+}
+
+/// V29 applied to the enumeration: it READS markdown structure -- a row, its
+/// pipe fields, an id behind a bullet -- so our own spec is the wrong thing
+/// to prove it against. It must ANSWER on every construct rather than
+/// panicking or going silent, and the two task-bearing fixtures are where the
+/// answer is checkable.
+#[test]
+fn tasks_answers_on_every_construct() {
+    for name in CONSTRUCTS {
+        let out = tasks_report(&fixture(name));
+        assert!(out.starts_with("tasks: "), "{name} got no answer: {out}");
+        let json = tasks_json(name, &fixture(name));
+        assert!(json.contains("\"tasks\":["), "{name}: {json}");
+        assert_eq!(
+            json.lines().count(),
+            1,
+            "{name} emitted more than one line"
+        );
+    }
+}
+
+/// V14 through the fixture that exists for it: a suffixed id RIDES its base,
+/// so the sequence a consumer receives is `T1 T1a T1b` and never a lexical
+/// ordering. The task-table fixture pins the plain case beside it.
+#[test]
+fn the_enumeration_keeps_id_order_on_the_fixtures_for_it() {
+    let ids = |name: &str| -> Vec<String> {
+        tasks_report(&fixture(name))
+            .lines()
+            .filter_map(|l| l.strip_prefix("task "))
+            .filter_map(|l| l.split(':').next())
+            .map(str::to_owned)
+            .collect()
+    };
+    assert_eq!(ids("suffixed-ids"), vec!["T1", "T1a", "T1b"]);
+    assert_eq!(ids("task-table"), vec!["T1", "T2"]);
+    assert!(tasks_report(&fixture("task-table")).contains("1 ., 0 ~, 1 x"));
+}
+
+/// A spec with NO `§T` says so, which is the distinction the whole verb
+/// turns on: an empty backlog and an unreadable one must not look alike.
+///
+/// Cut from a fixture rather than added as a fifteenth one: every construct
+/// here carries a task table, so an ABSENT section -- legal since T15 (V11)
+/// -- has no fixture of its own. Widening the corpus to cover absence is a
+/// V29 decision, not this test's to make, so this takes the construct that
+/// exists and removes the section.
+#[test]
+fn a_spec_with_no_task_section_says_none() {
+    let full = fixture("goal-prose");
+    let cut = full.split("## \u{a7}T").next().unwrap_or_default();
+    assert!(!cut.is_empty() && cut.len() < full.len(), "nothing was cut");
+    assert!(tasks_report(cut).starts_with("tasks: none"), "{cut}");
+    assert!(tasks_json("goal-prose", cut).contains("\"tasks\":[]"));
 }
 
 /// The three merges, planted directly (V18) rather than inferred from the
