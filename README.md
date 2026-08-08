@@ -222,11 +222,11 @@ That is the whole public surface: about twenty items, no public modules. The par
 
 ## Status
 
-`0.5.0`, published — [crates.io](https://crates.io/crates/microlith). A minor version here is a level of **guarantee**, not a feature count: `0.5` means public and usable, deliberately **partial** — an odd minor says so by itself (§V.34). It ships as a release candidate because cargo does not select a pre-release by default, so the pipeline is proven before a permanent number is spent on an immutable registry; `0.6` is where the surface settles. `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
+`0.6.0`, published — [crates.io](https://crates.io/crates/microlith). A minor version here is a level of **guarantee**, not a feature count: `0.6` means that surface has settled — an **even** minor says production-ready by itself (§V.34). It carries what the first real users found: a backlog a consumer can enumerate without re-porting the grammar, and a table-cell escape that had been misread since the first checker. `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
 
-**An even minor is stable; an odd minor is functional but not for production** -- the Linux 2.x and GNOME convention, and the parity describes the *release*, not the work in it. So `0.5` is the first public rung and says so in the number: usable, worth depending on for a trial, deliberately **partial** -- what ships works, and not everything ships yet. `0.6` is where that surface settles and becomes production-ready.
+**An even minor is stable; an odd minor is functional but not for production** -- the Linux 2.x and GNOME convention, and the parity describes the *release*, not the work in it. `0.5` was the first public rung and said so in its number: usable, worth a trial, deliberately **partial**. `0.6` is where that surface settles. The next odd rung, `0.7`, is the gate earning its trust -- a green streak and release automation -- so the parity keeps carrying one bit a consumer can act on before reading a changelog.
 
-All six commands are built and gate this repo's own spec.
+All seven commands are built and gate this repo's own spec.
 
 `SPEC.md` records what remains, what was deliberately dropped, and every bug found so far with the rule that now catches it.
 
@@ -236,7 +236,7 @@ A [microlith](https://en.wikipedia.org/wiki/Microlith) is a small stone blade --
 
 **It was never used alone.** Microliths were hafted in rows into arrow shafts, spear tips and sickles, several to a tool. Each was one part of a job that no single piece could do by itself. `mth` is not the thing that develops your software; it is one small hard edge that other tools get assembled around. It does the mechanical operations on `SPEC.md` and nothing else -- no inference, no network, no judgement -- so an agent, a git hook, a CI job or a person can haft it into whatever they are actually building. The library exists for exactly that reason: a consumer calls the rule instead of carrying their own copy of it.
 
-**It was basic, and powerful, and took almost no training.** That is the part worth stealing. Microlithic technology spread because a standard small blade did not need a master knapper -- ordinary people could make them, use them, and repair a tool by replacing one blade rather than remaking the whole thing. So: six verbs, no configuration file, no flags you must learn before the tool is useful, and silence when there is nothing to report. `mth fmt` and `mth check` are the entire learning curve. Power here means the guarantees underneath -- lossless, idempotent, deterministic -- not surface area you have to study.
+**It was basic, and powerful, and took almost no training.** That is the part worth stealing. Microlithic technology spread because a standard small blade did not need a master knapper -- ordinary people could make them, use them, and repair a tool by replacing one blade rather than remaking the whole thing. So: seven verbs, no configuration file, no flags you must learn before the tool is useful, and silence when there is nothing to report. `mth fmt` and `mth check` are the entire learning curve. Power here means the guarantees underneath -- lossless, idempotent, deterministic -- not surface area you have to study.
 
 **It was standardised.** Interchangeable by design, which is what made replacement cheap. Same bet here: every rule is a pure function over `&str` with one definition, so there is one implementation to agree with rather than several to reconcile.
 

@@ -12,15 +12,17 @@ name = "microlith"
 # A minor is a level of GUARANTEE, not a feature count (V30). The full
 # ladder lives in SPEC.md and is rendered for consumers in CHANGELOG.md.
 #
-# 0.4.0, and the number is a MEASUREMENT rather than a choice: 0.1 was
-# "builds reproducibly anywhere" and M1, M2, M3, M6 and M7 have all landed
-# since, so the rungs through 0.4 -- the rules hold on real-world markdown,
-# not only on our own file -- are paid for. Leaving it at 0.1.0 was the
-# failure V30 names: a version that says nothing.
+# WHAT THIS COMMENT NO LONGER DOES: restate which rung the number below is
+# on. It did, and it drifted -- it narrated 0.4.0 through the whole of
+# 0.5.0, so a reader met a manifest whose prose and whose number disagreed
+# about what had been paid for. A second copy of a fact that already has a
+# home is the defect this crate exists to end (V7), and the fix is to
+# delete the copy rather than to remember to update it.
 #
-# The next rung is 0.5.0 = PUBLIC, and it ships as 0.5.0-rc.1 first
-# because crates.io is immutable.
-version = "0.5.0"
+# The number is a MEASUREMENT: each rung answers "what can you rely on at
+# this tag?", and it moves when a milestone's done-when is met -- never to
+# mark effort. Read CHANGELOG.md's table for which rung this is.
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"

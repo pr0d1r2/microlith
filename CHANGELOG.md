@@ -22,8 +22,8 @@ arriving from crates.io can read the number without opening our spec.
 | `0.2` | even | it cannot regress locally — the gate runs in git hooks | reached |
 | `0.3` | odd | one implementation of the format rules, not two that disagree | reached |
 | `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | reached |
-| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | **current**, published |
-| `0.6` | even | that surface stabilized — the fixes the first real users find, and a backlog a consumer can read without re-porting the grammar | planned |
+| `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | published |
+| `0.6` | even | that surface stabilized — the fixes the first real users find, and a backlog a consumer can read without re-porting the grammar | **current**, published |
 | `0.7` | odd | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
 | `0.8` | even | mechanical editing and planning — every mutation through one verified write path | planned |
 | `1.0` | even | the contract frozen: the CLI surface, the JSON output, and the library API | planned |
@@ -38,6 +38,19 @@ public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
+
+Nothing yet.
+
+## [0.6.0] — 2026-08-08
+
+**Even minor: stable** (§V.34). `0.5` was published as deliberately partial; this
+is where that surface settles. The rung's question — *what can you rely on at
+this tag?* — is answered: the backlog is readable by a consumer without
+re-porting the grammar, and the first defect a real user found is fixed.
+
+The fix below is the reason this is not merely an addition. A literal `|` in a
+table cell has been misread since the first checker, silently, and any consumer
+reading task text or citations through `0.5.0` was reading truncated cells.
 
 ### Added
 
@@ -127,6 +140,7 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.0
 [0.5.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0
 [0.5.0-rc.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0-rc.1
