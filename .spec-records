@@ -35,6 +35,10 @@ V24  a built package
 T20  REJECTED: microlith writing an inline markdownlint directive
 T23  REJECTED: auto-writing a single `complete all tasks` milestone
 T10  DROPPED: multi-version support & AUTODETECTION
+# T29 rejected `derive --format json` on a fact about a PUBLISHED artifact:
+# an old `mth` ignores the flag and exits 0 with prose. Without this line the
+# rejection reads as an unbuilt alternative somebody should get round to.
+T29  REJECTED: `derive --format json`
 T14  DROPPED: a parallel `nk:` skill set
 
 # V31 defers a checker for condition 4; the denylist cannot live in the repo

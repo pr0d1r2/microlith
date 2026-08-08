@@ -30,6 +30,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "check" => check(rest),
         "derive" => reporting(rest, derive_report(rest)),
         "anchors" => reporting(rest, anchors_report(rest)),
+        "tasks" => tasks(rest),
         "migrate" => migrate(rest),
         "docs" => Output::ok(crate::docs::markdown()),
         other => unknown(other),
@@ -317,6 +318,31 @@ fn unreadable(path: &str) -> Output {
     Output::usage(format!("mth: cannot read {path}\n"))
 }
 
+/// `tasks [--format human|json] <path>`: enumerate `§T`, exit 0.
+///
+/// Report-only like `derive`, but with a rendering to choose, so it cannot
+/// share `reporting`'s one-function shape. Exit 0 EVEN WITH NO TASKS: a spec
+/// with an empty backlog and a spec with none are both legal, and the payload
+/// is what tells them apart (`"tasks":[]`). An unreadable path stays a USAGE
+/// error at exit 2 -- that is a broken invocation rather than a finding, and
+/// it is the signal a caller falls back on when this verb is absent
+/// altogether.
+fn tasks(rest: &[String]) -> Output {
+    let path = target(rest);
+    let as_json = match wants_json(rest) {
+        Err(e) => return Output::usage(e),
+        Ok(j) => j,
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
+    };
+    Output::ok(if as_json {
+        crate::tasks::json(&path, &text)
+    } else {
+        crate::tasks::report(&text, verbose(rest))
+    })
+}
+
 /// `derive <path>` and `anchors <path>`: read, report, exit 0.
 ///
 /// One function for both because they differ only in which report they
@@ -568,6 +594,45 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// `tasks` reports and exits 0 in BOTH renderings, and the JSON is one
+    /// object a parser accepts -- asserted through the real argv path,
+    /// because that is what the consumer actually runs.
+    #[test]
+    fn tasks_enumerates_and_exits_zero_in_either_rendering() {
+        let path = reportable("tasksverb");
+        let human = run(&args(&["tasks", &path]));
+        assert_eq!(human.code, 0, "{}", human.err);
+        assert!(human.out.starts_with("tasks: 1 rows"), "{}", human.out);
+        let json = run(&args(&["tasks", "--format", "json", &path]));
+        assert_eq!(json.code, 0, "{}", json.err);
+        assert!(json.out.contains("\"id\":\"T1\""), "{}", json.out);
+        assert!(json.out.contains("\"status\":\"x\""), "{}", json.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A spec with NO tasks still answers, and exits 0 doing it. This is the
+    /// case the consumer distinguishes on: an empty backlog is a fact, and
+    /// the absence it falls back on is an unreadable file (exit 2) or a
+    /// binary too old to know the verb (exit 2, unknown command).
+    #[test]
+    fn a_spec_with_no_tasks_answers_rather_than_going_silent() {
+        let path = write_temp("notasks", "## \u{a7}V INVARIANTS\nV1: alone.\n");
+        let o = run(&args(&["tasks", "--format", "json", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("\"tasks\":[]"), "{}", o.out);
+        assert_eq!(run(&args(&["tasks", "no/such/file"])).code, 2);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The same usage error `check` gives: a caller who asked for JSON and
+    /// got prose would parse it and fail somewhere far away.
+    #[test]
+    fn tasks_rejects_an_unknown_format() {
+        let o = run(&args(&["tasks", "--format", "yaml"]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("expected human or json"), "{}", o.err);
+    }
+
     /// An unknown format is a usage error, never a silent fallback to prose.
     /// A caller who asked for json and got a sentence parses it and fails
     /// somewhere far away from the mistake.
@@ -737,6 +802,7 @@ mod tests {
         let path = reportable("verbrep");
         deepens("anchors", &path);
         deepens("derive", &path);
+        deepens("tasks", &path);
         let _ = std::fs::remove_file(&path);
     }
 

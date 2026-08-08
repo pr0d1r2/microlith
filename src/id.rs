@@ -110,6 +110,42 @@ fn terminator_after(rest: &str, at: usize, bulleted: bool) -> Option<char> {
         .filter(|c| matches!(c, ':' | '|') || (bulleted && *c == ' '))
 }
 
+/// The CELLS of a pipe row, split on an UNESCAPED `|`.
+///
+/// FORMAT.md: "literal `|` -> escape as `\|`". Splitting on every pipe reads
+/// an escaped one as a field boundary, which truncates the cell carrying it
+/// and shifts every cell after it. MEASURED here: three rows of our own
+/// SPEC.md write `` `Mechanical`\|`Judgment` `` mid-text, so a naive split
+/// cuts their task text in half and finds the citations one field late.
+///
+/// Raw slices, escapes intact: this is the SPLIT, and what a cell MEANS is
+/// the caller's -- V25 compares its status field byte for byte, while a
+/// reader wants [`unescape`] and a trim. One splitter for all of them (V7).
+#[must_use]
+pub fn cells(line: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    let mut escaped = false;
+    for (at, c) in line.char_indices() {
+        if c == '|' && !escaped {
+            out.push(line.get(start..at).unwrap_or(""));
+            start = at.saturating_add(1);
+        }
+        escaped = c == '\\' && !escaped;
+    }
+    out.push(line.get(start..).unwrap_or(""));
+    out
+}
+
+/// A cell as it READS: `\|` back to `|`.
+///
+/// The inverse of what the format asks an author to type, applied only where
+/// the text is being shown rather than matched.
+#[must_use]
+pub fn unescape(cell: &str) -> String {
+    cell.replace("\\|", "|")
+}
+
 /// `30a` -> `(30, "a")`. An empty or non-numeric lead fails the parse, which
 /// is what rejects `Vx:`.
 fn split_number(body: &str) -> Option<(u32, String)> {
@@ -194,6 +230,45 @@ mod tests {
         assert!(key("T30|") < key("T30a|"));
         assert!(key("T30a|") < key("T31|"));
         assert!(key("T4|") < key("T30|"), "numeric, not lexical");
+    }
+
+    /// FORMAT.md's escape, planted (V18): three rows of our own spec carry
+    /// `\|` mid-text, and a naive split truncates them.
+    #[test]
+    fn an_escaped_pipe_is_not_a_cell_boundary() {
+        let row = "T9|x|the `Mechanical`\\|`Judgment` taxonomy|V25";
+        let got = cells(row);
+        assert_eq!(got.len(), 4, "{got:?}");
+        assert_eq!(
+            got.get(2).copied(),
+            Some("the `Mechanical`\\|`Judgment` taxonomy")
+        );
+        assert_eq!(got.get(3).copied(), Some("V25"));
+        assert_eq!(
+            unescape("the `Mechanical`\\|`Judgment` taxonomy"),
+            "the `Mechanical`|`Judgment` taxonomy"
+        );
+    }
+
+    /// The companion: an ORDINARY row splits exactly as it did before, and a
+    /// leading pipe still opens an empty first cell, so the milestone table's
+    /// field positions do not move (V18).
+    #[test]
+    fn an_unescaped_row_splits_where_it_always_did() {
+        assert_eq!(cells("T1|x|a task|V1"), vec!["T1", "x", "a task", "V1"]);
+        assert_eq!(
+            cells("| M1 | core | T1-T4 | done |"),
+            vec!["", " M1 ", " core ", " T1-T4 ", " done ", ""]
+        );
+        assert_eq!(cells("no pipes here"), vec!["no pipes here"]);
+    }
+
+    /// A trailing backslash must not escape the terminator that is not there,
+    /// and `\\|` is an escaped BACKSLASH followed by a real boundary.
+    #[test]
+    fn an_escaped_backslash_does_not_escape_the_pipe_after_it() {
+        assert_eq!(cells("a\\\\|b"), vec!["a\\\\", "b"]);
+        assert_eq!(cells("a|b\\"), vec!["a", "b\\"]);
     }
 
     #[test]
