@@ -77,6 +77,16 @@ than before, never fewer — which is why it is a patch and not a rung.
   exists to stop numbers being typed. It said `26.11` from birth and is now
   read from `flake.lock`.
 
+### Added
+
+- Releases run through [`cargo-release`](https://github.com/crate-ci/cargo-release),
+  configured by `release.toml` — the gate is a pre-release hook, so a red gate
+  aborts a publish rather than being something a releaser is trusted to have
+  run first. Contributor-facing; nothing about the crate changes.
+- The `package` gate step now also records what the `.crate` ships, in
+  `.crate-files`. A file that starts or stops shipping shows up as a diff line
+  in the pull request that caused it, instead of at publish time.
+
 ## [0.6.0] — 2026-08-08
 
 **Even minor: stable** (§V.34). `0.5` was published as deliberately partial; this

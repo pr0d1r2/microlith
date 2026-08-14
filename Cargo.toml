@@ -67,6 +67,11 @@ exclude = [
   "flake.lock",
   "hk.pkl",
   "pkl/",
+  # The RECORD of what ships, and the config that publishes it. Both are about
+  # the release rather than part of it, and `.crate-files` excluded means the
+  # list never has to contain its own name.
+  ".crate-files",
+  "release.toml",
 ]
 
 # What a `.crate` MUST carry, checked rather than described. Cargo ignores
