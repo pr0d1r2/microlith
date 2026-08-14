@@ -221,6 +221,15 @@
             # It cannot run before there IS a published release, and it says
             # so rather than passing quietly -- see the step in hk.pkl.
             pkgs.cargo-semver-checks
+            # THE RELEASE, which is a tool and not a script. Everything T8
+            # described -- clean tree, allowed branch, tag scheme, dry-run
+            # first, confirm, verify, publish, push -- this already does, and
+            # `release.toml` configures it. A hand-written release script was
+            # started here and DELETED once that was checked: a second
+            # implementation of one rule set is the defect this crate exists
+            # to end (V7, V37), and it does not stop being one because we are
+            # the ones who wrote it.
+            pkgs.cargo-release
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";

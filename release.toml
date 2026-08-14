@@ -1,0 +1,63 @@
+# The release, configured rather than scripted.
+#
+# T8 carried the release MECHANICS as prose, which is a rule with no runner
+# (V17). The runner is `cargo-release`, which already does the whole list --
+# clean tree, allowed branch, tag scheme, dry-run first, confirm, publish,
+# push. A shell script re-implementing that would be exactly the defect this
+# crate exists to end: a second implementation of one rule set (V7). The right
+# amount of code here is a config file.
+#
+# HOW IT IS RUN. Dry-run is `cargo-release`'s DEFAULT and it reports every
+# problem in one pass, not the first one it hits:
+#
+#     cargo release patch                 # verify everything, change nothing
+#     cargo release patch --execute       # act
+#
+# but NOT for this repo's version bump -- see below.
+#
+# THE BUMP DOES NOT HAPPEN HERE. cargo-release's default flow bumps the
+# version, COMMITS it and pushes that commit to the release branch, and this
+# repo's branch protection forbids that: `main` requires a pull request with
+# three passing checks, enforced for admins. So the version is bumped in the
+# PR, like any other change, and only the TAIL runs from `main` afterwards:
+#
+#     cargo release hook                  # the gate, dry-run is enough
+#     cargo release tag --execute
+#     cargo release publish --execute
+#     cargo release push --execute
+#
+# Each of those is a standalone step, MEASURED -- they run without the bump
+# steps having run first.
+#
+# `hook` IS THE FIRST OF THEM ON PURPOSE, and this is the one thing about
+# cargo-release that must not be assumed. MEASURED with a deliberately failing
+# hook: `tag`, `publish` and `push` do NOT run `pre-release-hook` -- only the
+# full flow does, and `cargo release hook` on its own. So on a repo that
+# bumps in a PR, the gate is a precondition ONLY IF `hook` is run, and a
+# sequence that starts at `tag` publishes whatever the tree happens to hold.
+# Running it dry is enough: the hook executes and a non-zero return aborts.
+
+# The branch a release may happen from. The `.crate` records the commit it was
+# built from, and a squash merge ORPHANS the branch sha -- so publishing off a
+# PR branch leaves the artifact naming a commit on no branch. Measured at
+# 0.5.0-rc.1, which named 7941eae and needed a tag ON that commit to stay
+# resolvable (T8).
+allow-branch = ["main"]
+
+# THE GATE, called rather than re-checked (V22). A non-zero return here ABORTS
+# the release, which makes the gate a precondition of publishing rather than
+# something a releaser is trusted to have run. `--check` because the fix
+# commands would rewrite a tree cargo-release has just asserted is clean.
+pre-release-hook = ["hk", "check", "--all", "--check", "--no-fail-fast"]
+
+# `v<x.y.z>`, because the `semver` gate step diffs the pub API against the last
+# `v*` tag -- publishing under any other tag shape leaves that step green
+# against the wrong baseline, or against nothing at all.
+tag-name = "v{{version}}"
+
+# `verify` builds the packaged tarball before upload. It is the default; it is
+# stated because it is the check that catches a `.crate` which cannot compile
+# from what it actually ships, and a default nobody wrote down is a default
+# somebody eventually turns off.
+publish = true
+verify = true

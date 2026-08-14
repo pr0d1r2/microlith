@@ -226,12 +226,39 @@ local fast = new Mapping<String, Step> {
   ["package"] {
     glob = List("**/*")
     check = """
+      mkdir -p target
       list=$(cargo package --list --allow-dirty 2>/dev/null) || { echo 'hk: `cargo package --list` failed -- the manifest cannot produce a tarball at all. Fix Cargo.toml before worrying about its contents.' >&2; exit 1; }
       missing=""
       for p in $(taplo get -f Cargo.toml 'package.metadata.microlith.must-package[*]'); do
         echo "$list" | grep -qxF "$p" || missing="$missing $p"
       done
       [ -z "$missing" ] || { echo "hk: the published .crate would ship WITHOUT:$missing -- and the repo's own tests would stay GREEN, because the repo still has them. Either fix the exclude list in Cargo.toml, or drop the path from must-package and say why it is no longer needed." >&2; exit 1; }
+      echo "$list" | sort > target/crate-files.txt
+      diff -q .crate-files target/crate-files.txt >/dev/null || { echo 'hk: what the .crate SHIPS changed. The lines below are the difference between the recorded file set and the one this tree would publish. If it is intended, run `hk fix` to record it -- the point is that it lands in a DIFF a reviewer reads, rather than being discovered at publish time. If it is not, something was added, deleted or excluded by accident.' >&2; diff .crate-files target/crate-files.txt >&2; exit 1; }
+      """
+    // The RECORDED file set, frozen against the measurement -- the same shape
+    // as `.coverage` and the README badges (V33). must-package above asserts
+    // that named paths are PRESENT; this asserts that the set did not MOVE,
+    // which is the other half and the one no gate looked at.
+    //
+    // Recorded in a FILE rather than diffed against the last release tag: a
+    // tag comparison needs a worktree and a second `cargo package` on every
+    // run, and it can only speak at release time. A committed list turns the
+    // same fact into a line in the pull request that CAUSED it -- read by a
+    // reviewer, months before anyone publishes.
+    //
+    // `.crate-files` is itself excluded from the package, so the list never
+    // has to describe itself.
+    //
+    // TWO ENTRIES ARE NOT IN GIT, and looking for them in the tree is a wasted
+    // search: `cargo package --list` names what the TARBALL holds, and cargo
+    // synthesizes `Cargo.toml.orig` (the manifest verbatim, since the shipped
+    // `Cargo.toml` is cargo's normalized rewrite) and `.cargo_vcs_info.json`
+    // (the commit the crate was built from -- the very record T8's
+    // publish-from-main rule exists to keep resolvable). Names only, so both
+    // stay stable across commits.
+    fix = """
+      cargo package --list --allow-dirty 2>/dev/null | sort > .crate-files || { echo 'hk: `cargo package --list` failed, so the .crate file set could not be recorded.' >&2; exit 1; }
       """
   }
   // A leaked token in git history is IRREVERSIBLE -- the same property that
