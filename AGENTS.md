@@ -36,11 +36,21 @@ The next unstarted task is **T8**, publish, in `SPEC.md`. T7 is `~` and
 blocked on it.
 
 Releasing is `cargo-release`, configured in `release.toml` — never a script
-(§V.37). Dry-run is its default, so `cargo release patch` verifies and changes
-nothing; the gate runs as a pre-release hook, so a red gate aborts a publish
-instead of being something you are trusted to have run. The version **bump**
-goes through a pull request like any other change, because `main` is
-protected; only `tag`, `publish` and `push` run from `main` afterwards.
+(§V.37). Dry-run is its default, so any step without `--execute` verifies and
+changes nothing. The version **bump** goes through a pull request like any
+other change, because `main` is protected; the tail then runs from `main`:
+
+```
+cargo release hook                 # the gate. NOT optional -- see below
+cargo release tag --execute
+cargo release publish --execute
+cargo release push --execute
+```
+
+`hook` runs first because `tag`, `publish` and `push` **do not** run
+`pre-release-hook` — measured with a deliberately failing hook. Only the full
+flow and `cargo release hook` do. Start at `tag` and you publish whatever the
+tree happens to hold.
 
 ## The rule
 

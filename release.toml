@@ -21,12 +21,21 @@
 # three passing checks, enforced for admins. So the version is bumped in the
 # PR, like any other change, and only the TAIL runs from `main` afterwards:
 #
+#     cargo release hook                  # the gate, dry-run is enough
 #     cargo release tag --execute
 #     cargo release publish --execute
 #     cargo release push --execute
 #
 # Each of those is a standalone step, MEASURED -- they run without the bump
 # steps having run first.
+#
+# `hook` IS THE FIRST OF THEM ON PURPOSE, and this is the one thing about
+# cargo-release that must not be assumed. MEASURED with a deliberately failing
+# hook: `tag`, `publish` and `push` do NOT run `pre-release-hook` -- only the
+# full flow does, and `cargo release hook` on its own. So on a repo that
+# bumps in a PR, the gate is a precondition ONLY IF `hook` is run, and a
+# sequence that starts at `tag` publishes whatever the tree happens to hold.
+# Running it dry is enough: the hook executes and a non-zero return aborts.
 
 # The branch a release may happen from. The `.crate` records the commit it was
 # built from, and a squash merge ORPHANS the branch sha -- so publishing off a
