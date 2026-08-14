@@ -4,22 +4,53 @@
   # subdirectory cannot see `Cargo.toml`/`src/` and can offer no package at
   # all. Root is also every Rust project's shape, so it needs no teaching.
   #
-  # Pinned to the same nixpkgs revision as itok, the first consumer, so the
-  # two repos cannot drift into different rustc/clippy versions and
-  # disagree about a verdict.
+  # The nixpkgs revision is no longer pinned HERE. It was -- a bare rev,
+  # copied into itok so the two repos could not disagree about a verdict --
+  # and a rev copied between repos is a rev that drifts the first time only
+  # one of them is bumped. The fleet now has ONE nixpkgs authority,
+  # `nixpkgs-lock`, and every repo follows it, so the agreement is a
+  # property of the graph rather than of two matching strings.
   description = "microlith -- the cavekit SPEC format, enforced (dev shell)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/241313f4e8e508cb9b13278c2b0fa25b9ca27163";
+  # hk is built by `nix-hk` and pushed to this cache. Without the
+  # substituter every entry into the dev shell BUILDS hk from source, which
+  # is the cost this whole two-input wiring exists to avoid. Declared here
+  # rather than in each user's nix.conf so the cache travels with the flake.
+  nixConfig = {
+    extra-substituters = [ "https://pr0d1r2.cachix.org" ];
+    extra-trusted-public-keys = [
+      "pr0d1r2.cachix.org-1:NfWjbhgAj41byXhCKiaE+av3Vnphm1fTezHXEGsiQIM="
+    ];
+  };
+
+  # TWO declared inputs, ONE nixpkgs. `nixpkgs-lock` is the fleet's sole
+  # nixpkgs authority (today: nixos-26.05, rustc 1.95.0) and `nixpkgs`
+  # follows it, so this repo names no revision of its own. `nix-hk` follows
+  # the SAME lock rather than its own copy -- if it resolved a second rev,
+  # the cached hk would be built against a nixpkgs this shell does not have
+  # and every substitution would miss.
+  inputs = {
+    nixpkgs-lock.url = "github:pr0d1r2/nixpkgs-lock";
+    nixpkgs.follows = "nixpkgs-lock/nixpkgs";
+    nix-hk.url = "github:pr0d1r2/nix-hk";
+    nix-hk.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, nix-hk, ... }:
     let
       systems = [
         "aarch64-darwin"
         "x86_64-linux"
         "aarch64-linux"
       ];
-      forAll = f: nixpkgs.lib.genAttrs systems (s: f nixpkgs.legacyPackages.${s});
+      # The overlay is what makes `pkgs.hk` below mean nix-hk's hk instead of
+      # nixpkgs'. Applied as an OVERLAY rather than referenced as
+      # `nix-hk.packages.${s}.hk` so there is exactly one `pkgs` in this
+      # file: a second lookup path would be a second place to forget, and
+      # the package list stays a list of names.
+      forAll =
+        f: nixpkgs.lib.genAttrs systems (s: f (nixpkgs.legacyPackages.${s}.extend nix-hk.overlays.default));
 
       # microlith formats its own SPEC.md (V24), so the dev shell must PROVIDE
       # `microlith`, not merely the toolchain to build it.
@@ -140,7 +171,12 @@
             pkgs.cargo-llvm-cov
             pkgs.llvmPackages.llvm
             pkgs.git
-            # The gate runner; the ops it runs live in `hk.pkl`.
+            # The gate runner; the ops it runs live in `hk.pkl`. Comes from
+            # the `nix-hk` overlay, not from nixpkgs: nixpkgs' hk trails the
+            # releases `hk.pkl` is written against, and nix-hk builds the
+            # current one from this same nixpkgs and pushes it to cachix --
+            # so the shell gets a CURRENT hk without a second toolchain and
+            # without compiling it on every machine.
             pkgs.hk
             # Gate steps that need a real binary, pinned here so the dev
             # shell and CI run identical versions rather than whatever each

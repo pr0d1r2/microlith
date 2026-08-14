@@ -347,7 +347,7 @@ local fast = new Mapping<String, Step> {
   // ignored in `fast` where coverage is absent -- so pre-commit regenerates
   // from the cache and pre-push checks against a fresh measurement.
   ["readme-badges"] {
-    glob = List("README.md", ".coverage", "Cargo.toml", "flake.nix", "hk.pkl")
+    glob = List("README.md", ".coverage", "Cargo.toml", "flake.nix", "flake.lock", "hk.pkl")
     depends = List("coverage")
     check = """
       mkdir -p target
@@ -356,6 +356,13 @@ local fast = new Mapping<String, Step> {
       deps=$(awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&NF' Cargo.toml | wc -l | tr -d ' ')
       floor=$(grep -oE 'fail-under-lines [0-9]+' hk.pkl | head -1 | grep -oE '[0-9]+')
       cov=$(awk '/^lines /{print $2}' .coverage)
+      # READ, not written down. This badge said `26.11` for as long as it
+      # existed and became a lie the moment the flake started following
+      # nixpkgs-lock -- a hand-kept number inside the very step that exists
+      # to stop hand-kept numbers. The channel lives in flake.lock's `ref`,
+      # which is the file that owns it, so read it from there.
+      chan=$(grep -oE '"ref": "nixos-[0-9]+\.[0-9]+"' flake.lock | head -1 | grep -oE '[0-9]+\.[0-9]+')
+      [ -n "$chan" ] || { echo 'hk: flake.lock names no `nixos-XX.YY` ref -- the nixpkgs badge has nothing to read. If the fleet stopped following a release channel, the badge must say what it follows NOW rather than keep a stale number.' >&2; exit 1; }
       R=https://img.shields.io/badge
       plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
         | while read t; do
@@ -383,7 +390,7 @@ local fast = new Mapping<String, Step> {
       [![floor $floor%]($R/floor-%E2%89%A5$floor%25-brightgreen)](hk.pkl)
 
       [![nix flake]($R/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
-      [![nixpkgs 26.11]($R/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
+      [![nixpkgs $chan]($R/nixpkgs-$chan-5277C3?logo=nixos&logoColor=white)](flake.lock)
       $plat
 
       [![built with Claude Code]($R/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
@@ -401,6 +408,13 @@ local fast = new Mapping<String, Step> {
       deps=$(awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&NF' Cargo.toml | wc -l | tr -d ' ')
       floor=$(grep -oE 'fail-under-lines [0-9]+' hk.pkl | head -1 | grep -oE '[0-9]+')
       cov=$(awk '/^lines /{print $2}' .coverage)
+      # READ, not written down. This badge said `26.11` for as long as it
+      # existed and became a lie the moment the flake started following
+      # nixpkgs-lock -- a hand-kept number inside the very step that exists
+      # to stop hand-kept numbers. The channel lives in flake.lock's `ref`,
+      # which is the file that owns it, so read it from there.
+      chan=$(grep -oE '"ref": "nixos-[0-9]+\.[0-9]+"' flake.lock | head -1 | grep -oE '[0-9]+\.[0-9]+')
+      [ -n "$chan" ] || { echo 'hk: flake.lock names no `nixos-XX.YY` ref -- the nixpkgs badge has nothing to read. If the fleet stopped following a release channel, the badge must say what it follows NOW rather than keep a stale number.' >&2; exit 1; }
       R=https://img.shields.io/badge
       plat=$(sed -n '/systems = \[/,/\];/p' flake.nix | grep -oE '"[a-z0-9_-]+"' | tr -d '"' \
         | while read t; do
@@ -428,7 +442,7 @@ local fast = new Mapping<String, Step> {
       [![floor $floor%]($R/floor-%E2%89%A5$floor%25-brightgreen)](hk.pkl)
 
       [![nix flake]($R/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
-      [![nixpkgs 26.11]($R/nixpkgs-26.11-5277C3?logo=nixos&logoColor=white)](flake.lock)
+      [![nixpkgs $chan]($R/nixpkgs-$chan-5277C3?logo=nixos&logoColor=white)](flake.lock)
       $plat
 
       [![built with Claude Code]($R/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
@@ -540,6 +554,20 @@ local all = (fast) {
       cargo semver-checks --version >/dev/null 2>&1 || { echo 'hk: cargo-semver-checks is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
       baseline=$(git tag --list 'v*' --sort=-v:refname | head -1)
       [ -n "$baseline" ] || { echo 'hk: semver: NO BASELINE -- no release tag exists yet, so there is no prior API to diff against. This step arms itself at the first `v*` tag; it is reporting that it examined nothing, not that it found nothing.' >&2; exit 0; }
+      # A baseline this toolchain CANNOT BUILD is not an API break -- and the
+      # arm below calls it one. MEASURED: lowering the MSRV puts the shell's
+      # rustc UNDER the last release's declared floor, cargo-semver-checks
+      # fails to build the baseline's rustdoc, and the step reports that the
+      # pub API broke -- a verdict about code from a run that compared none of
+      # it. Same shape as NO BASELINE above: name what was NOT examined and
+      # exit 0. Narrow on purpose -- it fires only when the floors are read
+      # and disagree, so an ordinary baseline build failure still fails.
+      base_msrv=$(git show "$baseline:Cargo.toml" 2>/dev/null | grep '^rust-version' | tr -d ' "' | cut -d= -f2)
+      now=$(rustc --version | awk '{print $2}')
+      if [ -n "$base_msrv" ] && [ "$(printf '%s\n%s\n' "$base_msrv" "$now" | sort -V | head -1)" != "$base_msrv" ]; then
+        echo "hk: semver: BASELINE UNBUILDABLE -- $baseline declares rust-version $base_msrv and this toolchain is $now, so the baseline's rustdoc cannot be built and there is NOTHING to diff. That is the MSRV having been LOWERED, not an API break. It re-arms at the first tag whose floor this toolchain meets. Nothing was examined." >&2
+        exit 0
+      fi
       cargo semver-checks check-release --baseline-rev "$baseline" || { echo "hk: the pub API broke against $baseline. Either restore it, or take the version bump semver requires -- V30's ladder is a promise to consumers, and crates.io is immutable, so a wrong rung cannot be corrected." >&2; exit 1; }
       """
   }
