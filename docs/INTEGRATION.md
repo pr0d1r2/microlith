@@ -14,12 +14,12 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 30 steps
+              one definition, 31 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   27 steps           all: 30 steps      all: 30 steps
+   28 steps           all: 31 steps      all: 31 steps
    (fast + 1 local)
 ```
 
@@ -43,21 +43,21 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (27 steps)       ---fails---> fix, retry
+  git commit ---> pre-commit  (28 steps)       ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 30 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 31 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 30 steps -- same definition)
+  pull request ---> ci.yml    (all, 31 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -101,7 +101,7 @@ The local `no-commit-to-branch` hook changes no outcome — it moves that refusa
 earlier, to before you have built a commit you then have to move. The server
 rule is the one that defends the branch, because V23 makes every hook here skip
 outside the dev shell. Requiring a PR does not add a check either — CI runs the
-same 30 steps your pre-push hook just ran — it adds a *reader*. The gate
+same 31 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
@@ -112,16 +112,16 @@ above. Which **files** they see is separate:
 
 | stage | steps | files examined |
 |---|---|---|
-| `pre-commit` | 27 | **staged files only** (hk's default) |
-| `pre-push` | `all` — 30 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
-| CI | `all` — 30 | **every file in the repo** (`hk check --all`) |
+| `pre-commit` | 28 | **staged files only** (hk's default) |
+| `pre-push` | `all` — 31 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
+| CI | `all` — 31 | **every file in the repo** (`hk check --all`) |
 
 `fast` is a strict subset of `all`, so every step that gated your commit gates
 your push again — over a wider set of files.
 
 ## The steps that guard claims, not code
 
-Four steps here do something different from linting: they check that a sentence
+Five steps here do something different from linting: they check that a sentence
 written somewhere else in this repo is still **true**.
 
 | step | the claim it enforces | where the claim lives |
@@ -130,6 +130,7 @@ written somewhere else in this repo is still **true**.
 | `package` | the `.crate` ships the files the test suite reads, and its file set has not moved | `Cargo.toml`'s `must-package`, `.crate-files` |
 | `semver` | the version number means what V30 says it means | `SPEC.md` §V.30, §V.34 |
 | `readme-badges` | the coverage percentage, MSRV, edition and platform list | `README.md` badges |
+| `format-upstream` | `FORMAT.md` matches the upstream version it records | `.format-upstream` |
 
 Each exists because the claim was already being made and nothing was checking
 it. A number or a guarantee stated in prose is true the day it is written and

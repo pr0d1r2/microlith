@@ -1,0 +1,86 @@
+# Did the format's upstream move?
+#
+# Deliberately NOT part of `ci.yml`. That workflow gates a change; this one
+# asks a question about the outside world, and the answer has nothing to do
+# with the pull request under review. A check that fails unrelated PRs is a
+# check people learn to click past, which is worse than not having it.
+#
+# So it runs on a schedule, fails its own run, and blocks nothing. GitHub
+# emails on the first failure of a scheduled workflow, and the run stays red
+# until `.format-upstream` is updated -- it clears itself when the decision is
+# recorded, with no issue to close and no state to manage.
+#
+# The offline half lives in `hk.pkl` as `format-upstream`: it asserts FORMAT.md
+# still matches the recorded hash. Neither half is the whole job, and each says
+# which half it is.
+name: format-upstream
+
+on:
+  schedule:
+    # Weekly. Upstream moved twice in five months, so a week of latency costs
+    # nothing and 52 runs a year is noise-free.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to a commit SHA with the tag as a comment, same rule as ci.yml.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: compare FORMAT.md against upstream
+        run: |
+          set -euo pipefail
+          src=$(grep '^source = ' .format-upstream | cut -d' ' -f3)
+          rev=$(grep '^rev = ' .format-upstream | cut -d' ' -f3)
+          want=$(grep '^sha256 = ' .format-upstream | cut -d' ' -f3)
+          repo=${src#https://github.com/}
+
+          # Ours must match the record before upstream is worth asking about.
+          # If it does not, the hk step already says so and this run would be
+          # comparing an unknown local state against a moving target.
+          got=$(sha256sum FORMAT.md | cut -d' ' -f1)
+          if [ "$want" != "$got" ]; then
+            echo "FORMAT.md does not match .format-upstream (recorded $want, computed $got)." >&2
+            echo "That is the OFFLINE check's job and it is failing too. Fix the record first." >&2
+            exit 1
+          fi
+
+          # Upstream's CURRENT copy, whatever revision that is now.
+          #
+          # `git ls-remote` rather than the REST API, and that is not taste:
+          # `curl ... | grep -m1` exits grep at the first match, curl gets
+          # EPIPE, and `set -o pipefail` turns that into `curl: (23) Failure
+          # writing output to destination`. MEASURED -- the first draft of
+          # this file did exactly that and failed every run. ls-remote also
+          # needs no token and has no rate limit.
+          head=$(git ls-remote "$src" main | cut -f1)
+          [ -n "$head" ] || { echo "cannot resolve upstream main at $src" >&2; exit 1; }
+          curl -fsSL "https://raw.githubusercontent.com/$repo/$head/FORMAT.md" -o upstream-FORMAT.md
+          up=$(sha256sum upstream-FORMAT.md | cut -d' ' -f1)
+
+          if [ "$up" = "$want" ]; then
+            echo "In step with upstream. Recorded rev $rev; upstream head $head; both hash $want."
+            if [ "$head" != "$rev" ]; then
+              echo "Upstream has newer commits, but FORMAT.md is byte-identical, so nothing about the format changed."
+            fi
+            exit 0
+          fi
+
+          echo "UPSTREAM FORMAT.md CHANGED." >&2
+          echo "  recorded rev : $rev" >&2
+          echo "  upstream head: $head" >&2
+          echo "  recorded hash: $want" >&2
+          echo "  upstream hash: $up" >&2
+          echo "" >&2
+          echo "The difference, upstream vs ours:" >&2
+          diff upstream-FORMAT.md FORMAT.md || true
+          echo "" >&2
+          echo "This is INFORMATION, not a defect. This copy may lead upstream, follow it, or fork from it." >&2
+          echo "Decide which, then record the decision by updating rev and sha256 in .format-upstream." >&2
+          echo "Until then this run stays red, which is the only thing keeping the question open." >&2
+          exit 1
