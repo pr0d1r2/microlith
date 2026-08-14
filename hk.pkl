@@ -249,6 +249,14 @@ local fast = new Mapping<String, Step> {
     //
     // `.crate-files` is itself excluded from the package, so the list never
     // has to describe itself.
+    //
+    // TWO ENTRIES ARE NOT IN GIT, and looking for them in the tree is a wasted
+    // search: `cargo package --list` names what the TARBALL holds, and cargo
+    // synthesizes `Cargo.toml.orig` (the manifest verbatim, since the shipped
+    // `Cargo.toml` is cargo's normalized rewrite) and `.cargo_vcs_info.json`
+    // (the commit the crate was built from -- the very record T8's
+    // publish-from-main rule exists to keep resolvable). Names only, so both
+    // stay stable across commits.
     fix = """
       cargo package --list --allow-dirty 2>/dev/null | sort > .crate-files || { echo 'hk: `cargo package --list` failed, so the .crate file set could not be recorded.' >&2; exit 1; }
       """
