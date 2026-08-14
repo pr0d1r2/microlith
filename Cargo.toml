@@ -72,6 +72,9 @@ exclude = [
   # list never has to contain its own name.
   ".crate-files",
   "release.toml",
+  # FORMAT.md ships (must-package names it); the record of which upstream
+  # version it matches is about tracking the file, not part of it.
+  ".format-upstream",
 ]
 
 # What a `.crate` MUST carry, checked rather than described. Cargo ignores

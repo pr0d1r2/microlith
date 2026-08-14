@@ -1,0 +1,29 @@
+# FORMAT.md's ANCESTRY, recorded so drift can be detected rather than noticed.
+#
+# §C says FORMAT.md is normative and lives here. That is a claim about
+# AUTHORITY, not about origin: the file was taken from the upstream project
+# that defines the format, and until now nothing recorded which version of it
+# this copy corresponds to. Upstream moved once already -- gaining §R RESEARCH,
+# sectioned ownership and the right-size rule -- and this repo learned about it
+# by someone asking, not by any check.
+#
+# TWO CHECKS READ THIS FILE, deliberately split by whether they need a network.
+#
+#   * `format-upstream` in hk.pkl -- OFFLINE. Asserts FORMAT.md still hashes to
+#     `sha256` below, so editing the format means updating this record in the
+#     same commit. The gate never reaches the network (see the `links` step),
+#     so it cannot ask whether upstream changed, and does not pretend to.
+#
+#   * `.github/workflows/format-upstream.yml` -- ONLINE, weekly, and NOT part
+#     of the gate. Fetches upstream's current FORMAT.md and compares. It fails
+#     its own scheduled run and never a pull request: whether upstream moved
+#     has nothing to do with the change under review, and a check that fails
+#     unrelated PRs is one people learn to ignore.
+#
+# WHEN THEY DISAGREE, that is information, not an error. This copy is allowed
+# to lead upstream, follow it, or fork from it -- what it may not do is differ
+# without anyone knowing which. Update `rev` and `sha256` together, in the
+# commit that makes the decision.
+rev = c322f0bb6db82163041930467f3ce32754d42827
+sha256 = 1eda122882902861e912d3775c8b45e7fbb51ca4f587f37854bfd4d470f6a601
+source = https://github.com/JuliusBrussee/cavekit
