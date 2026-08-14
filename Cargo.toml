@@ -22,9 +22,21 @@ name = "microlith"
 # The number is a MEASUREMENT: each rung answers "what can you rely on at
 # this tag?", and it moves when a milestone's done-when is met -- never to
 # mark effort. Read CHANGELOG.md's table for which rung this is.
-version = "0.6.0"
+#
+# A PATCH sits OFF that ladder, which is why the ladder has no row for one:
+# a rung is a MINOR, and a patch is what happens when the answer to "what
+# can you rely on" does not change. It carries fixes and metadata only --
+# never a new guarantee, because a new guarantee is a rung by definition.
+version = "0.6.1"
 edition = "2024"
-rust-version = "1.96"
+# The floor is the PINNED toolchain, and the pin is now the fleet's one
+# nixpkgs authority (nixos-26.05) rather than a rev copied between repos --
+# so this moved DOWN, 1.96 -> 1.95, and lowering it is the cheaper
+# direction: it widens who can build this crate. Nothing in `src/` asks for
+# 1.96; the highest feature actually used is `Option::is_none_or` (1.82).
+# 1.96 was a MEASUREMENT of whatever the old rev happened to carry, which
+# is exactly how a floor drifts upward without anyone deciding.
+rust-version = "1.95"
 license = "MIT"
 description = "mechanical operations on caveman SPEC.md: lossless minify, structural check, derived reports. CPU only, zero deps"
 readme = "README.md"

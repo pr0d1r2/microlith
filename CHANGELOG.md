@@ -41,6 +41,42 @@ pipeline gets proven before a permanent number is spent.
 
 Nothing yet.
 
+## [0.6.1] — 2026-08-14
+
+A patch, so it sits off the version ladder above: `0.6`'s answer to *what can
+you rely on at this tag?* is unchanged. The three contracts — the CLI surface,
+the JSON output and the library API — are byte-for-byte what `0.6.0` shipped.
+
+The published crate is **not** identical, though, and it would be wrong to say
+so: `rust-version` lives in the manifest that ships inside the `.crate`, so
+lowering it to **1.95** changes what a consumer resolves. It changes it in the
+one direction that cannot break them — a lower floor admits more toolchains
+than before, never fewer — which is why it is a patch and not a rung.
+
+### Changed
+
+- **MSRV lowered, 1.96 → 1.95.** Nothing here ever needed 1.96 — the highest
+  feature `src/` uses is `Option::is_none_or` (1.82). The old floor was a
+  measurement of whatever the pinned nixpkgs revision happened to carry, and
+  the flake now follows the fleet's one nixpkgs authority (`nixos-26.05`,
+  rustc 1.95.0) instead of naming a revision of its own. Lowering a floor only
+  widens who can build the crate, so this needs nothing from consumers.
+- The dev shell takes `hk` from [nix-hk](https://github.com/pr0d1r2/nix-hk)
+  rather than from nixpkgs, which packages no `hk` at all on 26.05. Affects
+  contributors, not consumers: the published crate is unchanged by it.
+
+### Fixed
+
+- The gate's `semver` step reported *"the pub API broke against v0.6.0"* when
+  `cargo-semver-checks` had in fact failed to **build** the baseline — a
+  verdict about code the run never compared, pointing the reader at an API
+  that had not changed. It now reads the baseline tag's declared floor, and
+  when this toolchain sits below it says so and exits 0, re-arming at the
+  first tag it can build. Contributor-facing (§V.36, §B.23).
+- The `nixpkgs` README badge was a number typed into the generator that
+  exists to stop numbers being typed. It said `26.11` from birth and is now
+  read from `flake.lock`.
+
 ## [0.6.0] — 2026-08-08
 
 **Even minor: stable** (§V.34). `0.5` was published as deliberately partial; this
@@ -140,7 +176,8 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.1
 [0.6.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.0
 [0.5.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0
 [0.5.0-rc.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0-rc.1
