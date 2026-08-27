@@ -31,7 +31,7 @@ section may be absent, but is never reordered.
 | 8 | `## §T TASKS` | cavekit `FORMAT.md` |
 | 9 | `## §B BUGS` | cavekit `FORMAT.md` |
 
-## THE EXTENSIONS
+## THE SECTIONS
 
 ### `## §F FEDERATION`
 
@@ -56,6 +56,26 @@ The DERIVED half: what a reader follows to reach a neighbour. Written down rathe
 ## §N NAV
 - parent: [../SPEC.md](../SPEC.md)
 - siblings: [../api/SPEC.md](../api/SPEC.md)
+```
+
+## THE MARKERS
+
+A marker is an extension that is not a new section but a note ON a line. It
+is addressed by its words rather than by a letter, so it needs a canonical
+spelling for the same reason a section does: two projects writing one thing
+two ways is one thing nothing can find twice.
+
+Markers are written in square brackets at the end of the statement they mark,
+and inside backticks they are literal -- an example of a marker is not a
+marker, exactly as an example of a citation is not a citation.
+
+### `[superseded by ...]`
+
+Written on a `§V` statement. A rule that has been REPLACED, marked rather than deleted. Deleting it would free the id for reuse and strand every citation that still names it, so the statement stays and the mark says it is no longer in force. More than one replacement may be named, because a rule that is SPLIT is replaced by several. The rules named must be live: pointing at a statement that is itself superseded sends a reader to law that is also dead, so the chain is written to its live end.
+
+```
+V3: **the old rule.** [superseded by V9]
+V4: **a rule that was split.** [superseded by V10, V11]
 ```
 
 ## ADDRESSING

@@ -88,6 +88,23 @@ pub const CANONICAL_WORDS: [(char, &str); 9] = [
     ('B', "bug"),
 ];
 
+/// The canonical spelling of the SUPERSESSION marker (V41).
+///
+/// A rule that has been replaced stays in the file -- ids are never reused
+/// (V12) and citations to it must still resolve (V13) -- so retirement is a
+/// MARK on the line rather than a deletion. This is the word that mark
+/// carries, and the parser matches exactly it.
+pub const SUPERSEDED_BY: &str = "superseded by";
+
+/// Every marker this format defines beyond the vendored one.
+///
+/// A section is addressed by its LETTER; a marker is addressed by its WORDS,
+/// and both need a canonical spelling for the same reason: two repos writing
+/// `[superseded by V2]` and `[dead: see V2]` mean one thing that nothing
+/// mechanical can find twice. Held as a list so V40's document renders from
+/// what the parser reads rather than from a second copy of it.
+pub const MARKERS: [&str; 1] = [SUPERSEDED_BY];
+
 /// Labels that mean the canonical thing under another name.
 ///
 /// AUDITED, one row per entry, and deliberately tiny. A label here is a
@@ -474,6 +491,118 @@ fn dangling(cite: &str) -> Violation {
         .try_(
             Fix::Judgment,
             format!("declare {cite}, if the rule is real but missing"),
+        )
+}
+
+/// V41: a SUPERSESSION marker points at LIVE law.
+///
+/// `V3: **an old rule.** [superseded by V9]` retires V3 without deleting it,
+/// because deleting would free the id (V12) and strand every citation (V13).
+/// The mark is what lets a reader -- and `derive` -- tell a RETIRED rule
+/// from one nobody has cited yet.
+///
+/// Three ways it can lie, none of which V13 can see, because a citation that
+/// RESOLVES is all V13 asks:
+///
+/// * SELF -- `V3 [superseded by V3]` retires nothing and reads as retired.
+/// * DEAD WINNER -- the rule named is itself superseded, so a reader
+///   following the pointer arrives at law that is also not in force. The
+///   chain has a live end; the mark must name it.
+/// * DANGLING -- caught by V13 already, and deliberately not restated here
+///   (V7): two rules reporting one defect send two people to one line.
+#[must_use]
+pub fn supersessions_resolve(text: &str) -> Vec<Violation> {
+    let retired = retired(text);
+    let mut out = Vec::new();
+    for (line, id, winners) in supersessions(text) {
+        for winner in winners {
+            out.extend(bad_winner(&id, &winner, &retired).map(|v| v.at(line)));
+        }
+    }
+    out
+}
+
+/// The violation this winner carries, if any.
+fn bad_winner(id: &str, winner: &str, retired: &[String]) -> Option<Violation> {
+    if winner == id {
+        return Some(supersedes_itself(id));
+    }
+    retired
+        .contains(&winner.to_owned())
+        .then(|| winner_is_retired(id, winner))
+}
+
+/// Every `V` id whose own line carries the marker -- the RETIRED set.
+///
+/// Shared with `derive`, which asks the same question for a different reason:
+/// a retired rule is not an orphan (V7 -- one reading of the mark, not two).
+#[must_use]
+pub fn retired(text: &str) -> Vec<String> {
+    supersessions(text)
+        .into_iter()
+        .map(|(_, id, _)| id)
+        .collect()
+}
+
+/// One retirement: where it is written, which rule it retires, and which
+/// rules it names as the replacement.
+type Retirement = (usize, String, Vec<String>);
+
+/// Each marked line as `(line, the id it declares, the ids it names)`.
+///
+/// Only a `\u{a7}V` DECLARATION can be superseded: the mark says a rule is no
+/// longer in force, and a task or a bug row is not a rule. A marker anywhere
+/// else is ordinary prose this says nothing about.
+fn supersessions(text: &str) -> Vec<Retirement> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let id = at_line_start(line).filter(|id| id.kind == 'V')?;
+            let winners = marked(line);
+            (!winners.is_empty())
+                .then(|| (i.saturating_add(1), id.label(), winners))
+        })
+        .collect()
+}
+
+/// The ids inside this line's `[superseded by ...]`, if it carries one.
+///
+/// MANY winners, not one: measured in the fleet as `superseded by V17, V18`
+/// -- one rule replaced by a pair is the ordinary case when a rule is split,
+/// and a grammar that allowed only one would send that author back to prose.
+///
+/// Read OUTSIDE backticks, reusing V13's own boundary (V7): a marker shown
+/// as an example in `code` is a literal, exactly as a citation there is.
+fn marked(line: &str) -> Vec<String> {
+    let bare = outside_backticks(line);
+    let Some((_, rest)) = bare.split_once(SUPERSEDED_BY) else {
+        return Vec::new();
+    };
+    let Some((inside, _)) = rest.split_once(']') else {
+        return Vec::new();
+    };
+    inside
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|t| is_invariant_ref(t))
+        .map(str::to_owned)
+        .collect()
+}
+
+fn supersedes_itself(id: &str) -> Violation {
+    Violation::new("V41", format!("`{id}` is superseded by itself"))
+        .why("a rule that retires itself leaves no law in force")
+        .try_(
+            Fix::Judgment,
+            "name the rule that REPLACED it, or drop the mark",
+        )
+}
+
+fn winner_is_retired(id: &str, winner: &str) -> Violation {
+    Violation::new("V41", format!("`{id}` points at `{winner}`, retired too"))
+        .why("a reader following the mark arrives at law that is also dead")
+        .try_(
+            Fix::Mechanical,
+            format!("retag `{id}` to whatever superseded `{winner}`"),
         )
 }
 
@@ -1127,6 +1256,92 @@ mod tests {
         assert!(!text.contains("\u{a7}N"), "the fixture must carry no §N");
         assert_eq!(all(&text), Vec::<Violation>::new());
         assert_eq!(labels_canonical(&text), Vec::<Violation>::new());
+    }
+
+    /// A spec whose V3 is retired by V1, in the canonical mark.
+    fn retiring(tag: &str) -> String {
+        real().replace("V3: **a gap above is fine.**", &format!("V3: {tag}"))
+    }
+
+    /// V41's companion FIRST: a well-formed mark is SILENT, and a spec that
+    /// carries none is untouched. This rule's failure mode is noise on a
+    /// legal file, and the fleet writes retirement in prose today -- zero
+    /// specs use the bracket form, so a rule that fired on the prose would
+    /// be loud on every repo that never opted in.
+    #[test]
+    fn v41_is_silent_on_a_well_formed_mark_and_on_none() {
+        let live = retiring("**retired.** V1 replaced it [superseded by V1]");
+        assert_eq!(supersessions_resolve(&live), Vec::<Violation>::new());
+        assert_eq!(supersessions_resolve(&real()), Vec::<Violation>::new());
+        let prose = retiring("**retired.** superseded by V1, in prose");
+        assert_eq!(supersessions_resolve(&prose), Vec::<Violation>::new());
+    }
+
+    /// PLANTED: a rule that retires ITSELF. V13 cannot see this -- the
+    /// citation resolves perfectly well -- which is the whole reason this
+    /// rule is not folded into it.
+    #[test]
+    fn v41_rejects_a_rule_that_supersedes_itself() {
+        let text = retiring("**retired by nothing.** [superseded by V3]");
+        let got = supersessions_resolve(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first().is_some_and(|v| v.msg.contains("itself")),
+            "{got:?}"
+        );
+    }
+
+    /// PLANTED: the mark points at a rule that is ITSELF retired, so a
+    /// reader following it lands on law that is also dead. Mechanical to
+    /// repair -- retag to whatever superseded the winner -- and mechanical
+    /// is what the fix says, because nothing here needs a judgement.
+    #[test]
+    fn v41_rejects_a_mark_that_points_at_dead_law() {
+        let text = real()
+            .replace(
+                "V1: **a rule.** cited by T1.",
+                "V1: **also retired.** [superseded by V3]",
+            )
+            .replace(
+                "V3: **a gap above is fine.** V1 is cited here too.",
+                "V3: **retired.** [superseded by V1]",
+            );
+        let got = supersessions_resolve(&text);
+        assert!(got.iter().any(|v| v.msg.contains("retired too")), "{got:?}");
+        assert!(got.iter().all(Violation::is_mechanical), "{got:?}");
+    }
+
+    /// MANY winners, because a rule that is SPLIT is replaced by several --
+    /// measured in the fleet as `superseded by V17, V18`. Each is checked,
+    /// so a good winner beside a bad one does not launder it.
+    #[test]
+    fn v41_reads_every_winner_a_mark_names() {
+        let text = retiring("**split.** [superseded by V1, V3]");
+        let got = supersessions_resolve(&text);
+        assert_eq!(got.len(), 1, "the self-reference alone: {got:?}");
+        assert!(
+            got.first().is_some_and(|v| v.msg.contains("itself")),
+            "{got:?}"
+        );
+    }
+
+    /// A marker inside BACKTICKS is a literal, reusing V13's own boundary
+    /// (V7) -- this document shows the mark as an example, and an example is
+    /// not a mark.
+    #[test]
+    fn v41_ignores_a_mark_shown_as_an_example() {
+        let text = retiring("**a rule about marks.** `[superseded by V3]`");
+        assert_eq!(supersessions_resolve(&text), Vec::<Violation>::new());
+    }
+
+    /// The mark is read on `\u{a7}V` DECLARATIONS only. A task row saying a
+    /// task was superseded is ordinary prose, and the fleet writes exactly
+    /// that today -- `T22|x|dead: cycle guard superseded by ...`.
+    #[test]
+    fn v41_says_nothing_about_a_task_row() {
+        let text = real()
+            .replace("T2|.|another|V3", "T2|.|dead [superseded by T2]|V3");
+        assert_eq!(supersessions_resolve(&text), Vec::<Violation>::new());
     }
 
     /// Order is part of the format, not a convention, because every `§S.n`

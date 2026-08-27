@@ -50,5 +50,6 @@ tests/constructs/nested-sub-points.md
 tests/constructs/ordered-list.md
 tests/constructs/research-table.md
 tests/constructs/suffixed-ids.md
+tests/constructs/superseded-marker.md
 tests/constructs/task-table.md
 tests/dogfood.rs

@@ -20,6 +20,7 @@
 //! red rather than merely regenerable.
 
 use crate::check::{CANONICAL_WORDS, KINDS, SECTIONS, UPSTREAM_KINDS};
+use crate::check::{MARKERS, SUPERSEDED_BY};
 
 /// What one extension section holds, and what it looks like.
 ///
@@ -59,6 +60,33 @@ const EXTENSIONS: &[Extension] = &[
                   - siblings: [../api/SPEC.md](../api/SPEC.md)",
     },
 ];
+
+/// A marker: an extension that is not a new SECTION but a note ON a line.
+///
+/// Sections and markers are the two shapes an addition to this format can
+/// take, and they need separate registries because they are addressed
+/// differently -- a section by its letter, a marker by its words.
+struct Marker {
+    words: &'static str,
+    on: &'static str,
+    holds: &'static str,
+    example: &'static str,
+}
+
+const MARKER_DOCS: &[Marker] = &[Marker {
+    words: SUPERSEDED_BY,
+    on: "a `\u{a7}V` statement",
+    holds: "A rule that has been REPLACED, marked rather than deleted. \
+            Deleting it would free the id for reuse and strand every \
+            citation that still names it, so the statement stays and the \
+            mark says it is no longer in force. More than one replacement \
+            may be named, because a rule that is SPLIT is replaced by \
+            several. The rules named must be live: pointing at a statement \
+            that is itself superseded sends a reader to law that is also \
+            dead, so the chain is written to its live end.",
+    example: "V3: **the old rule.** [superseded by V9]\n\
+              V4: **a rule that was split.** [superseded by V10, V11]",
+}];
 
 /// The letters `SECTIONS` carries that the vendored format does not.
 ///
@@ -146,7 +174,32 @@ pub(crate) fn markdown() -> String {
 /// registry that differs from the committed file (V18).
 fn markdown_from(exts: &[Extension]) -> String {
     let body: String = exts.iter().map(section).collect();
-    format!("{HEAD}{}\n{MIDDLE}{body}{FOOT}", order())
+    format!(
+        "{HEAD}{}\n{MIDDLE}{body}{MARKS}{}{FOOT}",
+        order(),
+        markers()
+    )
+}
+
+/// The markers, driven by the list the PARSER matches on rather than by the
+/// registry -- the same direction the sections are rendered in. A marker the
+/// parser knows and the registry does not is then a hole in the output, and
+/// the guard below turns that hole red.
+fn markers() -> String {
+    MARKERS
+        .into_iter()
+        .filter_map(|words| MARKER_DOCS.iter().find(|m| m.words == words))
+        .map(marker)
+        .collect()
+}
+
+/// One marker's own section: what it is written on, what it means, and how
+/// it looks on a real line.
+fn marker(m: &Marker) -> String {
+    format!(
+        "### `[{} ...]`\n\nWritten on {}. {}\n\n```\n{}\n```\n\n",
+        m.words, m.on, m.holds, m.example
+    )
 }
 
 const HEAD: &str = "\
@@ -174,7 +227,21 @@ section may be absent, but is never reordered.
 ";
 
 const MIDDLE: &str = "\
-## THE EXTENSIONS
+## THE SECTIONS
+
+";
+
+const MARKS: &str = "\
+## THE MARKERS
+
+A marker is an extension that is not a new section but a note ON a line. It
+is addressed by its words rather than by a letter, so it needs a canonical
+spelling for the same reason a section does: two projects writing one thing
+two ways is one thing nothing can find twice.
+
+Markers are written in square brackets at the end of the statement they mark,
+and inside backticks they are literal -- an example of a marker is not a
+marker, exactly as an example of a citation is not a citation.
 
 ";
 
@@ -267,6 +334,40 @@ mod tests {
     #[test]
     fn the_extensions_are_the_letters_upstream_lacks() {
         assert_eq!(extension_letters(), vec!['F', 'N']);
+    }
+
+    /// The same bidirectional guard on the OTHER registry: a marker the
+    /// parser matches with no entry here is an extension nobody outside can
+    /// read, which is the whole failure V40 exists to end.
+    #[test]
+    fn every_marker_the_parser_matches_has_an_entry() {
+        let missing: Vec<&str> = MARKERS
+            .into_iter()
+            .filter(|w| !MARKER_DOCS.iter().any(|m| m.words == *w))
+            .collect();
+        assert_eq!(missing, Vec::<&str>::new(), "markers with no entry");
+    }
+
+    /// ...and an entry for words the parser does NOT match documents a
+    /// marker that means nothing to any runner (V17).
+    #[test]
+    fn every_marker_entry_is_one_the_parser_matches() {
+        let orphans: Vec<&str> = MARKER_DOCS
+            .iter()
+            .map(|m| m.words)
+            .filter(|w| !MARKERS.contains(w))
+            .collect();
+        assert_eq!(orphans, Vec::<&str>::new(), "entries with no parser");
+    }
+
+    /// The document carries BOTH shapes an extension can take. A render that
+    /// dropped the markers would still pass every section test above.
+    #[test]
+    fn the_document_carries_sections_and_markers_alike() {
+        let out = markdown();
+        assert!(out.contains("## THE SECTIONS"), "{out}");
+        assert!(out.contains("## THE MARKERS"), "{out}");
+        assert!(out.contains(SUPERSEDED_BY), "{out}");
     }
 
     /// Every rendered section names its canonical word, because that is the
