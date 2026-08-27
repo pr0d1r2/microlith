@@ -18,7 +18,6 @@ docs/CONTRIBUTING.md
 docs/INTEGRATION.md
 docs/SECURITY.md
 docs/THIRD-PARTY-NOTICES.md
-examples/corpus.rs
 rustfmt.toml
 src/anchors.rs
 src/check.rs
