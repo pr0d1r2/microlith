@@ -23,14 +23,26 @@ use crate::violation::{Fix, Violation};
 /// what the checker matches on now that labels vary across the fleet, and
 /// digging it out by character offset would make the position of a word in
 /// prose load-bearing.
-pub const KINDS: [char; 7] = ['G', 'C', 'I', 'R', 'V', 'T', 'B'];
+pub const KINDS: [char; 9] = ['G', 'F', 'N', 'C', 'I', 'R', 'V', 'T', 'B'];
 
-/// FORMAT.md fixes the sections and their order.
+/// FORMAT.md fixes the sections and their order, and V39 adds two.
+///
+/// A SUPERSET of the vendored list, which is the established shape here: V8
+/// already splits the vendored reference from the normative `\u{a7}V`, and
+/// V13, V14 and V16 have no upstream counterpart either. Forking vendored
+/// bytes to carry `\u{a7}F` and `\u{a7}N` would diverge every consumer's
+/// copy from upstream to buy nothing, so T26b routes them upstream instead.
 ///
 /// `\u{a7}` is the section sign, written as an escape so this source stays
 /// ASCII -- the runtime string is identical either way.
-pub const SECTIONS: [&str; 7] = [
+pub const SECTIONS: [&str; 9] = [
     "## \u{a7}G GOAL",
+    // V39's pair, and they rank HERE rather than at the end: the edges a
+    // directory declares are STRUCTURE, so a reader meets them before the
+    // constraints that are written in their terms. Optional like every other
+    // section (V11) -- a spec that spans no tree carries neither.
+    "## \u{a7}F FEDERATION",
+    "## \u{a7}N NAV",
     "## \u{a7}C CONSTRAINTS",
     "## \u{a7}I INTERFACES",
     // 4.1.0's addition: optional, and present only if `/research` ran. It
@@ -47,8 +59,15 @@ pub const SECTIONS: [&str; 7] = [
 /// Singular stems, so `Bugs`, `bug log` and `— Bugs / Known Issues` all
 /// satisfy `B` -- the rule is about the concept being NAMED, not about
 /// matching a string. Qualifiers may follow freely.
-pub const CANONICAL_WORDS: [(char, &str); 7] = [
+///
+/// `nav` is the stem `Nav`, `NAV` and `Navigation` share. `federation` is
+/// the whole word rather than a stem, and deliberately: `federated` is an
+/// adjective a dozen sections could wear, while the noun names this one
+/// thing. V39 fixes both words, so widening either is a spec edit.
+pub const CANONICAL_WORDS: [(char, &str); 9] = [
     ('G', "goal"),
+    ('F', "federation"),
+    ('N', "nav"),
     ('C', "constraint"),
     ('I', "interface"),
     ('R', "research"),
@@ -172,10 +191,12 @@ fn is_invariant_ref(token: &str) -> bool {
 /// presence without that replacement would leave V11 unable to catch the one
 /// thing it was written for.
 ///
-/// UNKNOWN letters are tolerated -- `\u{a7}D`, `\u{a7}E`, `\u{a7}F`,
-/// `\u{a7}O`, `\u{a7}P` and `\u{a7}X` are all in fleet use. Only the KNOWN
-/// six are ordered against each other; an extension between them is not the
-/// checker's business.
+/// UNKNOWN letters are tolerated -- `\u{a7}D`, `\u{a7}E`, `\u{a7}O`,
+/// `\u{a7}P` and `\u{a7}X` are all in fleet use. Only the KNOWN letters are
+/// ordered against each other; an extension between them is not the
+/// checker's business. `\u{a7}F` and `\u{a7}N` left that list when V39
+/// claimed them: tolerance is exactly what would have let a second reader
+/// spend either letter on a different concept.
 ///
 /// Document-scoped: a missing header has no line to point at, and pointing
 /// at where it OUGHT to be would be a guess dressed as a fact.
@@ -985,8 +1006,8 @@ mod tests {
         assert!(rows_sorted(unsorted).iter().any(|v| v.rule == "V14"), "V14");
     }
 
-    /// Extension sections are real and in fleet use -- §D, §E, §F, §O, §P, §X.
-    /// Only the KNOWN six are ordered against each other; an unknown letter
+    /// Extension sections are real and in fleet use -- §D, §E, §O, §P, §X.
+    /// Only the KNOWN letters are ordered against each other; an unknown one
     /// between them is not the checker's business.
     #[test]
     fn v11_tolerates_an_unknown_section_letter() {
@@ -995,6 +1016,105 @@ mod tests {
             "## \u{a7}D DECISIONS\n\nsome prose.\n\n## \u{a7}T TASKS",
         );
         assert_eq!(sections_ordered(&with_ext), Vec::<Violation>::new());
+    }
+
+    /// V39, the shape it is FOR: a spec that spans a directory tree declares
+    /// its edges in `§F` and its derived navigation in `§N`, and both sit
+    /// between `§G` and `§C` -- the edges are structure, so a reader meets
+    /// them before the constraints written in their terms.
+    fn federating(text: &str) -> String {
+        text.replace(
+            "## \u{a7}C CONSTRAINTS",
+            "## \u{a7}F FEDERATION\n- `../SPEC.md` is the parent\n\n\
+             ## \u{a7}N NAV\n- up: `../SPEC.md`\n\n## \u{a7}C CONSTRAINTS",
+        )
+    }
+
+    #[test]
+    fn v39_accepts_the_federating_pair_in_rank() {
+        let text = federating(&real());
+        assert_eq!(sections_ordered(&text), Vec::<Violation>::new());
+        assert_eq!(labels_canonical(&text), Vec::<Violation>::new());
+    }
+
+    /// PLANTED (V18): rank is the half a constant change can get wrong
+    /// silently, so each new letter is placed after `§C` and must be blamed
+    /// BY NAME -- the `§R`-after-`§B` defect one letter further out.
+    #[test]
+    fn v39_rejects_a_federating_section_out_of_rank() {
+        for (header, body) in [
+            ("## \u{a7}F FEDERATION", "- `../SPEC.md` is the parent"),
+            ("## \u{a7}N NAV", "- up: `../SPEC.md`"),
+        ] {
+            let late = real().replace(
+                "## \u{a7}I INTERFACES",
+                &format!("{header}\n{body}\n\n## \u{a7}I INTERFACES"),
+            );
+            let got = sections_ordered(&late);
+            assert_eq!(got.len(), 1, "{header}: {got:?}");
+            assert!(
+                got.first().is_some_and(|v| v.msg.contains(header)),
+                "{header}: {got:?}"
+            );
+        }
+    }
+
+    /// A minimal spec carrying one federating header, in rank.
+    fn one_header(label: &str) -> String {
+        format!(
+            "## \u{a7}G GOAL\none line.\n\n{label}\n- an edge\n\n\
+             ## \u{a7}C CONSTRAINTS\n- a bullet\n"
+        )
+    }
+
+    /// V27 matches a STEM, so every spelling a real header wears passes.
+    /// `Navigation` is why the word is `nav` rather than `navigation`.
+    #[test]
+    fn v39_accepts_every_spelling_of_the_new_headers() {
+        for label in [
+            "## \u{a7}F FEDERATION",
+            "## \u{a7}F Federation",
+            "## \u{a7}F \u{2014} Federation",
+            "## \u{a7}N NAV",
+            "## \u{a7}N Nav",
+            "## \u{a7}N \u{2014} Navigation",
+        ] {
+            let text = one_header(label);
+            let got = [labels_canonical(&text), sections_ordered(&text)];
+            assert_eq!(got.concat(), Vec::<Violation>::new(), "{label}");
+        }
+    }
+
+    /// The ambiguity V39 exists to end: the letter spent on another concept.
+    /// It was LEGAL the day before -- V11 passes an unknown letter untouched
+    /// and V27 had no word to hold it to -- which is exactly why claiming the
+    /// letter after a second reader picked `§F FIXTURES` would have cost a
+    /// collision no header rewrite repairs.
+    #[test]
+    fn v39_rejects_a_new_letter_used_for_another_concept() {
+        for wrong in ["## \u{a7}F FIXTURES", "## \u{a7}N NOTES"] {
+            let text = format!("{}\n{wrong}\n- prose.\n", real());
+            let got = labels_canonical(&text);
+            assert_eq!(got.len(), 1, "{wrong}: {got:?}");
+            assert!(
+                got.first().is_some_and(|v| !v.is_mechanical()),
+                "{wrong} must be judgement -- the content moves: {got:?}"
+            );
+        }
+    }
+
+    /// THE COMPANION, and the one that matters most here: a spec carrying
+    /// NEITHER section is untouched. Absence is legal (V11), and this rule's
+    /// failure mode is LOUDNESS on every repo that declined an optional
+    /// feature -- V15's own history, fired on all 48 specs with no milestone
+    /// row.
+    #[test]
+    fn a_spec_carrying_neither_new_section_is_untouched() {
+        let text = real();
+        assert!(!text.contains("\u{a7}F"), "the fixture must carry no §F");
+        assert!(!text.contains("\u{a7}N"), "the fixture must carry no §N");
+        assert_eq!(all(&text), Vec::<Violation>::new());
+        assert_eq!(labels_canonical(&text), Vec::<Violation>::new());
     }
 
     /// Order is part of the format, not a convention, because every `§S.n`

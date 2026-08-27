@@ -18,6 +18,7 @@ docs/CONTRIBUTING.md
 docs/INTEGRATION.md
 docs/SECURITY.md
 docs/THIRD-PARTY-NOTICES.md
+examples/corpus.rs
 rustfmt.toml
 src/anchors.rs
 src/check.rs
@@ -37,11 +38,13 @@ tests/constructs/bug-table.md
 tests/constructs/bulleted-declarations.md
 tests/constructs/constraint-bullets.md
 tests/constructs/extension-section.md
+tests/constructs/federation-section.md
 tests/constructs/fenced-block.md
 tests/constructs/goal-prose.md
 tests/constructs/inline-code-span.md
 tests/constructs/interface-bullets.md
 tests/constructs/invariant-statements.md
+tests/constructs/nav-section.md
 tests/constructs/nested-sub-points.md
 tests/constructs/ordered-list.md
 tests/constructs/research-table.md
