@@ -56,6 +56,11 @@ const COMMANDS: &[Command] = &[
         synopsis: "docs",
         blurb: "Print this command reference as markdown -- the source for README's generated block, kept in sync by a test. Report-only: it writes to stdout, never to the README.",
     },
+    Command {
+        name: "extensions",
+        synopsis: "extensions",
+        blurb: "Print the sections this build adds to the vendored `FORMAT.md`, as markdown -- the source for `FORMAT-EXTENSIONS.md`, kept in sync by a test. The document is written for someone with no copy of this tool: it marks which letters are cavekit's and which are added, gives each addition its canonical word, what it holds and an example, so the extensions can be adopted by reading. Report-only: it writes to stdout, never to the file.",
+    },
 ];
 
 /// What opens `--help`.
@@ -72,7 +77,7 @@ const FOOT: &str = "\
 <path> defaults to SPEC.md, the one file FORMAT.md says every
 cavekit command reads. Run from a project root and omit it.
 
-built in this binary: ";
+built in this binary:";
 
 /// The exit line, in the terse rendering.
 const EXIT_LINE: &str = "exit: 0 ok | 1 drift or violation | 2 usage";
@@ -100,9 +105,15 @@ const WIDTH: usize = 76;
 const INDENT: &str = "      ";
 
 /// The terse `--help` text, rendered from the registry (V33).
+///
+/// The verb list is WRAPPED like every other line here. It was not, and the
+/// eighth verb is what found that: one more name pushed it to 83 columns,
+/// past the width the rest of this text is held to. A list that grows is
+/// exactly the thing not to leave unwrapped.
 pub(crate) fn usage() -> String {
     let body: String = COMMANDS.iter().map(terse).collect();
-    format!("{HEAD}{body}{FOOT}{}\n\n{EXIT_LINE}\n", names().join(", "))
+    let verbs = wrap(&names().join(", "), "", WIDTH);
+    format!("{HEAD}{body}{FOOT}\n{verbs}\n{EXIT_LINE}\n")
 }
 
 /// Every verb the registry carries, in order.

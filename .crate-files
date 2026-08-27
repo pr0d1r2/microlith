@@ -7,6 +7,7 @@ CHANGELOG.md
 Cargo.lock
 Cargo.toml
 Cargo.toml.orig
+FORMAT-EXTENSIONS.md
 FORMAT.md
 LICENSE
 README.md
@@ -24,6 +25,7 @@ src/check.rs
 src/cli.rs
 src/derive.rs
 src/docs.rs
+src/extensions.rs
 src/format.rs
 src/id.rs
 src/lib.rs

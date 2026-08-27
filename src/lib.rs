@@ -22,6 +22,7 @@ pub(crate) mod check;
 pub(crate) mod cli;
 pub(crate) mod derive;
 pub(crate) mod docs;
+pub(crate) mod extensions;
 pub(crate) mod format;
 pub(crate) mod id;
 pub(crate) mod migrate;
@@ -118,6 +119,16 @@ pub fn anchors_report_verbose(text: &str) -> String {
 /// The command reference `mth docs` prints, as markdown.
 pub fn docs_markdown() -> String {
     docs::markdown()
+}
+
+/// `mth extensions`: the letters this build adds to the vendored format.
+///
+/// The document a cavekit user adopts WITHOUT this tool (V40) -- the full
+/// section order marking whose each letter is, each extension's canonical
+/// word, what it holds, an example. `FORMAT-EXTENSIONS.md` is this string,
+/// and a test fails if the two drift.
+pub fn format_extensions() -> String {
+    extensions::markdown()
 }
 
 /// What a run produced: streams and an exit code. No I/O, so the whole
@@ -288,6 +299,15 @@ mod tests {
         assert!(!derive_report(CANON).is_empty());
         assert!(!anchors_report(CANON).is_empty());
         assert!(docs_markdown().contains("## Commands"));
+    }
+
+    /// V40's document is reachable the same way, and it is the one entry
+    /// point here that answers about the FORMAT rather than about a file.
+    #[test]
+    fn the_format_extensions_are_reachable_in_one_call() {
+        let out = format_extensions();
+        assert!(out.contains("## SECTION ORDER"), "{out}");
+        assert!(out.contains("\u{a7}F FEDERATION"), "{out}");
     }
 
     /// The enumeration is reachable in one call, in both renderings -- and

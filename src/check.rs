@@ -25,6 +25,18 @@ use crate::violation::{Fix, Violation};
 /// prose load-bearing.
 pub const KINDS: [char; 9] = ['G', 'F', 'N', 'C', 'I', 'R', 'V', 'T', 'B'];
 
+/// The letters the VENDORED `FORMAT.md` defines, at the revision
+/// `.format-upstream` pins.
+///
+/// Held so the EXTENSION set can be COMPUTED -- `KINDS` minus these -- rather
+/// than listed a second time (V7). A second list is a thing to forget: the
+/// next letter this copy adds would be an extension nothing knew was one,
+/// and V40's document would quietly stop describing the format.
+///
+/// It moves only when the vendored file does, which is the same commit that
+/// moves `rev` and `sha256` in `.format-upstream`.
+pub const UPSTREAM_KINDS: [char; 7] = ['G', 'C', 'I', 'R', 'V', 'T', 'B'];
+
 /// FORMAT.md fixes the sections and their order, and V39 adds two.
 ///
 /// A SUPERSET of the vendored list, which is the established shape here: V8

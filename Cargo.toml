@@ -99,6 +99,10 @@ exclude = [
 #   FORMAT.md       cavekit's format, VENDORED VERBATIM. §V is what this
 #                   tool enforces; this ships so a reader can see the format
 #                   the rules are written against
+#   FORMAT-         the DELTA between the two, generated (V40). It ships for
+#   EXTENSIONS.md   the reader FORMAT.md is shipped for -- a vendored file
+#                   describing seven sections, with no word about the two
+#                   this build adds, sends that reader away wrong
 #   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
 #   .spec-records   the unpacked crate fails rather than dogfooding
 #   .context-limits the ceiling and the reasoning behind eleven raises
@@ -107,6 +111,7 @@ exclude = [
 [package.metadata.microlith]
 must-package = [
   "FORMAT.md",
+  "FORMAT-EXTENSIONS.md",
   "SPEC.md",
   ".spec-records",
   ".context-limits",
