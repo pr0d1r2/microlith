@@ -1,0 +1,300 @@
+//! The CORPUS SWEEP, stored rather than retyped.
+//!
+//! T15 measured the rules against the fleet and found three miscalibrations
+//! -- each a TRUE rule delivering a FALSE message -- because they had been
+//! generalised from n=2 without measuring. V39 needed the same measurement
+//! one letter further out: is `§F` unclaimed, and at what denominator. Every
+//! future change to the section set needs it again.
+//!
+//! That is three runs of one thing, and the first two were shell pipelines
+//! typed from memory and thrown away. A measurement whose method is not
+//! stored is one nobody can repeat or check -- so the sweep lives here, in
+//! the language the rules are written in, calling the same `check_spec` a
+//! consumer calls (V7).
+//!
+//! NOT A VERB, and not shipped. `Cargo.toml` excludes `examples/` from the
+//! `.crate`: this reads paths that exist only on a developer's disk, and a
+//! crate a consumer downloads has no fleet to sweep. It stays inside the
+//! gate all the same -- `cargo clippy --all-targets` lints it like `src/`.
+//!
+//! PRIVACY (§C): the fleet repos are not named here or in the output. What
+//! the sweep prints is COUNTS -- a denominator, a per-rule tally, a letter
+//! census -- which is what a calibration record needs and all it needs.
+//!
+//! ```text
+//! cargo run --example corpus -- ~/projects
+//! ```
+//!
+//! One or more roots, each walked for files named `SPEC.md`. Directories a
+//! sweep must not count -- backups, vendored copies, build output -- are
+//! skipped by name, because a corpus that counts the same spec four times
+//! reports a denominator that means nothing.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use microlith::check_spec;
+
+/// Directory names that hold a COPY rather than a spec of their own.
+///
+/// A backup, a vendored tree and a build directory all contain real
+/// `SPEC.md` files, and counting them inflates every number in the report --
+/// which is precisely the failure T15 named: a count whose denominator is
+/// wrong says nothing, however carefully it was taken.
+const SKIP: [&str; 8] = [
+    ".git",
+    ".direnv",
+    "node_modules",
+    "target",
+    "result",
+    "vendor",
+    ".cache",
+    ".claude",
+];
+
+/// A directory whose NAME says it is a copy -- `foo-backup`, `foo-bak`.
+fn is_copy(name: &str) -> bool {
+    SKIP.contains(&name)
+        || name.contains("backup")
+        || name.contains("-bak")
+        || name.starts_with("old")
+}
+
+fn walk(root: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if !is_copy(&name) {
+                walk(&path, out);
+            }
+        } else if name == "SPEC.md" {
+            out.push(path);
+        }
+    }
+}
+
+/// The section LETTER a `## §X` line opens, if it opens one.
+///
+/// Deliberately NOT `check::is_header_for`, and not a second copy of it
+/// either: that function answers "is this the header for THIS letter",
+/// which is a rule. This asks only which letter a header carries, so the
+/// census can count letters the rules know nothing about -- the question
+/// V39 had to answer BEFORE `§F` was a known letter at all.
+fn header_letter(line: &str) -> Option<char> {
+    let rest = line.strip_prefix("## \u{a7}")?;
+    let mut chars = rest.chars();
+    let letter = chars.next().filter(|c| c.is_ascii_uppercase())?;
+    chars
+        .next()
+        .is_none_or(|c| !c.is_ascii_alphanumeric())
+        .then_some(letter)
+}
+
+/// One more of `key`, whatever the map counts.
+fn bump<K: Ord>(counts: &mut BTreeMap<K, usize>, key: K) {
+    let n = counts.entry(key).or_default();
+    *n = n.saturating_add(1);
+}
+
+/// A one-line tally, keys in map order: `by rule: V11=9 V13=8`.
+fn tally<K: std::fmt::Display>(
+    head: &str,
+    counts: &BTreeMap<K, usize>,
+    sigil: &str,
+) -> String {
+    let mut out = head.to_owned();
+    for (key, n) in counts {
+        out.push_str(&format!(" {sigil}{key}={n}"));
+    }
+    out.push('\n');
+    out
+}
+
+/// Everything after `## §X` on a header line, lowercased -- the LABEL.
+///
+/// The census counts letters; this reads what a letter is CALLED, which is
+/// the question that decides whether a letter is free to claim. `§F` is
+/// unclaimed only if nobody is already using it for something else, and a
+/// count of headers cannot tell you that -- V39's whole argument turns on
+/// the labels, not the tally.
+fn header_label(line: &str, letter: char) -> Option<String> {
+    (header_letter(line)? == letter).then(|| {
+        line.trim_end()
+            .strip_prefix("## \u{a7}")
+            .and_then(|r| r.get(letter.len_utf8()..))
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase()
+    })
+}
+
+/// What one sweep found. Counts only -- see the privacy note above.
+#[derive(Default)]
+struct Sweep {
+    files: usize,
+    unreadable: usize,
+    clean: usize,
+    violations: usize,
+    by_rule: BTreeMap<String, usize>,
+    /// Specs carrying at least one header of this letter. Per SPEC, not per
+    /// header: a spec that writes `## §V` twice has one `§V` section as far
+    /// as a claim about the fleet goes.
+    letters: BTreeMap<char, usize>,
+    /// The letter whose LABELS are being read, and what they say.
+    watched: Option<char>,
+    labels: BTreeMap<String, usize>,
+}
+
+impl Sweep {
+    fn watching(letter: Option<char>) -> Self {
+        Self {
+            watched: letter,
+            ..Self::default()
+        }
+    }
+
+    fn add(&mut self, text: &str) {
+        self.files = self.files.saturating_add(1);
+        self.census(text);
+        self.read_labels(text);
+        // V16 needs a baseline of named records, which is a claim about ONE
+        // repo's edits over time. No such baseline exists for somebody
+        // else's spec, so the sweep passes none: an empty list means the V16
+        // gate is OFF, not that it passed.
+        let found = check_spec(text, &[]);
+        if found.is_empty() {
+            self.clean = self.clean.saturating_add(1);
+            return;
+        }
+        self.violations = self.violations.saturating_add(found.len());
+        for v in &found {
+            bump(&mut self.by_rule, v.rule.clone());
+        }
+    }
+
+    /// What the watched letter is called here, if a letter is watched.
+    fn read_labels(&mut self, text: &str) {
+        let Some(letter) = self.watched else {
+            return;
+        };
+        for label in text.lines().filter_map(|l| header_label(l, letter)) {
+            bump(&mut self.labels, label);
+        }
+    }
+
+    /// Which letters this ONE spec carries, counted once each.
+    fn census(&mut self, text: &str) {
+        let mut seen: Vec<char> = Vec::new();
+        for letter in text.lines().filter_map(header_letter) {
+            if !seen.contains(&letter) {
+                seen.push(letter);
+                bump(&mut self.letters, letter);
+            }
+        }
+    }
+
+    fn report(&self) -> String {
+        let letters =
+            tally("letters, specs carrying each:", &self.letters, "\u{a7}");
+        format!(
+            "{}{}{}{}",
+            self.counts(),
+            tally("by rule:", &self.by_rule, ""),
+            letters,
+            self.label_report()
+        )
+    }
+
+    /// The denominator and what it splits into. A count with no denominator
+    /// names nothing, which is the lesson T15 paid for.
+    fn counts(&self) -> String {
+        let red = self.files.saturating_sub(self.clean);
+        let unreadable = match self.unreadable {
+            0 => String::new(),
+            n => format!("unreadable: {n}\n"),
+        };
+        format!(
+            "specs: {}\n{unreadable}clean: {}\nwith violations: {red}\n\
+             violations: {}\n",
+            self.files, self.clean, self.violations
+        )
+    }
+
+    /// The labels the watched letter wears, commonest last.
+    ///
+    /// This is the half a tally cannot answer: `\u{a7}F=5` reads as five
+    /// specs agreeing until you see that one of them means feature flags.
+    fn label_report(&self) -> String {
+        let Some(letter) = self.watched else {
+            return String::new();
+        };
+        let mut out = format!("\u{a7}{letter} is headed:\n");
+        for (label, n) in &self.labels {
+            let said = if label.is_empty() { "(bare)" } else { label };
+            out.push_str(&format!("  {n} x `{said}`\n"));
+        }
+        out
+    }
+}
+
+/// Every `SPEC.md` under these roots, once each.
+fn specs_under(roots: &[String]) -> Vec<PathBuf> {
+    let mut specs = Vec::new();
+    for root in roots {
+        walk(Path::new(root), &mut specs);
+    }
+    specs.sort();
+    specs.dedup();
+    specs
+}
+
+fn sweep_over(roots: &[String], watched: Option<char>) -> Sweep {
+    let mut sweep = Sweep::watching(watched);
+    for path in &specs_under(roots) {
+        match std::fs::read_to_string(path) {
+            Ok(text) => sweep.add(&text),
+            Err(_) => sweep.unreadable = sweep.unreadable.saturating_add(1),
+        }
+    }
+    sweep
+}
+
+/// `--label F` asks what `§F` is CALLED across the fleet, which is the
+/// question a letter claim turns on. Everything else is a root to walk.
+fn watched(args: &[String]) -> Option<char> {
+    let at = args.iter().position(|a| a == "--label")?;
+    args.get(at.saturating_add(1))?.chars().next()
+}
+
+/// The roots, which is every argument `--label` did not account for.
+fn roots_in(args: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        if arg == "--label" {
+            rest.next();
+        } else {
+            out.push(arg.clone());
+        }
+    }
+    out
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let letter = watched(&args);
+    let roots = roots_in(&args);
+    if roots.is_empty() {
+        eprintln!(
+            "corpus: give one or more roots to walk, e.g.\n  \
+             cargo run --example corpus -- ~/projects\n  \
+             cargo run --example corpus -- --label F ~/projects"
+        );
+        return;
+    }
+    print!("{}", sweep_over(&roots, letter).report());
+}
