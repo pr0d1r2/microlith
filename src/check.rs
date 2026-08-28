@@ -694,9 +694,19 @@ fn supersessions(text: &str) -> Vec<Retirement> {
 ///
 /// Read OUTSIDE backticks, reusing V13's own boundary (V7): a marker shown
 /// as an example in `code` is a literal, exactly as a citation there is.
+/// The OPENING BRACKET is part of the marker, not decoration around it.
+///
+/// B30: this matched the words alone, so `V6 was superseded by V7 [B14].`
+/// -- ordinary prose with a bracket anywhere after it -- parsed as a mark
+/// naming `V7`, and V41 reported V7 as superseded by itself. The rule
+/// written to stay quiet on the prose the fleet already writes was loud on
+/// exactly that, which is the failure its own companion test claims to
+/// prevent: that test used prose with NO `]`, the one prose shape that
+/// happened to be safe.
 fn marked(line: &str) -> Vec<String> {
     let bare = outside_backticks(line);
-    let Some((_, rest)) = bare.split_once(SUPERSEDED_BY) else {
+    let opening = format!("[{SUPERSEDED_BY}");
+    let Some((_, rest)) = bare.split_once(opening.as_str()) else {
         return Vec::new();
     };
     let Some((inside, _)) = rest.split_once(']') else {
@@ -1396,6 +1406,29 @@ mod tests {
         assert_eq!(supersessions_resolve(&real()), Vec::<Violation>::new());
         let prose = retiring("**retired.** superseded by V1, in prose");
         assert_eq!(supersessions_resolve(&prose), Vec::<Violation>::new());
+    }
+
+    /// B30, and the shape the test above MISSED: prose that mentions the
+    /// words AND carries a bracket later on.
+    ///
+    /// `V6 was superseded by V7 [B14].` parsed as a mark naming V7, so V41
+    /// reported V7 as superseded by ITSELF. The companion above used prose
+    /// with no `]` -- the one prose shape that was already safe -- so it
+    /// asserted the property while testing the case that could not fail.
+    /// The bracket is part of the marker, not punctuation near it.
+    #[test]
+    fn v41_ignores_the_words_without_an_opening_bracket() {
+        for prose in [
+            "**a rule.** V1 was superseded by V3 [B14].",
+            "**a rule.** see the note on superseded by V1 (below] here",
+        ] {
+            let text = retiring(prose);
+            assert_eq!(
+                supersessions_resolve(&text),
+                Vec::<Violation>::new(),
+                "{prose}"
+            );
+        }
     }
 
     /// PLANTED: a rule that retires ITSELF. V13 cannot see this -- the
