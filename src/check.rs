@@ -574,7 +574,7 @@ fn cross_file_repair(cite: &str) -> String {
 /// could not parse. `check` was green on all eight of our own malformed
 /// rows, because every other rule reads the text rather than the fields.
 ///
-/// MEASURED BY THE SWEEP, not by hand: 32 rows in 11 of 256 distinct fleet
+/// MEASURED BY THE SWEEP, not by hand: 32 rows in 10 of 256 distinct fleet
 /// specs -- 1.4% -- and it turns SEVEN clean specs red, 114 to 107. That
 /// second number is the one a consumer pays, and it is stated beside the row
 /// count that flatters it (§G).

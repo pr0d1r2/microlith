@@ -104,7 +104,7 @@ uses none is checked exactly as it was before.
 a row whose literal `|` is unescaped, which FORMAT.md has always required
 (*"literal `|` → escape as `\|`"*) and which nothing enforced until now.
 
-Measured across 256 distinct specs before it was written: **32 rows in 11
+Measured across 256 distinct specs before it was written: **32 rows in 10
 specs, and 7 specs that pass `check` today will not after upgrading.** That
 is 1.4% of rows — low enough that we judged it worth printing, but it is not
 zero and you may meet it.

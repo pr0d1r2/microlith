@@ -197,6 +197,7 @@ struct Sweep {
     clean: usize,
     violations: usize,
     by_rule: BTreeMap<String, usize>,
+    rule_specs: BTreeMap<String, usize>,
     /// Specs carrying at least one header of this letter. Per SPEC, not per
     /// header: a spec that writes `## §V` twice has one `§V` section as far
     /// as a claim about the fleet goes.
@@ -264,8 +265,24 @@ impl Sweep {
             return;
         }
         self.violations = self.violations.saturating_add(found.len());
-        for v in &found {
+        self.blame(&found);
+    }
+
+    /// Findings per rule, and SPECS per rule -- the second is the number a
+    /// consumer feels, and the sweep could not answer it until now.
+    ///
+    /// Every hand-made spec count on this branch drifted: B27, B28, B31, and
+    /// V42's own "11 specs", which a recount put at 10. Every count the tool
+    /// rendered held. The difference was never care -- it was whether the
+    /// tool could answer the question at all.
+    fn blame(&mut self, found: &[microlith::Violation]) {
+        let mut here: Vec<&str> = Vec::new();
+        for v in found {
             bump(&mut self.by_rule, v.rule.clone());
+            if !here.contains(&v.rule.as_str()) {
+                here.push(&v.rule);
+                bump(&mut self.rule_specs, v.rule.clone());
+            }
         }
     }
 
@@ -347,9 +364,10 @@ impl Sweep {
         let letters =
             tally("letters, specs carrying each:", &self.letters, "\u{a7}");
         format!(
-            "{}{}{}{}",
+            "{}{}{}{}{}",
             self.counts(),
-            tally("by rule:", &self.by_rule, ""),
+            tally("by rule, findings:", &self.by_rule, ""),
+            tally("by rule, specs touched:", &self.rule_specs, ""),
             letters,
             self.label_report()
         )
