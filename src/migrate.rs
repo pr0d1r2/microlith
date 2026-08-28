@@ -430,6 +430,41 @@ V1: **a rule.**
         );
     }
 
+    /// THE MEASURED ONE, and the reason V39 named its cost out loud. One
+    /// fleet repo heads `\u{a7}F` as `Feature Flags (Flipper)`. Claiming the
+    /// letter for FEDERATION made that header a collision the same day, and
+    /// a `migrate` that rewrote it would keep every character while turning
+    /// a feature-flag section into a declaration of directory edges -- the
+    /// byte proof passing on a file whose meaning was inverted.
+    ///
+    /// Nothing new was written to make this hold: V27's collision rule
+    /// covers a new letter the moment the letter is known. This pins that it
+    /// does, because inheriting a safety silently is how you find out it
+    /// stopped applying only after it has cost somebody their section.
+    #[test]
+    fn the_new_letters_decline_a_collision_like_any_other() {
+        for text in [
+            "## \u{a7}F Feature Flags (Flipper)\n- a flag\n",
+            "## \u{a7}N NOTES\n- a note\n",
+        ] {
+            let out = migrate(text).unwrap_or_default();
+            assert_eq!(out, text, "must not rewrite: {text}");
+            assert!(
+                report(text).contains("DIFFERENT concept"),
+                "but must report: {text}"
+            );
+        }
+    }
+
+    /// The companion: a header that DOES name the concept migrates, so the
+    /// rule above is refusing collisions rather than refusing the letters.
+    #[test]
+    fn the_new_letters_migrate_when_the_label_names_the_concept() {
+        let text = "## \u{a7}F \u{2014} federation\n- an edge\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(out.contains("## \u{a7}F FEDERATION"), "{out}");
+    }
+
     /// V2: twice is once. The second run sees a canonical header, so it
     /// writes no second note -- the failure that would make migrate unusable
     /// in a gate or a loop.
