@@ -6,7 +6,7 @@ Lineage: the format is cavekit's, and every measurement below was taken in `itok
 
 ## §G GOAL
 
-Keep a `SPEC.md` CORRECT, SMALL & ADDRESSABLE: enforce the format, minify it losslessly, derive its anchors -- CPU only, no model.
+Keep a `SPEC.md` TRUE, SMALL & ADDRESSABLE: enforce the format, minify it losslessly, derive its anchors -- CPU only, no model. CORRECT is what a GATE can PROVE, & EVERY defect this repo has found PASSED one -- green while the checker could ⊥ address its own new letters, green while a published contract shipped PROSE where it promised ids, green while a document of MEASURED evidence carried 3 numbers that were false. ∴ TRUTH is the metric, & the method is to be UNFLATTERING: a count is reported in the direction that COSTS us, a claim STATES the denominator that weakens it, & an error is SHOWN rather than smoothed. A number that flatters the work is the FIRST one to re-measure -- ours was wrong TWICE, both times in our own favour, & both times the gate was green.
 
 ## §C CONSTRAINTS
 
