@@ -209,17 +209,24 @@ impl Sweep {
     /// NAMED as copies; this catches the rest, and there turned out to be
     /// far more of the rest -- one workspace holding hundreds of checkouts
     /// of other projects, none of them named like a backup.
-    fn take(&mut self, path: &Path, seen: &mut Vec<u64>) {
+    /// `project` is counted only if the spec SURVIVES, which B31 is the
+    /// cost of getting wrong: the denominator was taken over every path
+    /// DISCOVERED, while the numerator counted only the distinct texts. A
+    /// project whose specs were all duplicates of another's contributed 0
+    /// to one side and 1 to the other -- an inflated denominator, which is
+    /// precisely what B27 and B28 were filed for.
+    fn take(&mut self, path: &Path, project: Option<&Path>, seen: &mut Sieve) {
         let Ok(text) = std::fs::read_to_string(path) else {
             self.unreadable = self.unreadable.saturating_add(1);
             return;
         };
         let fingerprint = digest(&text);
-        if seen.contains(&fingerprint) {
+        if seen.texts.contains(&fingerprint) {
             self.duplicates = self.duplicates.saturating_add(1);
             return;
         }
-        seen.push(fingerprint);
+        seen.texts.push(fingerprint);
+        seen.credit(project);
         self.add(&text);
     }
 
@@ -389,39 +396,51 @@ fn specs_under(roots: &[String]) -> Vec<PathBuf> {
     specs
 }
 
-/// How many distinct PROJECTS those specs came from -- the directory
-/// immediately under a root.
+/// What has already been counted: distinct texts, and the projects those
+/// texts came from.
 ///
-/// Reported rather than counted by hand, because it is half the denominator
-/// and the hand count was wrong: a letter's claim rests on how many
-/// INDEPENDENT projects spell it, and one project with 19 nested specs is
-/// not 19 adopters.
-fn projects_in(roots: &[String], specs: &[PathBuf]) -> usize {
-    let mut seen: Vec<PathBuf> = Vec::new();
-    for spec in specs {
-        let Some(project) = roots
-            .iter()
-            .filter_map(|r| spec.strip_prefix(r).ok())
-            .find_map(|rest| rest.components().next())
-        else {
-            continue;
+/// One structure so the two cannot drift apart. They did: the projects were
+/// tallied over every path DISCOVERED and the specs over every text KEPT,
+/// which is how a denominator ends up describing a larger corpus than its
+/// numerator (B31).
+#[derive(Default)]
+struct Sieve {
+    texts: Vec<u64>,
+    projects: Vec<PathBuf>,
+}
+
+impl Sieve {
+    /// Count this project, once, and only for a spec that was KEPT.
+    fn credit(&mut self, project: Option<&Path>) {
+        let Some(project) = project else {
+            return;
         };
-        let project = PathBuf::from(project.as_os_str());
-        if !seen.contains(&project) {
-            seen.push(project);
+        if !self.projects.iter().any(|p| p == project) {
+            self.projects.push(project.to_path_buf());
         }
     }
-    seen.len()
+}
+
+/// The PROJECT a spec belongs to -- the directory immediately under a root.
+///
+/// A letter's claim rests on how many INDEPENDENT projects spell it, and one
+/// project federated over 19 nested specs is one adopter, not nineteen.
+fn project_of(roots: &[String], spec: &Path) -> Option<PathBuf> {
+    roots
+        .iter()
+        .filter_map(|r| spec.strip_prefix(r).ok())
+        .find_map(|rest| rest.components().next())
+        .map(|c| PathBuf::from(c.as_os_str()))
 }
 
 fn sweep_over(roots: &[String], watched: Option<char>) -> Sweep {
     let mut sweep = Sweep::watching(watched);
-    let specs = specs_under(roots);
-    sweep.projects = projects_in(roots, &specs);
-    let mut seen: Vec<u64> = Vec::new();
-    for path in &specs {
-        sweep.take(path, &mut seen);
+    let mut seen = Sieve::default();
+    for path in &specs_under(roots) {
+        let project = project_of(roots, path);
+        sweep.take(path, project.as_deref(), &mut seen);
     }
+    sweep.projects = seen.projects.len();
     sweep
 }
 

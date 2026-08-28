@@ -17,7 +17,7 @@ fail is a fork, whatever it is called.
 Each one carries what was MEASURED before it was claimed, because a letter
 is only free until somebody else spends it, and a proposal without a
 denominator is an opinion. The sweep behind those numbers ran on
-**2026-08-28** over **256 distinct specs in 66 projects**; it is a private
+**2026-08-28** over **256 distinct specs in 62 projects**; it is a private
 corpus, so the counts travel and the names do not. Claiming both letters
 moved that corpus from 114 clean specs to 114 -- the whole cost fell on one
 file that was already failing other rules.
