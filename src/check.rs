@@ -566,10 +566,16 @@ fn cross_file_repair(cite: &str) -> String {
 /// could not parse. `check` was green on all eight of our own malformed
 /// rows, because every other rule reads the text rather than the fields.
 ///
-/// MEASURED before it was written, over 259 distinct fleet specs: 40 of
-/// 2,289 rows carry an unescaped pipe, in 11 specs. 1.7% -- low enough to
-/// print, and every one of them is a row whose last field is not what its
-/// author wrote.
+/// MEASURED BY THE SWEEP, not by hand: 32 rows in 11 of 256 distinct fleet
+/// specs -- 1.4% -- and it turns SEVEN clean specs red, 114 to 107. That
+/// second number is the one a consumer pays, and it is stated beside the row
+/// count that flatters it (§G).
+///
+/// The first figure written here read "40 of 2,289 rows over 259 specs". It
+/// was hand-counted with a throwaway script, and it counted our own eight
+/// malformed rows before they were repaired -- so it described a corpus that
+/// no longer exists. `SPEC.md` retracted it and this copy did not, which is
+/// the whole reason a number belongs in one place.
 #[must_use]
 pub fn rows_escape_pipes(text: &str) -> Vec<Violation> {
     text.lines()
