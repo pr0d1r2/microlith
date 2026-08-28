@@ -33,7 +33,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use microlith::check_spec;
+use microlith::{check_spec, format_spec, migrate_declined};
 
 /// Directory names that hold a COPY rather than a spec of their own.
 ///
@@ -144,6 +144,13 @@ struct Sweep {
     /// header: a spec that writes `## §V` twice has one `§V` section as far
     /// as a claim about the fleet goes.
     letters: BTreeMap<char, usize>,
+    /// What the two WRITING verbs would do, measured without writing.
+    /// `unstable` is the only one of these that is a DEFECT.
+    fmt_refused: usize,
+    fmt_over_cap: usize,
+    fmt_rewrites: usize,
+    fmt_unstable: usize,
+    migrate_declined: usize,
     /// The letter whose LABELS are being read, and what they say.
     watched: Option<char>,
     labels: BTreeMap<String, usize>,
@@ -161,6 +168,7 @@ impl Sweep {
         self.files = self.files.saturating_add(1);
         self.census(text);
         self.read_labels(text);
+        self.rewrite(text);
         // V16 needs a baseline of named records, which is a claim about ONE
         // repo's edits over time. No such baseline exists for somebody
         // else's spec, so the sweep passes none: an empty list means the V16
@@ -173,6 +181,59 @@ impl Sweep {
         self.violations = self.violations.saturating_add(found.len());
         for v in &found {
             bump(&mut self.by_rule, v.rule.clone());
+        }
+    }
+
+    /// The two WRITING verbs, run over real specs WITHOUT writing anything.
+    ///
+    /// This is where the expensive bugs have been. B12, B13 and B14 were all
+    /// `fmt` merging a construct our own spec does not contain, and all three
+    /// passed V1's losslessness proof because a merge is whitespace-only. The
+    /// corpus caught every one; the dogfood caught none. Yet the sweep ran
+    /// `check` alone until now, which is the half that never had the bugs.
+    ///
+    /// NOTHING IS WRITTEN, and that is structural rather than careful:
+    /// `format_spec` and `migrate_spec` take `&str` and return `String`. Every
+    /// write in this crate lives in `cli.rs`. So the corpus is read, never
+    /// touched, and no copy of somebody else's repo has to be made to keep it
+    /// that way.
+    ///
+    /// What is counted:
+    ///
+    /// * REFUSED -- the transform declined, which means V1's proof failed or
+    ///   a line is over the cap. A refusal is the tool working.
+    /// * REWRITES -- `fmt` would change the file. Expected and not a defect:
+    ///   most specs in the wild are hand-wrapped.
+    /// * UNSTABLE -- `fmt` twice differs from `fmt` once. That IS a defect
+    ///   (V2), and on a real file rather than a fixture.
+    /// * DECLINED -- `migrate` found a letter collision it will not touch.
+    fn rewrite(&mut self, text: &str) {
+        match format_spec(text) {
+            // WHY the refusal, not just that there was one. Over the cap is
+            // EXPECTED -- other projects never opted into our line limit. A
+            // refusal on the LOSSLESSNESS proof is a different animal: the
+            // transform would have dropped or changed content on a real
+            // file, which is the failure V1 exists to make impossible.
+            // Counting them together would hide the second behind 100 of
+            // the first.
+            Err(why) if why.contains("over the") => {
+                self.fmt_over_cap = self.fmt_over_cap.saturating_add(1);
+            }
+            Err(_) => self.fmt_refused = self.fmt_refused.saturating_add(1),
+            Ok(once) => self.rewrote(text, &once),
+        }
+        if !migrate_declined(text).is_empty() {
+            self.migrate_declined = self.migrate_declined.saturating_add(1);
+        }
+    }
+
+    /// `fmt` returned: did it change anything, and does it change its mind?
+    fn rewrote(&mut self, text: &str, once: &str) {
+        if once != text {
+            self.fmt_rewrites = self.fmt_rewrites.saturating_add(1);
+        }
+        if format_spec(once).ok().as_deref() != Some(once) {
+            self.fmt_unstable = self.fmt_unstable.saturating_add(1);
         }
     }
 
@@ -219,8 +280,26 @@ impl Sweep {
         };
         format!(
             "specs: {}\n{unreadable}clean: {}\nwith violations: {red}\n\
-             violations: {}\n",
-            self.files, self.clean, self.violations
+             violations: {}\n{}",
+            self.files,
+            self.clean,
+            self.violations,
+            self.rewrites()
+        )
+    }
+
+    /// What the writing verbs would do. `fmt unstable` is the line to read:
+    /// the others describe the corpus, that one describes a bug in us.
+    fn rewrites(&self) -> String {
+        format!(
+            "fmt would rewrite: {}\nfmt over the cap: {}\n\
+             fmt REFUSED its own proof (a defect, V1): {}\n\
+             fmt UNSTABLE (a defect, V2): {}\nmigrate declined: {}\n",
+            self.fmt_rewrites,
+            self.fmt_over_cap,
+            self.fmt_refused,
+            self.fmt_unstable,
+            self.migrate_declined
         )
     }
 
