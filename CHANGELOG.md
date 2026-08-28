@@ -66,7 +66,10 @@ uses none is checked exactly as it was before.
   like `mth docs`.
 - **`FORMAT-EXTENSIONS.md` ships in the `.crate`.** It is written for a reader
   who does *not* have this tool: copy it next to your own `FORMAT.md` and the
-  extensions are adoptable by hand.
+  extensions are adoptable by hand. Every entry carries what was measured
+  before it was claimed — how many specs use it, and what claiming it costs —
+  against a stated denominator, because a letter is only free until somebody
+  else spends it.
 
 ### Changed
 
@@ -76,6 +79,16 @@ uses none is checked exactly as it was before.
 - **`--help` wraps its verb list.** It never did, and the eighth verb pushed
   the line to 83 columns — past the width every other line in that output is
   held to.
+
+### Fixed
+
+- **`mth anchors` could not address `§F` or `§N` items at all.** It decided
+  what was addressable from a hand-listed set of letters, so the two new
+  sections were known everywhere else and invisible there. It matters more
+  than its size suggests: neither section carries ids, so the ordinal is the
+  only way to cite an edge — `§F.2` is the whole point of the letters, and
+  the verb that produces that address did not know they existed. The set is
+  derived now, so the next letter is addressable the day it is known.
 
 ## [0.6.1] — 2026-08-14
 
