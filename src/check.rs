@@ -503,8 +503,16 @@ pub fn citations_resolve(text: &str) -> Vec<Violation> {
 /// name neighbouring specs, so this is where the mistake lives -- but the
 /// test is the LINE rather than the section, because the same sentence is
 /// written in prose elsewhere and is wrong there for the same reason.
+///
+/// A PATH, not any mention of a `.md` file. `V8: **FORMAT.md ships
+/// verbatim.** see V9` names a file and cites nothing across an edge, and
+/// it was getting the cross-file repair ranked FIRST, where it is exactly
+/// the wrong advice. A neighbour is reached by a path, so the token has to
+/// carry a separator.
 fn names_a_spec_file(line: &str) -> bool {
-    outside_backticks(line).contains(".md")
+    outside_backticks(line)
+        .split_whitespace()
+        .any(|token| token.contains('/') && token.contains(".md"))
 }
 
 /// V13's report, with a THIRD direction when the line names another spec.
@@ -583,8 +591,14 @@ pub fn rows_escape_pipes(text: &str) -> Vec<Violation> {
         .filter_map(|(i, line)| {
             let id = at_line_start(line)?;
             ROW_KINDS.contains(&id.kind).then_some(())?;
+            // PIPE DIALECT ONLY. The id grammar also admits `T1: text`, and
+            // a colon declaration is not a four-field row -- it has no
+            // fields at all. Judging one counts zero pipes and reports a
+            // row that was never written as a row: 76 findings across 5
+            // fleet specs, on a dialect the format allows.
+            (id.terminator == '|').then_some(())?;
             let found = unescaped_pipes(line);
-            (found > 3).then(|| {
+            (found != 3).then(|| {
                 split_wrongly(&id.label(), found).at(i.saturating_add(1))
             })
         })
@@ -606,19 +620,39 @@ fn unescaped_pipes(line: &str) -> usize {
     count
 }
 
+/// BOTH directions, because the rule is "four fields", not "not too many".
+///
+/// Too FEW was unreported until a review asked: the message already said
+/// "not 4" and the rule already said "its 4 fields & no others", while the
+/// guard only counted upward. A row missing its last field emits an empty
+/// `cites`, which reads exactly like a row that cites nothing -- the same
+/// indistinguishability B29 was filed for, from the other side.
+///
+/// MEASURED before widening: 0 of 2,294 fleet rows carry too few, so this
+/// half costs nobody anything today. It is here for the row written
+/// tomorrow.
 fn split_wrongly(label: &str, found: usize) -> Violation {
     let fields = found.saturating_add(1);
-    Violation::new(
+    let v = Violation::new(
         "V42",
         format!("`{label}` splits into {fields} fields, not 4"),
-    )
-    .why("the last field stops being citations and becomes prose")
-    .try_(
-        Fix::Mechanical,
-        "escape the literal pipes as `\\|` -- the first two and the last are \
-         the row's own",
-    )
-    .try_(Fix::Judgment, "or reword the text so it carries no pipe")
+    );
+    if found < 3 {
+        return too_few(v);
+    }
+    v.why("the last field stops being citations and becomes prose")
+        .try_(
+            Fix::Mechanical,
+            "escape the literal pipes as `\\|` -- the first two and the last \
+             are the row's own",
+        )
+        .try_(Fix::Judgment, "or reword the text so it carries no pipe")
+}
+
+/// A row that STOPS EARLY: the missing field reads as an empty one.
+fn too_few(v: Violation) -> Violation {
+    v.why("a missing field reads exactly like an empty one")
+        .try_(Fix::Judgment, "add the missing field; `-` if it is empty")
 }
 
 /// V41: a SUPERSESSION marker points at LIVE law.
@@ -1528,6 +1562,27 @@ mod tests {
         let text = real()
             .replace("T1|x|a task|V1", "T1|x|a task showing a \\| row|V1");
         assert_eq!(rows_escape_pipes(&text), Vec::<Violation>::new());
+    }
+
+    /// The OTHER direction, which went unreported until a review asked for
+    /// it: a row missing its last field emits an empty `cites`, which reads
+    /// exactly like a row that cites nothing. That is B29's
+    /// indistinguishability from the near side.
+    #[test]
+    fn v42_rejects_a_row_with_too_few_fields() {
+        let text =
+            real().replace("T1|x|a task|V1", "T1|x|a task with no cites");
+        let got = rows_escape_pipes(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first()
+                .is_some_and(|v| v.msg.contains("3 fields, not 4")),
+            "{got:?}"
+        );
+        assert!(
+            got.first().is_some_and(|v| !v.is_mechanical()),
+            "adding a missing field is judgement: {got:?}"
+        );
     }
 
     /// The companion that matters most: a well-formed spec is SILENT, and a
