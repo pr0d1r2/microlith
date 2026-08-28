@@ -34,6 +34,7 @@ src/migrate.rs
 src/render.rs
 src/tasks.rs
 src/violation.rs
+tests/binary.rs
 tests/constructs.rs
 tests/constructs/bug-table.md
 tests/constructs/bulleted-declarations.md
