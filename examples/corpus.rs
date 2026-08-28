@@ -120,6 +120,16 @@ fn header_letter(line: &str) -> Option<char> {
         .then_some(letter)
 }
 
+/// A report line, or nothing when the count is zero. A `0` printed for
+/// every category a corpus happens not to contain is noise the reader has
+/// to skip past to reach the numbers that moved.
+fn line_if(label: &str, n: usize) -> String {
+    match n {
+        0 => String::new(),
+        n => format!("{label}: {n}\n"),
+    }
+}
+
 /// One more of `key`, whatever the map counts.
 fn bump<K: Ord>(counts: &mut BTreeMap<K, usize>, key: K) {
     let n = counts.entry(key).or_default();
@@ -164,6 +174,7 @@ struct Sweep {
     files: usize,
     projects: usize,
     unreadable: usize,
+    duplicates: usize,
     clean: usize,
     violations: usize,
     by_rule: BTreeMap<String, usize>,
@@ -189,6 +200,27 @@ impl Sweep {
             watched: letter,
             ..Self::default()
         }
+    }
+
+    /// Read one spec and count it -- unless its bytes were already counted.
+    ///
+    /// B28: a spec identical to one already read is a COPY, whatever the
+    /// directory is called. The name shapes above catch the copies somebody
+    /// NAMED as copies; this catches the rest, and there turned out to be
+    /// far more of the rest -- one workspace holding hundreds of checkouts
+    /// of other projects, none of them named like a backup.
+    fn take(&mut self, path: &Path, seen: &mut Vec<u64>) {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            self.unreadable = self.unreadable.saturating_add(1);
+            return;
+        };
+        let fingerprint = digest(&text);
+        if seen.contains(&fingerprint) {
+            self.duplicates = self.duplicates.saturating_add(1);
+            return;
+        }
+        seen.push(fingerprint);
+        self.add(&text);
     }
 
     fn add(&mut self, text: &str) {
@@ -301,12 +333,10 @@ impl Sweep {
     /// names nothing, which is the lesson T15 paid for.
     fn counts(&self) -> String {
         let red = self.files.saturating_sub(self.clean);
-        let unreadable = match self.unreadable {
-            0 => String::new(),
-            n => format!("unreadable: {n}\n"),
-        };
+        let unreadable = line_if("unreadable", self.unreadable);
+        let duplicates = line_if("duplicate copies skipped", self.duplicates);
         format!(
-            "specs: {} in {} projects\n{unreadable}clean: {}\nwith violations: {red}\n\
+            "specs: {} in {} projects\n{unreadable}{duplicates}clean: {}\nwith violations: {red}\n\
              violations: {}\n{}",
             self.files,
             self.projects,
@@ -388,13 +418,23 @@ fn sweep_over(roots: &[String], watched: Option<char>) -> Sweep {
     let mut sweep = Sweep::watching(watched);
     let specs = specs_under(roots);
     sweep.projects = projects_in(roots, &specs);
+    let mut seen: Vec<u64> = Vec::new();
     for path in &specs {
-        match std::fs::read_to_string(path) {
-            Ok(text) => sweep.add(&text),
-            Err(_) => sweep.unreadable = sweep.unreadable.saturating_add(1),
-        }
+        sweep.take(path, &mut seen);
     }
     sweep
+}
+
+/// A content fingerprint, for telling a second copy from a second adopter.
+///
+/// `DefaultHasher` rather than a real digest: this decides whether two files
+/// on one disk are the same text, not whether an adversary can forge one, and
+/// a cryptographic hash would be a dependency in a crate that has none (§C).
+fn digest(text: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut h);
+    h.finish()
 }
 
 /// `--label F` asks what `§F` is CALLED across the fleet, which is the
