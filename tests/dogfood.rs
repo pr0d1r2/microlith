@@ -5,6 +5,7 @@
 //! apart without the gate noticing.
 
 use microlith::parse_records;
+use microlith::tasks_json;
 use microlith::{MAX_LINE, over_cap};
 use microlith::{check_spec, format_spec};
 
@@ -39,6 +40,42 @@ fn our_own_spec_passes_check() {
     let named: Vec<String> =
         violations.iter().map(ToString::to_string).collect();
     assert_eq!(named, Vec::<String>::new());
+}
+
+/// B29's OTHER half: V42 catches the cause, this asserts the EFFECT.
+///
+/// A malformed row does not fail to parse — it parses into the wrong
+/// fields, so `cites` quietly becomes a fragment of prose and the JSON
+/// contract a consumer reads (M11) carries a sentence where it promised
+/// ids. Six of our own rows did exactly that while `check` stayed green.
+///
+/// V42 now makes those rows red, so this can never fire while the rule
+/// holds. That is precisely why it is worth having: it pins the PROPERTY
+/// the rule exists to protect, so a future loosening of V42 has to fail
+/// here too rather than quietly restoring the defect.
+///
+/// Scanned rather than parsed, because a JSON dependency in a crate with
+/// none would cost more than this test is worth (§C).
+#[test]
+fn every_cites_field_in_the_json_holds_ids() {
+    let json = tasks_json("SPEC.md", &spec());
+    let bad: Vec<&str> = json
+        .split("\"cites\":[")
+        .skip(1)
+        .filter_map(|rest| rest.split(']').next())
+        .flat_map(|list| list.split(','))
+        .map(|cite| cite.trim().trim_matches('"'))
+        .filter(|cite| !cite.is_empty() && *cite != "-")
+        .filter(|cite| !is_id(cite))
+        .collect();
+    assert_eq!(bad, Vec::<&str>::new(), "cites that are not ids");
+}
+
+/// `V13`, `T7a`, `B2` -- a letter, a number, an optional suffix.
+fn is_id(cite: &str) -> bool {
+    let mut chars = cite.chars();
+    let kind = chars.next().is_some_and(|c| "VTBRIGCFN".contains(c));
+    kind && chars.next().is_some_and(|c| c.is_ascii_digit())
 }
 
 /// V5/V9: and no line is over the cap.

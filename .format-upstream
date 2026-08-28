@@ -44,7 +44,9 @@ source = https://github.com/JuliusBrussee/cavekit
 #
 #   status   DRAFTED, not yet sent
 #   what     `§F FEDERATION` and `§N NAV` as canonical section letters, ranked
-#            between `§G` and `§C`; `[superseded by V<n>]` as a marker
+#            between `§G` and `§C`; `[superseded by V<n>]` as a marker; and a
+#            question about whether the cell escape applies inside code spans,
+#            which we broke eight times without noticing (B29)
 #   where    https://github.com/JuliusBrussee/cavekit -- issue, not a PR: the
 #            format is prose upstream, and a section set is the maintainer's
 #            call to make rather than a diff to land on them
