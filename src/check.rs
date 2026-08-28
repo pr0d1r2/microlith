@@ -121,6 +121,17 @@ pub const MARKERS: [&str; 1] = [SUPERSEDED_BY];
 /// nobody got round to listing.
 pub const SYNONYMS: [(char, &str); 1] = [('I', "surface")];
 
+/// The kinds written as PIPE ROWS, each with exactly four fields.
+///
+/// `V` is excluded because an invariant is a `V1:` statement rather than a
+/// row, and `R` joined `T` and `B` at 4.1.0 for the reason they are here:
+/// `R1|topic|finding|src` is the same shape.
+///
+/// One home rather than a literal in each rule that needs it (V7) -- there
+/// are two now, and V42 arrived because the second one had to agree with
+/// the first about what a row even is.
+pub const ROW_KINDS: [char; 3] = ['T', 'B', 'R'];
+
 /// The kinds that DECLARE an addressable item, in report order.
 ///
 /// `G`, `C` and `I` are prose and bullets with no ids, so they appear in
@@ -536,6 +547,74 @@ fn cross_file_repair(cite: &str) -> String {
     )
 }
 
+/// V42: a row's LITERAL pipe is escaped, so the row splits into its four
+/// fields and no others.
+///
+/// `id|status|text|cites` is positional, so an unescaped `|` in the TEXT
+/// does not break the row -- it silently moves the boundary. The last field
+/// stops being citations and becomes a fragment of prose, and every reader
+/// downstream believes it: `mth tasks --format json` is the contract a
+/// consumer parses (M11), and it was emitting a sentence where a caller
+/// expected `["V6","V10","V18"]`.
+///
+/// FORMAT.md's cell rule is `literal | -> escape as \|`, unconditional --
+/// "Backticks OK" permits backticks in a cell, it does not exempt them. So
+/// a row showing a pipe-table example inside backticks must escape it, and
+/// ours did not.
+///
+/// B29, and B15's shape a second time: a check that passes on a file it
+/// could not parse. `check` was green on all eight of our own malformed
+/// rows, because every other rule reads the text rather than the fields.
+///
+/// MEASURED before it was written, over 259 distinct fleet specs: 40 of
+/// 2,289 rows carry an unescaped pipe, in 11 specs. 1.7% -- low enough to
+/// print, and every one of them is a row whose last field is not what its
+/// author wrote.
+#[must_use]
+pub fn rows_escape_pipes(text: &str) -> Vec<Violation> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let id = at_line_start(line)?;
+            ROW_KINDS.contains(&id.kind).then_some(())?;
+            let found = unescaped_pipes(line);
+            (found > 3).then(|| {
+                split_wrongly(&id.label(), found).at(i.saturating_add(1))
+            })
+        })
+        .collect()
+}
+
+/// How many `|` in this line are STRUCTURAL -- that is, not escaped.
+fn unescaped_pipes(line: &str) -> usize {
+    let mut count = 0usize;
+    let mut escaped = false;
+    for c in line.chars() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '|' => count = count.saturating_add(1),
+            _ => {}
+        }
+    }
+    count
+}
+
+fn split_wrongly(label: &str, found: usize) -> Violation {
+    let fields = found.saturating_add(1);
+    Violation::new(
+        "V42",
+        format!("`{label}` splits into {fields} fields, not 4"),
+    )
+    .why("the last field stops being citations and becomes prose")
+    .try_(
+        Fix::Mechanical,
+        "escape the literal pipes as `\\|` -- the first two and the last are \
+         the row's own",
+    )
+    .try_(Fix::Judgment, "or reword the text so it carries no pipe")
+}
+
 /// V41: a SUPERSESSION marker points at LIVE law.
 ///
 /// `V3: **an old rule.** [superseded by V9]` retires V3 without deleting it,
@@ -655,7 +734,7 @@ pub fn rows_sorted(text: &str) -> Vec<Violation> {
     // ROW kinds -- the pipe-table sections. `V` is excluded because an
     // invariant is a `V1:` statement, not a row, and `R` joined them with
     // 4.1.0 for the same reason `T` and `B` are here: `R1|topic|finding|src`.
-    for kind in ['T', 'B', 'R'] {
+    for kind in ROW_KINDS {
         let rows = declared_at(text, kind);
         for pair in rows.windows(2) {
             match (pair.first(), pair.get(1)) {
@@ -1384,6 +1463,43 @@ mod tests {
         let text = real()
             .replace("T2|.|another|V3", "T2|.|dead [superseded by T2]|V3");
         assert_eq!(supersessions_resolve(&text), Vec::<Violation>::new());
+    }
+
+    /// V42, PLANTED: a literal pipe in the text moves the field boundary,
+    /// so the last field stops being citations. The row still LOOKS fine,
+    /// which is why nothing caught it for eight rows of our own spec.
+    #[test]
+    fn v42_rejects_a_row_whose_literal_pipe_is_unescaped() {
+        let text = real()
+            .replace("T1|x|a task|V1", "T1|x|a task showing a `| M1 |` row|V1");
+        let got = rows_escape_pipes(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first().is_some_and(|v| v.msg.contains("not 4")),
+            "{got:?}"
+        );
+        assert!(got.first().is_some_and(Violation::is_mechanical), "{got:?}");
+    }
+
+    /// ...and ESCAPED, the same row is fine. This is the companion that
+    /// keeps the rule about the ESCAPE rather than about the character:
+    /// FORMAT.md permits a literal pipe, it requires it be written `\|`.
+    #[test]
+    fn v42_accepts_the_same_pipe_once_it_is_escaped() {
+        let text = real()
+            .replace("T1|x|a task|V1", "T1|x|a task showing a \\| row|V1");
+        assert_eq!(rows_escape_pipes(&text), Vec::<Violation>::new());
+    }
+
+    /// The companion that matters most: a well-formed spec is SILENT, and a
+    /// row is judged only when it IS a row. A `\u{a7}V` statement carries no
+    /// fields, and the milestone table's own rows open with a pipe rather
+    /// than an id, so neither is this rule's business.
+    #[test]
+    fn v42_is_silent_on_rows_that_are_well_formed() {
+        assert_eq!(rows_escape_pipes(&real()), Vec::<Violation>::new());
+        let statement = "## \u{a7}V INVARIANTS\nV1: **a | b | c.**\n";
+        assert_eq!(rows_escape_pipes(statement), Vec::<Violation>::new());
     }
 
     /// Order is part of the format, not a convention, because every `§S.n`

@@ -231,6 +231,7 @@ pub fn check_spec(
     out.extend(check::rows_sorted(text));
     out.extend(check::tasks_in_one_milestone(text));
     out.extend(check::statuses_valid(text));
+    out.extend(check::rows_escape_pipes(text));
     out.extend(check::supersessions_resolve(text));
     out.extend(check::records_survive(text, records));
     out
