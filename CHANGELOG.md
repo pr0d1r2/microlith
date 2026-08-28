@@ -90,6 +90,32 @@ uses none is checked exactly as it was before.
   the verb that produces that address did not know they existed. The set is
   derived now, so the next letter is addressable the day it is known.
 
+- **`cites` could silently hold prose instead of ids.** `id|status|text|cites`
+  is positional, so an unescaped `|` in the text does not break a row — it
+  moves the field boundary, and the last field stops being citations. Six of
+  *this* repo's own rows shipped a sentence there, and `check` was green on
+  all of them, because every other rule reads the text rather than the
+  fields. If you consume `mth tasks --format json`, its `cites` are now
+  trustworthy in a way they were not before.
+
+### This one will fire on specs that pass today
+
+**`V42` is a new check, and it is not silent on existing files.** It reports
+a row whose literal `|` is unescaped, which FORMAT.md has always required
+(*"literal `|` → escape as `\|`"*) and which nothing enforced until now.
+
+Measured across 259 distinct specs before it was written: **32 rows in 11
+specs, and 7 specs that pass `check` today will not after upgrading.** That
+is 1.7% of rows — low enough that we judged it worth printing, but it is not
+zero and you may meet it.
+
+Each hit is a real defect rather than a style preference: the row's last
+field is not what its author wrote, and any consumer reading that field has
+been believing a fragment of prose. The fix is to escape the pipe, or to
+reword so the row carries none — we took the second route in our own spec,
+because `\|` inside a code span renders its backslash and made the document
+worse to read. That trade-off is being raised with the format's author.
+
 ## [0.6.1] — 2026-08-14
 
 A patch, so it sits off the version ladder above: `0.6`'s answer to *what can
