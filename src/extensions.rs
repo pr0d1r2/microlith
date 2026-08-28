@@ -50,10 +50,10 @@ const EXTENSIONS: &[Extension] = &[
         example: "- up: `../SPEC.md` -- the parent this spec refines.\n\
                   - down: `worker/SPEC.md`, `store/SPEC.md`.\n\
                   - `worker/SPEC.md \u{a7}V.2` -- how a citation crosses.",
-        measured: "2 specs, one project family, head `\u{a7}F FEDERATION`. \
-                   One OTHER project heads `\u{a7}F` as feature flags -- the \
-                   single collision claiming this letter creates, and it is \
-                   named rather than discovered later: that section holds \
+        measured: "2 specs, one project, head `\u{a7}F FEDERATION`. One \
+                   OTHER project heads `\u{a7}F` as feature flags -- the \
+                   single collision claiming this letter creates, named \
+                   here rather than discovered later: that section holds \
                    feature flags, so no header rewrite repairs it and the \
                    content has to move.",
     },
@@ -66,9 +66,12 @@ const EXTENSIONS: &[Extension] = &[
                 and still has neighbours -- so neither implies the other.",
         example: "- parent: [../SPEC.md](../SPEC.md)\n\
                   - siblings: [../api/SPEC.md](../api/SPEC.md)",
-        measured: "19 specs, the same family, head `\u{a7}N NAV`. No other \
-                   project spells `\u{a7}N` at all, so the letter is \
-                   unclaimed and claiming it collides with nothing.",
+        measured: "19 specs -- one project, federated over a tree -- head \
+                   `\u{a7}N NAV`. No other project spells `\u{a7}N` at all, \
+                   so the letter is unclaimed and claiming it collides with \
+                   nothing. One project is one adopter, however many files \
+                   it spans; the count is specs because the SECTION is what \
+                   is being proposed.",
     },
 ];
 
@@ -98,12 +101,14 @@ const MARKER_DOCS: &[Marker] = &[Marker {
             dead, so the chain is written to its live end.",
     example: "V3: **the old rule.** [superseded by V9]\n\
               V4: **a rule that was split.** [superseded by V10, V11]",
-    measured: "NO spec uses this bracket form. Ten write retirement in \
-               prose instead -- `~~V11: ...~~ superseded by V17, V18` -- \
-               which is where the wording comes from and why more than one \
-               replacement is allowed. So the spelling is unclaimed, and \
-               the prose those ten already write stays legal: nothing here \
-               turns an existing spec red.",
+    measured: "ONE other project writes this bracket form, across five \
+               revisions of its spec -- and it is the project this marker \
+               was taken from, so it is a source rather than independent \
+               corroboration. No unrelated project uses it. One further \
+               project retires rules in PROSE -- `~~V11: ...~~ superseded \
+               by V17, V18` -- which is where the wording comes from, and \
+               why more than one replacement is allowed. That prose stays \
+               legal: nothing here turns an existing spec red.",
 }];
 
 /// The letters `SECTIONS` carries that the vendored format does not.
@@ -243,10 +248,17 @@ fail is a fork, whatever it is called.
 Each one carries what was MEASURED before it was claimed, because a letter
 is only free until somebody else spends it, and a proposal without a
 denominator is an opinion. The sweep behind those numbers ran on
-**2026-08-27** over **619 specs in 71 repositories**; it is a private corpus,
-so the counts travel and the names do not. Claiming both letters moved that
-corpus from 369 clean specs to 369 -- the whole cost fell on one file that
-was already failing other rules.
+**2026-08-28** over **256 distinct specs in 66 projects**; it is a private
+corpus, so the counts travel and the names do not. Claiming both letters
+moved that corpus from 114 clean specs to 114 -- the whole cost fell on one
+file that was already failing other rules.
+
+An earlier version of this file said 619 specs. That number counted
+snapshots and checkouts as separate projects, and was wrong by more than
+half; the per-letter counts below survived the correction unchanged, but
+the denominator around them did not. It is stated this plainly because a
+measurement nobody can check is worth exactly as much as the care taken
+over it.
 
 ## SECTION ORDER
 
@@ -422,7 +434,7 @@ mod tests {
             EXTENSIONS.len().saturating_add(MARKER_DOCS.len()),
             "every entry renders its evidence"
         );
-        assert!(out.contains("619 specs in 71 repositories"), "{out}");
+        assert!(out.contains("256 distinct specs in 66 projects"), "{out}");
     }
 
     /// Every rendered section names its canonical word, because that is the

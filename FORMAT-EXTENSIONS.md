@@ -17,10 +17,17 @@ fail is a fork, whatever it is called.
 Each one carries what was MEASURED before it was claimed, because a letter
 is only free until somebody else spends it, and a proposal without a
 denominator is an opinion. The sweep behind those numbers ran on
-**2026-08-27** over **619 specs in 71 repositories**; it is a private corpus,
-so the counts travel and the names do not. Claiming both letters moved that
-corpus from 369 clean specs to 369 -- the whole cost fell on one file that
-was already failing other rules.
+**2026-08-28** over **256 distinct specs in 66 projects**; it is a private
+corpus, so the counts travel and the names do not. Claiming both letters
+moved that corpus from 114 clean specs to 114 -- the whole cost fell on one
+file that was already failing other rules.
+
+An earlier version of this file said 619 specs. That number counted
+snapshots and checkouts as separate projects, and was wrong by more than
+half; the per-letter counts below survived the correction unchanged, but
+the denominator around them did not. It is stated this plainly because a
+measurement nobody can check is worth exactly as much as the care taken
+over it.
 
 ## SECTION ORDER
 
@@ -54,7 +61,7 @@ The edges this directory DECLARES. A spec federated over a directory tree is one
 - `worker/SPEC.md §V.2` -- how a citation crosses.
 ```
 
-*Measured:* 2 specs, one project family, head `§F FEDERATION`. One OTHER project heads `§F` as feature flags -- the single collision claiming this letter creates, and it is named rather than discovered later: that section holds feature flags, so no header rewrite repairs it and the content has to move.
+*Measured:* 2 specs, one project, head `§F FEDERATION`. One OTHER project heads `§F` as feature flags -- the single collision claiming this letter creates, named here rather than discovered later: that section holds feature flags, so no header rewrite repairs it and the content has to move.
 
 ### `## §N NAV`
 
@@ -68,7 +75,7 @@ The DERIVED half: what a reader follows to reach a neighbour. Written down rathe
 - siblings: [../api/SPEC.md](../api/SPEC.md)
 ```
 
-*Measured:* 19 specs, the same family, head `§N NAV`. No other project spells `§N` at all, so the letter is unclaimed and claiming it collides with nothing.
+*Measured:* 19 specs -- one project, federated over a tree -- head `§N NAV`. No other project spells `§N` at all, so the letter is unclaimed and claiming it collides with nothing. One project is one adopter, however many files it spans; the count is specs because the SECTION is what is being proposed.
 
 ## THE MARKERS
 
@@ -90,7 +97,7 @@ V3: **the old rule.** [superseded by V9]
 V4: **a rule that was split.** [superseded by V10, V11]
 ```
 
-*Measured:* NO spec uses this bracket form. Ten write retirement in prose instead -- `~~V11: ...~~ superseded by V17, V18` -- which is where the wording comes from and why more than one replacement is allowed. So the spelling is unclaimed, and the prose those ten already write stays legal: nothing here turns an existing spec red.
+*Measured:* ONE other project writes this bracket form, across five revisions of its spec -- and it is the project this marker was taken from, so it is a source rather than independent corroboration. No unrelated project uses it. One further project retires rules in PROSE -- `~~V11: ...~~ superseded by V17, V18` -- which is where the wording comes from, and why more than one replacement is allowed. That prose stays legal: nothing here turns an existing spec red.
 
 ## ADDRESSING
 
