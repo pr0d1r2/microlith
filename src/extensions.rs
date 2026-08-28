@@ -33,6 +33,7 @@ struct Extension {
     letter: char,
     holds: &'static str,
     example: &'static str,
+    measured: &'static str,
 }
 
 const EXTENSIONS: &[Extension] = &[
@@ -48,6 +49,12 @@ const EXTENSIONS: &[Extension] = &[
         example: "- up: `../SPEC.md` -- the parent this spec refines.\n\
                   - down: `worker/SPEC.md`, `store/SPEC.md`.\n\
                   - `worker/SPEC.md \u{a7}V.2` -- how a citation crosses.",
+        measured: "2 specs, one project family, head `\u{a7}F FEDERATION`. \
+                   One OTHER project heads `\u{a7}F` as feature flags -- the \
+                   single collision claiming this letter creates, and it is \
+                   named rather than discovered later: that section holds \
+                   feature flags, so no header rewrite repairs it and the \
+                   content has to move.",
     },
     Extension {
         letter: 'N',
@@ -58,6 +65,9 @@ const EXTENSIONS: &[Extension] = &[
                 and still has neighbours -- so neither implies the other.",
         example: "- parent: [../SPEC.md](../SPEC.md)\n\
                   - siblings: [../api/SPEC.md](../api/SPEC.md)",
+        measured: "19 specs, the same family, head `\u{a7}N NAV`. No other \
+                   project spells `\u{a7}N` at all, so the letter is \
+                   unclaimed and claiming it collides with nothing.",
     },
 ];
 
@@ -71,6 +81,7 @@ struct Marker {
     on: &'static str,
     holds: &'static str,
     example: &'static str,
+    measured: &'static str,
 }
 
 const MARKER_DOCS: &[Marker] = &[Marker {
@@ -86,6 +97,12 @@ const MARKER_DOCS: &[Marker] = &[Marker {
             dead, so the chain is written to its live end.",
     example: "V3: **the old rule.** [superseded by V9]\n\
               V4: **a rule that was split.** [superseded by V10, V11]",
+    measured: "NO spec uses this bracket form. Ten write retirement in \
+               prose instead -- `~~V11: ...~~ superseded by V17, V18` -- \
+               which is where the wording comes from and why more than one \
+               replacement is allowed. So the spelling is unclaimed, and \
+               the prose those ten already write stays legal: nothing here \
+               turns an existing spec red.",
 }];
 
 /// The letters `SECTIONS` carries that the vendored format does not.
@@ -158,9 +175,11 @@ fn section(ext: &Extension) -> String {
         "### `{header}`\n\nThe header must carry **`{word}`** -- matched as \
          a stem, case-insensitively, with qualifiers free to follow. \
          `{header}`, `## \u{a7}{letter} {cased}` and `## \u{a7}{letter} \
-         \u{2014} {cased}` all name it.\n\n{}\n\n```\n{header}\n{}\n```\n\n",
+         \u{2014} {cased}` all name it.\n\n{}\n\n```\n{header}\n{}\n```\n\n\
+         *Measured:* {}\n\n",
         ext.holds,
         ext.example,
+        ext.measured,
         letter = ext.letter,
     )
 }
@@ -197,8 +216,9 @@ fn markers() -> String {
 /// it looks on a real line.
 fn marker(m: &Marker) -> String {
     format!(
-        "### `[{} ...]`\n\nWritten on {}. {}\n\n```\n{}\n```\n\n",
-        m.words, m.on, m.holds, m.example
+        "### `[{} ...]`\n\nWritten on {}. {}\n\n```\n{}\n```\n\n\
+         *Measured:* {}\n\n",
+        m.words, m.on, m.holds, m.example, m.measured
     )
 }
 
@@ -215,9 +235,17 @@ The vendored `FORMAT.md` beside this file is upstream's, unmodified. See
 it -- it says what is ADDED, so the difference between the two is a thing a
 reader can find rather than a thing they have to notice.
 
-**Every extension section is OPTIONAL.** A spec carrying none of them is
+**Every extension here is OPTIONAL.** A spec carrying none of them is
 unchanged, and must stay that way: an extension that makes existing specs
 fail is a fork, whatever it is called.
+
+Each one carries what was MEASURED before it was claimed, because a letter
+is only free until somebody else spends it, and a proposal without a
+denominator is an opinion. The sweep behind those numbers ran on
+**2026-08-27** over **619 specs in 71 repositories**; it is a private corpus,
+so the counts travel and the names do not. Claiming both letters moved that
+corpus from 369 clean specs to 369 -- the whole cost fell on one file that
+was already failing other rules.
 
 ## SECTION ORDER
 
@@ -300,6 +328,7 @@ mod tests {
             letter: 'F',
             holds: "something else entirely",
             example: "- nothing like the committed one",
+            measured: "a count nobody took",
         }];
         assert_ne!(markdown_from(planted), markdown());
     }
@@ -368,6 +397,31 @@ mod tests {
         assert!(out.contains("## THE SECTIONS"), "{out}");
         assert!(out.contains("## THE MARKERS"), "{out}");
         assert!(out.contains(SUPERSEDED_BY), "{out}");
+    }
+
+    /// EVERY entry carries its evidence, and the document states the
+    /// denominator once.
+    ///
+    /// A letter is free only until somebody else spends it, so "is this
+    /// claimable" is a question about a corpus and not about taste -- and
+    /// V39's first answer was WRONG, at a denominator it never stated. An
+    /// entry added later without its measurement would read as though the
+    /// same care had been taken.
+    #[test]
+    fn every_entry_carries_a_measurement() {
+        for ext in EXTENSIONS {
+            assert!(!ext.measured.is_empty(), "\u{a7}{} has none", ext.letter);
+        }
+        for m in MARKER_DOCS {
+            assert!(!m.measured.is_empty(), "`{}` has none", m.words);
+        }
+        let out = markdown();
+        assert_eq!(
+            out.matches("*Measured:*").count(),
+            EXTENSIONS.len().saturating_add(MARKER_DOCS.len()),
+            "every entry renders its evidence"
+        );
+        assert!(out.contains("619 specs in 71 repositories"), "{out}");
     }
 
     /// Every rendered section names its canonical word, because that is the

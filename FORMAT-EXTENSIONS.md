@@ -10,9 +10,17 @@ The vendored `FORMAT.md` beside this file is upstream's, unmodified. See
 it -- it says what is ADDED, so the difference between the two is a thing a
 reader can find rather than a thing they have to notice.
 
-**Every extension section is OPTIONAL.** A spec carrying none of them is
+**Every extension here is OPTIONAL.** A spec carrying none of them is
 unchanged, and must stay that way: an extension that makes existing specs
 fail is a fork, whatever it is called.
+
+Each one carries what was MEASURED before it was claimed, because a letter
+is only free until somebody else spends it, and a proposal without a
+denominator is an opinion. The sweep behind those numbers ran on
+**2026-08-27** over **619 specs in 71 repositories**; it is a private corpus,
+so the counts travel and the names do not. Claiming both letters moved that
+corpus from 369 clean specs to 369 -- the whole cost fell on one file that
+was already failing other rules.
 
 ## SECTION ORDER
 
@@ -46,6 +54,8 @@ The edges this directory DECLARES. A spec federated over a directory tree is one
 - `worker/SPEC.md §V.2` -- how a citation crosses.
 ```
 
+*Measured:* 2 specs, one project family, head `§F FEDERATION`. One OTHER project heads `§F` as feature flags -- the single collision claiming this letter creates, and it is named rather than discovered later: that section holds feature flags, so no header rewrite repairs it and the content has to move.
+
 ### `## §N NAV`
 
 The header must carry **`nav`** -- matched as a stem, case-insensitively, with qualifiers free to follow. `## §N NAV`, `## §N Nav` and `## §N — Nav` all name it.
@@ -57,6 +67,8 @@ The DERIVED half: what a reader follows to reach a neighbour. Written down rathe
 - parent: [../SPEC.md](../SPEC.md)
 - siblings: [../api/SPEC.md](../api/SPEC.md)
 ```
+
+*Measured:* 19 specs, the same family, head `§N NAV`. No other project spells `§N` at all, so the letter is unclaimed and claiming it collides with nothing.
 
 ## THE MARKERS
 
@@ -77,6 +89,8 @@ Written on a `§V` statement. A rule that has been REPLACED, marked rather than 
 V3: **the old rule.** [superseded by V9]
 V4: **a rule that was split.** [superseded by V10, V11]
 ```
+
+*Measured:* NO spec uses this bracket form. Ten write retirement in prose instead -- `~~V11: ...~~ superseded by V17, V18` -- which is where the wording comes from and why more than one replacement is allowed. So the spelling is unclaimed, and the prose those ten already write stays legal: nothing here turns an existing spec red.
 
 ## ADDRESSING
 
