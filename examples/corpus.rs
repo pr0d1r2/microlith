@@ -52,12 +52,38 @@ const SKIP: [&str; 8] = [
     ".claude",
 ];
 
-/// A directory whose NAME says it is a copy -- `foo-backup`, `foo-bak`.
+/// A directory whose NAME says it is a copy of another one.
+///
+/// WIDENED after it let four through. `foo--before--rewind`,
+/// `foo-2025-10-16--11-54` and `foo-old` are all snapshots of a project that
+/// is also present live, and counting them makes one project look like two
+/// or three. That is not a tidiness problem: `\u{a7}F` was reported in twice
+/// as many specs as actually use it, because one project's pre-rewrite copy
+/// was counted as a second adopter -- and a letter's claim rests entirely on
+/// how many INDEPENDENT projects spell it.
+///
+/// Shapes rather than a list of names, since the next snapshot will be
+/// stamped with a different hour.
 fn is_copy(name: &str) -> bool {
     SKIP.contains(&name)
         || name.contains("backup")
         || name.contains("-bak")
+        || name.contains("before")
         || name.starts_with("old")
+        || name.ends_with("-old")
+        || looks_dated(name)
+}
+
+/// Whether the name carries a `YYYY-MM-DD` stamp, which a hand-made
+/// directory almost never does and a snapshot almost always does.
+fn looks_dated(name: &str) -> bool {
+    let b = name.as_bytes();
+    b.windows(10).any(|w| {
+        w.iter().enumerate().all(|(i, c)| match i {
+            4 | 7 => *c == b'-',
+            _ => c.is_ascii_digit(),
+        })
+    })
 }
 
 fn walk(root: &Path, out: &mut Vec<PathBuf>) {
@@ -136,6 +162,7 @@ fn header_label(line: &str, letter: char) -> Option<String> {
 #[derive(Default)]
 struct Sweep {
     files: usize,
+    projects: usize,
     unreadable: usize,
     clean: usize,
     violations: usize,
@@ -279,9 +306,10 @@ impl Sweep {
             n => format!("unreadable: {n}\n"),
         };
         format!(
-            "specs: {}\n{unreadable}clean: {}\nwith violations: {red}\n\
+            "specs: {} in {} projects\n{unreadable}clean: {}\nwith violations: {red}\n\
              violations: {}\n{}",
             self.files,
+            self.projects,
             self.clean,
             self.violations,
             self.rewrites()
@@ -331,9 +359,36 @@ fn specs_under(roots: &[String]) -> Vec<PathBuf> {
     specs
 }
 
+/// How many distinct PROJECTS those specs came from -- the directory
+/// immediately under a root.
+///
+/// Reported rather than counted by hand, because it is half the denominator
+/// and the hand count was wrong: a letter's claim rests on how many
+/// INDEPENDENT projects spell it, and one project with 19 nested specs is
+/// not 19 adopters.
+fn projects_in(roots: &[String], specs: &[PathBuf]) -> usize {
+    let mut seen: Vec<PathBuf> = Vec::new();
+    for spec in specs {
+        let Some(project) = roots
+            .iter()
+            .filter_map(|r| spec.strip_prefix(r).ok())
+            .find_map(|rest| rest.components().next())
+        else {
+            continue;
+        };
+        let project = PathBuf::from(project.as_os_str());
+        if !seen.contains(&project) {
+            seen.push(project);
+        }
+    }
+    seen.len()
+}
+
 fn sweep_over(roots: &[String], watched: Option<char>) -> Sweep {
     let mut sweep = Sweep::watching(watched);
-    for path in &specs_under(roots) {
+    let specs = specs_under(roots);
+    sweep.projects = projects_in(roots, &specs);
+    for path in &specs {
         match std::fs::read_to_string(path) {
             Ok(text) => sweep.add(&text),
             Err(_) => sweep.unreadable = sweep.unreadable.saturating_add(1),
