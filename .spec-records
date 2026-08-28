@@ -44,3 +44,9 @@ T14  DROPPED: a parallel `nk:` skill set
 # V31 defers a checker for condition 4; the denylist cannot live in the repo
 # it guards. Without this line a later pass reads it as an unbuilt feature.
 V31  A checker is DEFERRED
+
+# T26d absorbed the MECHANICAL half of cavekit-extensions' supersession and
+# refused the other half outright. Without this line the LLM proposer reads as
+# an unbuilt feature somebody should get round to, rather than as a decision --
+# and the seam it keeps is V6, which is the whole reason this crate is CPU-only.
+T26d ⊥ ABSORBED & ⊥ EVER: mode B
