@@ -86,20 +86,39 @@ fn looks_dated(name: &str) -> bool {
     })
 }
 
+/// SYMLINKS ARE NOT FOLLOWED. `is_dir()` follows them and this recursion has
+/// no visited set, so one link pointing at an ancestor is an unbounded
+/// descent. Not hypothetical for a `~/projects` sweep: this very repo carries
+/// `result -> /nix/store/...`, which survived only because `result` happens
+/// to be a skipped name.
+///
+/// A link also cannot hold a spec unreachable by its real path, so following
+/// one could only ever DOUBLE-COUNT -- B27, B28 and B31's defect arriving by
+/// a fourth route.
 fn walk(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(root) else {
         return;
     };
     for entry in entries.flatten() {
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if path.is_dir() {
-            if !is_copy(&name) {
-                walk(&path, out);
-            }
-        } else if name == "SPEC.md" {
-            out.push(path);
+        visit(&entry, out);
+    }
+}
+
+/// One directory entry: descend, collect, or ignore.
+fn visit(entry: &std::fs::DirEntry, out: &mut Vec<PathBuf>) {
+    let Ok(kind) = entry.file_type() else {
+        return;
+    };
+    if kind.is_symlink() {
+        return;
+    }
+    let name = entry.file_name().to_string_lossy().into_owned();
+    if kind.is_dir() {
+        if !is_copy(&name) {
+            walk(&entry.path(), out);
         }
+    } else if name == "SPEC.md" {
+        out.push(entry.path());
     }
 }
 
