@@ -271,9 +271,10 @@ impl Sweep {
     /// Findings per rule, and SPECS per rule -- the second is the number a
     /// consumer feels, and the sweep could not answer it until now.
     ///
-    /// Every hand-made spec count on this branch drifted: B27, B28, B31.
-    /// Every count the tool rendered held. The difference was never care --
-    /// it was whether the tool could answer the question at all.
+    /// Every hand-made spec count on this branch drifted: B27, B28, B31, and
+    /// V42's own "11 specs", which a recount put at 10. Every count the tool
+    /// rendered held. The difference was never care -- it was whether the
+    /// tool could answer the question at all.
     fn blame(&mut self, found: &[microlith::Violation]) {
         let mut here: Vec<&str> = Vec::new();
         for v in found {
