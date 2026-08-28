@@ -13,5 +13,5 @@
 # If the key still matches, the number below is current by construction and
 # no measurement is needed. If it does not, the cache is stale and pre-push
 # says so rather than trusting it.
-key cee56c7ca38f279a8d8b6b7a5aff72e14795880d
-lines 99.23
+key 55cfbb709afbf737664600968a61042cbbeeb85e
+lines 99.21

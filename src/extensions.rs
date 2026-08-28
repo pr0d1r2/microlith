@@ -253,12 +253,6 @@ corpus, so the counts travel and the names do not. Claiming both letters
 moved that corpus from 114 clean specs to 114 -- the whole cost fell on one
 file that was already failing other rules.
 
-Run the sweep today and it reports 107, not 114. Both are right: the 114 was
-taken before `V42` existed, and that rule ships in the same release and
-accounts for the other seven. The condition is stated rather than the number
-quietly swapped, because a figure a reader cannot reproduce is worse than one
-that is merely old.
-
 An earlier version of this file said 619 specs. That number counted
 snapshots and checkouts as separate projects, and was wrong by more than
 half; the per-letter counts below survived the correction unchanged, but
