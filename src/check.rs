@@ -473,25 +473,67 @@ pub fn citations_resolve(text: &str) -> Vec<Violation> {
         declared(text, 'V').iter().map(Id::label).collect();
     let mut seen: Vec<String> = Vec::new();
     let mut out = Vec::new();
+    let lines: Vec<&str> = text.lines().collect();
     for (line, cite) in cited_at(text) {
         if !known.contains(&cite) && !seen.contains(&cite) {
             seen.push(cite.clone());
-            out.push(dangling(&cite).at(line));
+            let crossing = lines
+                .get(line.saturating_sub(1))
+                .is_some_and(|l| names_a_spec_file(l));
+            out.push(dangling(&cite, crossing).at(line));
         }
     }
     out
 }
 
-fn dangling(cite: &str) -> Violation {
-    Violation::new("V13", format!("`{cite}` is cited but never declared"))
-        .why(
-            "a dangling reference reads as authoritative, so nobody follows it",
-        )
-        .try_(Fix::Judgment, "point it at the rule that was meant")
+/// Whether this line names ANOTHER spec file, outside backticks.
+///
+/// The signal that a bare id on it is probably not ours. `\u{a7}F` exists to
+/// name neighbouring specs, so this is where the mistake lives -- but the
+/// test is the LINE rather than the section, because the same sentence is
+/// written in prose elsewhere and is wrong there for the same reason.
+fn names_a_spec_file(line: &str) -> bool {
+    outside_backticks(line).contains(".md")
+}
+
+/// V13's report, with a THIRD direction when the line names another spec.
+///
+/// B26: `\u{a7}F` made cross-file references an ordinary thing to write, and
+/// on `- down: worker/SPEC.md V2` this rule said `V2` is cited but never
+/// declared -- true -- and then offered two fixes that are both WRONG here.
+/// The rule was right about WHETHER and useless about WHICH, which is B8 and
+/// B9's shape a third time, arriving in the one section this branch added
+/// for naming other files.
+///
+/// The remedy is B3's, already the format's: backticks are verbatim, so a
+/// qualified id written in them is a literal rather than a citation, exactly
+/// as V19 requires for an id that crosses a namespace. Ranked FIRST when the
+/// line names a file, because there it is the likeliest fix -- and offered
+/// as JUDGEMENT, since only a reader knows whether `V2` is a rule elsewhere
+/// or one missing here.
+fn dangling(cite: &str, crossing: bool) -> Violation {
+    let v = Violation::new(
+        "V13",
+        format!("`{cite}` is cited but never declared"),
+    )
+    .why("a dangling reference reads as authoritative, so nobody follows it");
+    let v = if crossing {
+        v.try_(Fix::Judgment, cross_file_repair(cite))
+    } else {
+        v
+    };
+    v.try_(Fix::Judgment, "point it at the rule that was meant")
         .try_(
             Fix::Judgment,
             format!("declare {cite}, if the rule is real but missing"),
         )
+}
+
+fn cross_file_repair(cite: &str) -> String {
+    format!(
+        "this line names another spec: if `{cite}` is ITS rule, write the \
+         reference in backticks -- a bare id is read against THIS file (V19)"
+    )
 }
 
 /// V41: a SUPERSESSION marker points at LIVE law.
@@ -1379,6 +1421,59 @@ mod tests {
             "{:?}",
             citations_resolve(&dangling)
         );
+    }
+
+    /// Everything a finding OFFERS, joined -- the message plus its ranked
+    /// directions, which is where a repair lives.
+    fn advice(found: &[Violation]) -> String {
+        found
+            .iter()
+            .flat_map(|v| {
+                std::iter::once(v.msg.clone())
+                    .chain(v.directions.iter().map(|d| d.action.clone()))
+            })
+            .collect::<Vec<String>>()
+            .join(" | ")
+    }
+
+    /// B26: on a line that names ANOTHER spec, V13 says the right thing and
+    /// then offers two fixes that are both wrong -- point it elsewhere, or
+    /// declare a rule that exists in the other file. `\u{a7}F` made that line
+    /// an ordinary thing to write, so the branch that added the section owes
+    /// the message.
+    #[test]
+    fn v13_names_the_cross_file_repair_when_the_line_names_a_spec() {
+        let text = "## \u{a7}F FEDERATION\n\
+                    - down: worker/SPEC.md V2 -- the rule it refines.\n";
+        let got = citations_resolve(text);
+        let first = advice(&got);
+        assert!(first.contains("backticks"), "{first}");
+        assert!(first.contains("V19"), "{first}");
+    }
+
+    /// The companion, and the one that keeps the advice from becoming noise:
+    /// an ORDINARY dangling citation is told none of that. A rule that
+    /// offered every repair on every finding would be a rule nobody reads to
+    /// the end of.
+    #[test]
+    fn an_ordinary_dangling_citation_gets_no_cross_file_advice() {
+        let text = "## \u{a7}V INVARIANTS\nV1: **a rule.** see V9\n";
+        let got = citations_resolve(text);
+        let first = advice(&got);
+        assert!(!first.contains("backticks"), "{first}");
+        assert!(first.contains("V9"), "{first}");
+    }
+
+    /// ...and the file name is read OUTSIDE backticks, like everything else
+    /// V13 reads (V7). A spec DISCUSSING `worker/SPEC.md` in a code span is
+    /// not naming a neighbour.
+    #[test]
+    fn a_spec_file_inside_backticks_does_not_trigger_the_advice() {
+        let text = "## \u{a7}V INVARIANTS\n\
+                    V1: **paths like `worker/SPEC.md` are literals.** see V9\n";
+        let got = citations_resolve(text);
+        let first = advice(&got);
+        assert!(!first.contains("backticks"), "{first}");
     }
 
     /// V14, planted: two rows swapped. The companion is in `real()`, where

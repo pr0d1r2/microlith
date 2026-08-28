@@ -44,8 +44,9 @@ const EXTENSIONS: &[Extension] = &[
                 the tree it belongs to rather than restating it. Bullets, \
                 no ids -- an edge is a fact about the file, not an \
                 addressable item. A citation that crosses an edge names the \
-                file it crosses to, because a bare `\u{a7}V.2` addresses \
-                THIS spec and nothing else.",
+                file it crosses to, and is written in BACKTICKS: a bare id \
+                is read against THIS spec and nothing else, so an \
+                unquoted one resolves to the wrong rule or to none.",
         example: "- up: `../SPEC.md` -- the parent this spec refines.\n\
                   - down: `worker/SPEC.md`, `store/SPEC.md`.\n\
                   - `worker/SPEC.md \u{a7}V.2` -- how a citation crosses.",

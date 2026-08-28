@@ -45,7 +45,7 @@ section may be absent, but is never reordered.
 
 The header must carry **`federation`** -- matched as a stem, case-insensitively, with qualifiers free to follow. `## §F FEDERATION`, `## §F Federation` and `## §F — Federation` all name it.
 
-The edges this directory DECLARES. A spec federated over a directory tree is one file per directory, so each one names the tree it belongs to rather than restating it. Bullets, no ids -- an edge is a fact about the file, not an addressable item. A citation that crosses an edge names the file it crosses to, because a bare `§V.2` addresses THIS spec and nothing else.
+The edges this directory DECLARES. A spec federated over a directory tree is one file per directory, so each one names the tree it belongs to rather than restating it. Bullets, no ids -- an edge is a fact about the file, not an addressable item. A citation that crosses an edge names the file it crosses to, and is written in BACKTICKS: a bare id is read against THIS spec and nothing else, so an unquoted one resolves to the wrong rule or to none.
 
 ```
 ## §F FEDERATION
