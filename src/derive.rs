@@ -57,12 +57,20 @@ pub fn citation_counts(text: &str) -> Vec<Citations> {
 /// Not a violation. An orphan is either a rule that has outlived its use or a
 /// rule something should be citing and is not, and only a reader can say
 /// which -- so this reports and stops (V10).
+///
+/// A RETIRED rule is neither, and is excluded (V41). The question this report
+/// asks has already been answered on that line: somebody said the rule is
+/// dead and named what replaced it. Listing it again asks a reader to decide
+/// something already decided, and a report that does that on every retirement
+/// is one people stop reading -- V15's history, one report over.
 #[must_use]
 pub fn orphans(text: &str) -> Vec<String> {
+    let retired = crate::check::retired(text);
     citation_counts(text)
         .into_iter()
         .filter(|c| c.count == 0)
         .map(|c| c.id)
+        .filter(|id| !retired.contains(id))
         .collect()
 }
 
@@ -372,6 +380,20 @@ T1|x|a task|V1
         let cited_all =
             SPEC.replace("nothing points here.", "see V2 twice: V2.");
         assert_eq!(orphans(&cited_all), Vec::<String>::new());
+    }
+
+    /// V41: a RETIRED rule is not an orphan. The question this report asks
+    /// -- dead rule, or something failing to cite it? -- was answered on
+    /// that line by whoever wrote the mark, and asking it again is how a
+    /// report earns its way into the set people stop reading.
+    #[test]
+    fn a_retired_invariant_is_not_reported_as_an_orphan() {
+        let retired =
+            SPEC.replace("nothing points here.", "[superseded by V1]");
+        assert_eq!(orphans(&retired), Vec::<String>::new());
+        // ...and the companion: the SAME line without the mark still is one,
+        // so the exclusion is the mark's doing and not the edit's.
+        assert_eq!(orphans(SPEC), vec!["V2"]);
     }
 
     /// A declaration is not a citation of itself, or nothing is ever an

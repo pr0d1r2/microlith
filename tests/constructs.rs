@@ -23,10 +23,11 @@ use microlith::{tasks_json, tasks_report};
 
 /// Every construct FORMAT.md permits, each with a fixture of the same name.
 ///
-/// The first seven are the format's own sections. The rest are markdown
-/// shapes the format allows inside them -- and the three marked below are the
-/// ones that silently merged until the corpus said so.
-const CONSTRUCTS: [&str; 14] = [
+/// The first seven are the format's own sections, and the two after them are
+/// V39's addition -- this repo's §V superset, not FORMAT.md's (V8). The rest
+/// are markdown shapes the format allows inside them, and the three marked
+/// below are the ones that silently merged until the corpus said so.
+const CONSTRUCTS: [&str; 17] = [
     "goal-prose",
     "constraint-bullets",
     "interface-bullets",
@@ -34,6 +35,14 @@ const CONSTRUCTS: [&str; 14] = [
     "invariant-statements",
     "task-table",
     "bug-table",
+    // V39: the edges a directory declares, and the derived nav to its
+    // neighbours. Two fixtures, because §N without §F is the LEAF case and
+    // neither section implies the other.
+    "federation-section",
+    "nav-section",
+    // V41: the retirement marker, in both shapes -- one replacement and a
+    // split into two.
+    "superseded-marker",
     // B12: indented list items were merged into the line above.
     "nested-sub-points",
     // B13: ordered list items were merged into one line.

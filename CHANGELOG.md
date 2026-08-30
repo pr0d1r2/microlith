@@ -39,7 +39,56 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
-Nothing yet.
+The format grows a published delta. `FORMAT.md` is cavekit's and ships
+verbatim; what this build enforces on top of it now has a document of its own
+rather than living in `SPEC.md` prose and three constants.
+
+These are **additions** to the public surface, so the next release carrying
+them is a minor rather than a patch. Every one of them is optional: a spec that
+uses none is checked exactly as it was before.
+
+### Added
+
+- **`§F FEDERATION` and `§N NAV` are known section letters**, ranked between
+  `§G` and `§C`. Together they let one spec span a directory tree — `§F`
+  declares the edges a directory owns, `§N` the derived navigation to its
+  neighbours — instead of one spec sitting alone at a project root. Absence
+  stays legal, so a spec carrying neither is untouched.
+- **`[superseded by V<n>]`**, a marker that retires an invariant without
+  deleting it. Deleting one would free its id for reuse and strand every
+  citation that still names it, so the statement stays and the mark says it is
+  no longer in force. More than one replacement may be named, because a rule
+  that is split is replaced by several. `check` reports a mark that names the
+  rule itself, or one that points at a rule which is also retired.
+- **`mth extensions`**, and `microlith::format_extensions()` beside it. Prints
+  the sections and markers this build adds to the vendored format, as markdown
+  — the source for `FORMAT-EXTENSIONS.md`, kept in sync by a test. Report-only,
+  like `mth docs`.
+- **`FORMAT-EXTENSIONS.md` ships in the `.crate`.** It is written for a reader
+  who does *not* have this tool: copy it next to your own `FORMAT.md` and the
+  extensions are adoptable by hand. Every entry carries what was measured
+  before it was claimed — how many specs use it, and what claiming it costs —
+  against a stated denominator, because a letter is only free until somebody
+  else spends it.
+
+### Changed
+
+- **`derive` no longer calls a retired invariant an orphan.** That report asks
+  whether a rule is dead or merely uncited, and a supersession mark is somebody
+  answering it.
+- **`--help` wraps its verb list.** It never did, and the eighth verb pushed
+  the line to 83 columns — past the width every other line in that output is
+  held to.
+
+### Fixed
+
+- **`mth anchors` could not address `§F` or `§N` items at all.** It decided
+  what was addressable from a hand-listed set of letters, so the two new
+  sections were known everywhere else and invisible there. It matters more
+  than its size suggests: neither section carries ids, so the ordinal is the
+  only way to cite an edge — `§F.2` is the whole point of the letters, and
+  the verb that produces that address did not know they existed. The set is
+  derived now, so the next letter is addressable the day it is known.
 
 ## [0.6.1] — 2026-08-14
 

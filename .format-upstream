@@ -27,3 +27,29 @@
 rev = c322f0bb6db82163041930467f3ce32754d42827
 sha256 = 1eda122882902861e912d3775c8b45e7fbb51ca4f587f37854bfd4d470f6a601
 source = https://github.com/JuliusBrussee/cavekit
+
+# WHAT THIS COPY LEADS WITH, and where the proposal for it stands.
+#
+# `rev` and `sha256` above answer "which upstream version is this file". They
+# cannot answer "and what do we enforce that it does not", because the answer
+# is not in FORMAT.md by construction -- V8 keeps the vendored bytes
+# unmodified and puts the superset in §V. FORMAT-EXTENSIONS.md is that
+# superset rendered for a reader; this is where its UPSTREAM STATUS lives.
+#
+# Three outcomes, each legal, because §C asks only that the state be KNOWN:
+# ACCEPTED means re-sync at the new rev and the extension leaves the document;
+# DECLINED means this copy leads and the record says so; SILENCE means the
+# same, dated from when it started, so nobody has to guess whether it was ever
+# sent.
+#
+#   status   DRAFTED, not yet sent
+#   what     `§F FEDERATION` and `§N NAV` as canonical section letters, ranked
+#            between `§G` and `§C`; `[superseded by V<n>]` as a marker; and a
+#            question about whether the cell escape applies inside code spans,
+#            which we broke eight times without noticing (B29)
+#   where    https://github.com/JuliusBrussee/cavekit -- issue, not a PR: the
+#            format is prose upstream, and a section set is the maintainer's
+#            call to make rather than a diff to land on them
+#   drafted  2026-08-28
+#   sent     -
+#   answer   -

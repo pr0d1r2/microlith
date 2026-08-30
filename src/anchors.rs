@@ -12,10 +12,12 @@
 //! company. A reader quoting `§V.13` in a commit can see whether that address
 //! is stable in this file or not.
 //!
-//! `§G`, `§C` and `§I` are prose and bullets with no ids at all, so they print
-//! `-`: for those sections the ordinal is the only address there is.
+//! The prose sections -- `§G`, and the bulleted ones `§F`, `§N`, `§C` and
+//! `§I` -- carry no ids at all, so they print `-`: there the ordinal is the
+//! only address there is. That makes `§F.2` the ONLY way to cite an edge,
+//! which is why B25 mattered more than its size suggested.
 
-use crate::check::{KINDS, is_header_for};
+use crate::check::{ITEM_KINDS, KINDS, is_header_for};
 use crate::id::at_line_start;
 
 /// One addressable item.
@@ -65,13 +67,20 @@ fn section_letter(header: &str) -> Option<char> {
 ///   VISIBLE; manufacturing drift on every well-formed spec would defeat it.
 ///   Milestones already have names, `M1` through `M4`, and nothing cites
 ///   them by address.
+///
+/// The letters were LISTED here until B25, and that list was a fourth copy
+/// of the section set -- so `\u{a7}F` and `\u{a7}N` landed in `KINDS`,
+/// `SECTIONS` and `CANONICAL_WORDS` and were addressable by none of them.
+/// DERIVED now: a section either declares ids (`ITEM_KINDS`, caught above) or
+/// it is prose, and prose outside `\u{a7}G` is bulleted. The next letter is
+/// addressable the day it is known, without anyone remembering this file.
 fn is_item(line: &str, letter: char) -> bool {
     if at_line_start(line).is_some() {
         return true;
     }
     match letter {
         'G' => !line.trim().is_empty() && !line.starts_with("##"),
-        'C' | 'I' => line.starts_with("- "),
+        l if !ITEM_KINDS.contains(&l) => line.starts_with("- "),
         _ => false,
     }
 }
@@ -227,6 +236,37 @@ B1|2026-08-01|a cause|a fix
         assert!(got.contains(&"\u{a7}V.2".to_owned()), "{got:?}");
         assert!(got.contains(&"\u{a7}T.1".to_owned()), "{got:?}");
         assert_eq!(got.len(), addresses(SPEC).len(), "same items, new labels");
+    }
+
+    /// B25, and the guard that keeps it fixed: EVERY known letter is
+    /// addressable, asked of `KINDS` rather than of a list written here.
+    ///
+    /// `§F` and `§N` landed in `KINDS`, `SECTIONS` and `CANONICAL_WORDS` and
+    /// in none of `is_item`'s hand-listed letters, so their items had no
+    /// address at all -- while V39's entire argument is that `§F.2` must
+    /// resolve to one KIND of thing in every repo. The claim had no runner
+    /// (V17) in the one verb that produces the addresses.
+    ///
+    /// Asked over `KINDS` on purpose: a test naming the letters would be the
+    /// fifth copy of the set, and would pass tomorrow while the next letter
+    /// went unaddressable exactly as these two did.
+    #[test]
+    fn every_known_letter_is_addressable() {
+        for letter in KINDS {
+            let body = match letter {
+                l if ITEM_KINDS.contains(&l) => format!("{l}1|a|b|c"),
+                'G' => "prose line".to_owned(),
+                _ => "- a bullet".to_owned(),
+            };
+            let text =
+                format!("## \u{a7}{letter} X\n{body}\n", letter = letter);
+            let got = addresses(&text);
+            assert_eq!(
+                got,
+                vec![format!("\u{a7}{letter}.1")],
+                "\u{a7}{letter} has no address"
+            );
+        }
     }
 
     /// §R is addressable too, once 4.1.0 put it in the section list.

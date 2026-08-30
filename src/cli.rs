@@ -33,6 +33,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "tasks" => tasks(rest),
         "migrate" => migrate(rest),
         "docs" => Output::ok(crate::docs::markdown()),
+        "extensions" => Output::ok(crate::extensions::markdown()),
         other => unknown(other),
     }
 }
@@ -470,11 +471,17 @@ mod tests {
 
     /// §I's verbs are all built now, and the usage says so without a "not
     /// yet" list to keep in sync with reality.
+    ///
+    /// Each name is looked for on its own rather than as one joined string:
+    /// the list WRAPS once it passes the column the rest of the help obeys,
+    /// so a whole-string match would fail on a rendering that is correct.
     #[test]
     fn usage_lists_every_built_verb() {
         let u = usage();
-        let built = crate::docs::names().join(", ");
-        assert!(u.contains(&format!("built in this binary: {built}")), "{u}");
+        assert!(u.contains("built in this binary:"), "{u}");
+        for name in crate::docs::names() {
+            assert!(u.contains(name), "not listed in usage: {name}");
+        }
         assert!(!u.contains("not yet built"), "{u}");
     }
 
@@ -503,6 +510,21 @@ mod tests {
         assert_eq!(o.code, 0, "{}", o.err);
         assert!(o.out.starts_with("## Commands"), "{}", o.out);
         assert_eq!(std::fs::read_to_string(&readme).ok(), Some(before));
+    }
+
+    /// `extensions` is report-only for the same reason, and against the
+    /// file that would be the tempting one to write: the document it
+    /// renders. A verb that rewrote its own source would make the freeze
+    /// self-fulfilling -- stale would repair itself instead of going red.
+    #[test]
+    fn extensions_prints_the_document_and_writes_nothing() {
+        let doc = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("FORMAT-EXTENSIONS.md");
+        let before = std::fs::read_to_string(&doc).unwrap_or_default();
+        let o = run(&args(&["extensions"]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.starts_with("# SPEC.md FORMAT"), "{}", o.out);
+        assert_eq!(std::fs::read_to_string(&doc).ok(), Some(before));
     }
 
     /// `migrate` writes once, then is a no-op -- V2, at the process level.
