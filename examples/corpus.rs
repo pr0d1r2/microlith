@@ -528,3 +528,176 @@ fn main() {
     }
     print!("{}", sweep_over(&roots, letter).report());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// EVERY TEST HERE PINS A BUG THAT HAPPENED. This file produced four
+    /// wrong measurements -- B27, B28, B31, B33 -- and every one was
+    /// published before anybody noticed, because 530 lines of it had no
+    /// tests at all while every number in `FORMAT-EXTENSIONS.md` came from
+    /// them. The suite is written against that history rather than against
+    /// the function list.
+    ///
+    /// It needs its own gate step: `cargo nextest run` does NOT run tests
+    /// inside an example, so these would have had no runner (V17) -- which
+    /// is the same defect one layer out.
+    fn temp(name: &str, body: &str) -> std::path::PathBuf {
+        let p = std::env::temp_dir()
+            .join(format!("microlith-corpus-{name}-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&p);
+        let f = p.join("SPEC.md");
+        let _ = std::fs::write(&f, body);
+        f
+    }
+
+    const SPEC: &str = "## \u{a7}V INVARIANTS\nV1: **a rule.**\n";
+
+    /// B27: `is_copy` knew `backup` and `-bak` and missed three shapes, so
+    /// one project's snapshots were counted as separate adopters.
+    #[test]
+    fn a_snapshot_is_recognised_by_every_shape_that_slipped_through() {
+        for name in [
+            "foo-backup",
+            "foo-bak",
+            "sherd--before--rewind",
+            "hallucinogen-old",
+            "htz-nixos-2025-10-16--11-54",
+        ] {
+            assert!(is_copy(name), "not seen as a copy: {name}");
+        }
+    }
+
+    /// ...and the companion, which is the half that keeps it usable: an
+    /// ordinary project name is NOT a copy. A predicate that swallowed
+    /// everything would have made the denominator zero and still passed the
+    /// test above.
+    #[test]
+    fn an_ordinary_project_name_is_not_a_copy() {
+        for name in ["microlith", "itok", "nix-hk", "set-and-setting"] {
+            assert!(!is_copy(name), "wrongly seen as a copy: {name}");
+        }
+    }
+
+    #[test]
+    fn a_date_stamp_is_read_anywhere_in_the_name() {
+        assert!(looks_dated("2026-07-27-analysis"));
+        assert!(looks_dated("htz-nixos-2025-10-16--11-54"));
+        assert!(!looks_dated("microlith"));
+        assert!(!looks_dated("v0-6-1"), "a version is not a date");
+    }
+
+    /// B28: the largest distortion was never NAMED like a copy -- one
+    /// workspace held hundreds of checkouts under ordinary directory names.
+    /// Identical text is one spec however many paths carry it.
+    #[test]
+    fn identical_text_is_counted_once() {
+        let mut sweep = Sweep::default();
+        let mut seen = Sieve::default();
+        let a = temp("dup-a", SPEC);
+        let b = temp("dup-b", SPEC);
+        sweep.take(&a, Some(Path::new("one")), &mut seen);
+        sweep.take(&b, Some(Path::new("two")), &mut seen);
+        assert_eq!(sweep.files, 1, "the second copy was counted");
+        assert_eq!(sweep.duplicates, 1, "and not reported as skipped");
+    }
+
+    /// B31, and the reason it took three goes: the project tally ran over
+    /// every path DISCOVERED while the spec tally ran over every text KEPT,
+    /// so a project whose specs were all duplicates contributed 0 to one
+    /// side and 1 to the other. `66 projects` was published; 62 was right.
+    #[test]
+    fn a_project_is_credited_only_for_a_spec_that_survived() {
+        let mut sweep = Sweep::default();
+        let mut seen = Sieve::default();
+        let a = temp("credit-a", SPEC);
+        let b = temp("credit-b", SPEC);
+        sweep.take(&a, Some(Path::new("one")), &mut seen);
+        sweep.take(&b, Some(Path::new("two")), &mut seen);
+        assert_eq!(
+            seen.projects.len(),
+            1,
+            "the duplicate's project was credited anyway"
+        );
+    }
+
+    /// B33: the sweep reported findings per rule and never SPECS per rule,
+    /// so every spec-level claim was hand-made -- and every hand-made count
+    /// on that branch drifted. One spec breaking a rule twice is two
+    /// findings and ONE spec.
+    #[test]
+    fn a_rule_broken_twice_in_one_spec_touches_one_spec() {
+        let mut sweep = Sweep::default();
+        let twice = "## \u{a7}V INVARIANTS\nV1: **a.** see V8 and V9\n";
+        sweep.add(twice);
+        assert_eq!(sweep.by_rule.get("V13"), Some(&2), "two findings");
+        assert_eq!(sweep.rule_specs.get("V13"), Some(&1), "one spec");
+    }
+
+    /// The census reads a letter off a header and nothing else. `## §V.2`
+    /// and `## §Version` are not section headers.
+    #[test]
+    fn the_census_reads_a_letter_only_from_a_real_header() {
+        assert_eq!(header_letter("## \u{a7}V INVARIANTS"), Some('V'));
+        assert_eq!(header_letter("## \u{a7}F \u{2014} Federation"), Some('F'));
+        assert_eq!(header_letter("## \u{a7}V2 THINGS"), None);
+        assert_eq!(header_letter("### \u{a7}V INVARIANTS"), None);
+        assert_eq!(header_letter("V1: a rule"), None);
+    }
+
+    #[test]
+    fn a_label_is_read_for_the_letter_asked_about() {
+        let line = "## \u{a7}F \u{2014} Federation";
+        assert_eq!(header_label(line, 'F').as_deref(), Some("— federation"));
+        assert_eq!(header_label(line, 'N'), None);
+    }
+
+    /// The writing verbs are measured WITHOUT writing: a spec that `fmt`
+    /// would rewrite is counted, and the losslessness and idempotence
+    /// counters stay at zero on text the transform handles.
+    #[test]
+    fn a_hard_wrapped_spec_counts_as_a_rewrite_and_no_defect() {
+        let mut sweep = Sweep::default();
+        sweep.rewrite("## \u{a7}V INVARIANTS\nV1: **a rule**\nwrapped on.\n");
+        assert_eq!(sweep.fmt_rewrites, 1);
+        assert_eq!(sweep.fmt_refused, 0, "V1's proof must not have failed");
+        assert_eq!(sweep.fmt_unstable, 0, "V2 must hold");
+    }
+
+    /// A refusal is split by CAUSE, because over the cap is expected of a
+    /// project that never opted into our limit and a losslessness refusal
+    /// is V1 failing on a real file. Counting them together would hide the
+    /// second behind a hundred of the first.
+    #[test]
+    fn an_over_long_line_is_a_cap_refusal_not_a_proof_refusal() {
+        let mut sweep = Sweep::default();
+        let long =
+            format!("## \u{a7}V INVARIANTS\nV1: **{}**\n", "x".repeat(2000));
+        sweep.rewrite(&long);
+        assert_eq!(sweep.fmt_over_cap, 1);
+        assert_eq!(sweep.fmt_refused, 0, "the cap is not a proof failure");
+    }
+
+    #[test]
+    fn a_project_is_the_directory_under_the_root() {
+        let roots = vec!["/tmp/projects".to_owned()];
+        let spec = Path::new("/tmp/projects/thing/nested/SPEC.md");
+        assert_eq!(project_of(&roots, spec), Some(PathBuf::from("thing")));
+        assert_eq!(project_of(&roots, Path::new("/elsewhere/SPEC.md")), None);
+    }
+
+    /// The report states its denominator, and says what it EXCLUDED. A
+    /// count that silently dropped rows would be the same defect one layer
+    /// up -- a number that looks careful because you cannot see its edges.
+    #[test]
+    fn the_report_names_the_denominator_and_what_it_skipped() {
+        let mut sweep = Sweep::default();
+        sweep.files = 5;
+        sweep.projects = 2;
+        sweep.duplicates = 3;
+        let out = sweep.report();
+        assert!(out.contains("specs: 5 in 2 projects"), "{out}");
+        assert!(out.contains("duplicate copies skipped: 3"), "{out}");
+    }
+}

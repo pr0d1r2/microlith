@@ -55,6 +55,50 @@ local fast = new Mapping<String, Step> {
     depends = List("clippy")
     check = "cargo nextest run"
   }
+  // THE CEILING GETS A RUNNER. `.context-limits` has named a token budget
+  // for SPEC.md since it was written and nothing here enforced it: the file
+  // says so itself, and was raised ELEVEN times on a number somebody
+  // measured by hand from a sibling checkout. It sat ~40% over.
+  //
+  // Counting BPE tokens here would mean a tokenizer -- a table or a
+  // dependency, in a crate that promises neither -- so the answer was always
+  // to CALL the tool that owns the rule (V7). What was missing was a package
+  // to call; itok publishes one now, to the cache this flake already trusts.
+  //
+  // `itok check` reads `.context-limits` itself and is pinned to `--bpe`, so
+  // the verdict is deterministic and the threshold lives in ONE file rather
+  // than being restated in this one.
+  ["context-limits"] {
+    glob = List("SPEC.md", ".context-limits")
+    // ABSENCE BEFORE FINDINGS, and V36's exit code exactly: 0 with a loud
+    // stderr line means EXAMINED NOTHING, which is not the same claim as a
+    // pass and must not be spelled like one. `itok check` exits non-zero
+    // when it is missing as readily as when the file is over budget, and
+    // reporting the first as the second sends a reader to compact a file
+    // nothing measured -- B23's shape, caught here on this step's first run.
+    //
+    // It fails CLOSED where it matters: CI and the hooks run inside the dev
+    // shell, where itok is present, so the only place this degrades is a
+    // shell that was never gating in the first place.
+    check = """
+      command -v itok >/dev/null 2>&1 || { echo 'hk: itok is not on PATH, so the token ceiling was NOT checked -- re-enter the dev shell (`nix develop`, or `direnv reload`). Examined nothing; this is not a pass.' >&2; exit 0; }
+      itok check || { echo 'hk: SPEC.md is over the token ceiling .context-limits records. Compacting is the fix -- fold done §T rows and old §B records; raising the ceiling is a reviewed decision and the file records every previous one. See AGENTS.md' >&2; exit 1; }
+      """
+  }
+  // nextest does not run tests inside an EXAMPLE either -- it lists five
+  // binaries and `corpus` is not among them. `examples/corpus.rs` produces
+  // every measurement this repo publishes and was wrong four times (B27,
+  // B28, B31, B33) while carrying no tests at all, so its suite would have
+  // had no runner -- V17's own defect, one layer out from the rules.
+  //
+  // Its own step rather than moving the code into `src/`: the sweep reads
+  // paths that exist on a developer's disk, and a consumer downloading the
+  // crate has no fleet to sweep (§C excludes `examples/` from the package).
+  ["example-tests"] {
+    glob = List("examples/**/*.rs", "src/**/*.rs")
+    depends = List("test")
+    check = "cargo test --example corpus"
+  }
   // nextest does not run doctests -- the one gap it opens, closed
   // explicitly rather than left implicit.
   ["doctest"] {

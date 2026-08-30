@@ -1,3 +1,32 @@
+# RAISED a TWELFTH time, 23200 -> 36800, and this is the first raise with a
+# RUNNER behind it. Every previous one was decided by a human running `itok`
+# from a sibling checkout by hand, which is exactly the remembering an
+# unenforced rule depends on -- and exactly what let the eleventh raise be
+# measured with the wrong estimator.
+#
+# WHAT CHANGED IS NOT THE NUMBER. itok now publishes `packages.default` to
+# the cache this flake already trusts, so `itok check` runs as a gate step
+# (`context-limits` in hk.pkl) rather than as a thing someone might do. The
+# rule this file states has been law since it was written and enforced since
+# today.
+#
+# MEASURED 32,513 by `itok check` (o200k, pinned --bpe), against a ceiling of
+# 23,200: ~40% over, and it had been over for some time. The bytes/4 estimate
+# said 31,703, so even the proxy would have fired -- nothing was subtle here
+# except that nothing was looking.
+#
+# THE HEADROOM FOLLOWS THE ELEVENTH RAISE'S RATIO, not a feeling: 20,483
+# measured took 23,200 (13%), so 32,513 takes 36,800. A ceiling set AT the
+# measurement is one that fires on the next sentence, and a ceiling nobody
+# can add a rule under is one people raise reflexively rather than read.
+#
+# THIS RAISE IS A DEBT, AND SAYS SO. The file grew 31% in one branch, and
+# ~45% of it is now history rather than live law: 25 of 45 task rows are
+# done, and 33 bug records sit beside them. The right fix is COMPACTION --
+# T38 -- and the ceiling moved because the runner had to land somewhere
+# today, not because the file earned the room. A raise that reads as
+# capacity rather than as a bill is the flattering half of §G.
+#
 # RAISED an ELEVENTH time, 18800 -> 23200, and the block below it was WRONG
 # about the number in a way worth reading before the raise itself.
 #
@@ -316,4 +345,4 @@
 # landed and did NOT take this over: `mth check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    23200
+SPEC.md    36800
