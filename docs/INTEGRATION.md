@@ -14,12 +14,12 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 31 steps
+              one definition, 32 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   28 steps           all: 31 steps      all: 31 steps
+   29 steps           all: 32 steps      all: 32 steps
    (fast + 1 local)
 ```
 
@@ -43,21 +43,21 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (28 steps)       ---fails---> fix, retry
+  git commit ---> pre-commit  (29 steps)       ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 31 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 32 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 31 steps -- same definition)
+  pull request ---> ci.yml    (all, 32 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -74,6 +74,12 @@ commits. It also sets `stash = "git"`, which is correctness rather
 than speed: without it a partially staged file (`git add -p`) would be judged as
 it looks in the worktree, giving you a verdict about code you are not
 committing.
+
+**example-tests** is its own step because `cargo nextest run` does not run
+tests inside an example, and `examples/corpus.rs` -- the fleet sweep every
+published measurement comes from -- lives there. It was wrong four times while
+carrying no tests at all, so a suite with no runner would have repeated the
+defect one layer out.
 
 **pre-push** runs everything, adding the four steps too costly for every
 commit: `rustdoc`, `coverage`, and the two that need the **network** —
@@ -101,7 +107,7 @@ The local `no-commit-to-branch` hook changes no outcome — it moves that refusa
 earlier, to before you have built a commit you then have to move. The server
 rule is the one that defends the branch, because V23 makes every hook here skip
 outside the dev shell. Requiring a PR does not add a check either — CI runs the
-same 31 steps your pre-push hook just ran — it adds a *reader*. The gate
+same 32 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 

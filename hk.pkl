@@ -55,6 +55,20 @@ local fast = new Mapping<String, Step> {
     depends = List("clippy")
     check = "cargo nextest run"
   }
+  // nextest does not run tests inside an EXAMPLE either -- it lists five
+  // binaries and `corpus` is not among them. `examples/corpus.rs` produces
+  // every measurement this repo publishes and was wrong four times (B27,
+  // B28, B31, B33) while carrying no tests at all, so its suite would have
+  // had no runner -- V17's own defect, one layer out from the rules.
+  //
+  // Its own step rather than moving the code into `src/`: the sweep reads
+  // paths that exist on a developer's disk, and a consumer downloading the
+  // crate has no fleet to sweep (§C excludes `examples/` from the package).
+  ["example-tests"] {
+    glob = List("examples/**/*.rs", "src/**/*.rs")
+    depends = List("test")
+    check = "cargo test --example corpus"
+  }
   // nextest does not run doctests -- the one gap it opens, closed
   // explicitly rather than left implicit.
   ["doctest"] {
