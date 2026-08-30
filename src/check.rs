@@ -127,7 +127,9 @@ pub const SYNONYMS: [(char, &str); 1] = [('I', "surface")];
 /// row, and `R` joined `T` and `B` at 4.1.0 for the reason they are here:
 /// `R1|topic|finding|src` is the same shape.
 ///
-/// One home rather than a literal in each rule that needs it (V7).
+/// One home rather than a literal in each rule that needs it (V7) -- there
+/// are two now, and V42 arrived because the second one had to agree with
+/// the first about what a row even is.
 pub const ROW_KINDS: [char; 3] = ['T', 'B', 'R'];
 
 /// The kinds that DECLARE an addressable item, in report order.
@@ -551,6 +553,106 @@ fn cross_file_repair(cite: &str) -> String {
         "this line names another spec: if `{cite}` is ITS rule, write the \
          reference in backticks -- a bare id is read against THIS file (V19)"
     )
+}
+
+/// V42: a row's LITERAL pipe is escaped, so the row splits into its four
+/// fields and no others.
+///
+/// `id|status|text|cites` is positional, so an unescaped `|` in the TEXT
+/// does not break the row -- it silently moves the boundary. The last field
+/// stops being citations and becomes a fragment of prose, and every reader
+/// downstream believes it: `mth tasks --format json` is the contract a
+/// consumer parses (M11), and it was emitting a sentence where a caller
+/// expected `["V6","V10","V18"]`.
+///
+/// FORMAT.md's cell rule is `literal | -> escape as \|`, unconditional --
+/// "Backticks OK" permits backticks in a cell, it does not exempt them. So
+/// a row showing a pipe-table example inside backticks must escape it, and
+/// ours did not.
+///
+/// B29, and B15's shape a second time: a check that passes on a file it
+/// could not parse. `check` was green on all eight of our own malformed
+/// rows, because every other rule reads the text rather than the fields.
+///
+/// MEASURED BY THE SWEEP, not by hand: 32 rows in 10 of 256 distinct fleet
+/// specs -- 1.4% -- and it turns SEVEN clean specs red, 114 to 107. That
+/// second number is the one a consumer pays, and it is stated beside the row
+/// count that flatters it (§G).
+///
+/// The first figure written here read "40 of 2,289 rows over 259 specs". It
+/// was hand-counted with a throwaway script, and it counted our own eight
+/// malformed rows before they were repaired -- so it described a corpus that
+/// no longer exists. `SPEC.md` retracted it and this copy did not, which is
+/// the whole reason a number belongs in one place.
+#[must_use]
+pub fn rows_escape_pipes(text: &str) -> Vec<Violation> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let id = at_line_start(line)?;
+            ROW_KINDS.contains(&id.kind).then_some(())?;
+            // PIPE DIALECT ONLY. The id grammar also admits `T1: text`, and
+            // a colon declaration is not a four-field row -- it has no
+            // fields at all. Judging one counts zero pipes and reports a
+            // row that was never written as a row: 76 findings across 5
+            // fleet specs, on a dialect the format allows.
+            (id.terminator == '|').then_some(())?;
+            let found = unescaped_pipes(line);
+            (found != 3).then(|| {
+                split_wrongly(&id.label(), found).at(i.saturating_add(1))
+            })
+        })
+        .collect()
+}
+
+/// How many `|` in this line are STRUCTURAL -- that is, not escaped.
+fn unescaped_pipes(line: &str) -> usize {
+    let mut count = 0usize;
+    let mut escaped = false;
+    for c in line.chars() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '|' => count = count.saturating_add(1),
+            _ => {}
+        }
+    }
+    count
+}
+
+/// BOTH directions, because the rule is "four fields", not "not too many".
+///
+/// Too FEW was unreported until a review asked: the message already said
+/// "not 4" and the rule already said "its 4 fields & no others", while the
+/// guard only counted upward. A row missing its last field emits an empty
+/// `cites`, which reads exactly like a row that cites nothing -- the same
+/// indistinguishability B29 was filed for, from the other side.
+///
+/// MEASURED before widening: 0 of 2,294 fleet rows carry too few, so this
+/// half costs nobody anything today. It is here for the row written
+/// tomorrow.
+fn split_wrongly(label: &str, found: usize) -> Violation {
+    let fields = found.saturating_add(1);
+    let v = Violation::new(
+        "V42",
+        format!("`{label}` splits into {fields} fields, not 4"),
+    );
+    if found < 3 {
+        return too_few(v);
+    }
+    v.why("the last field stops being citations and becomes prose")
+        .try_(
+            Fix::Mechanical,
+            "escape the literal pipes as `\\|` -- the first two and the last \
+             are the row's own",
+        )
+        .try_(Fix::Judgment, "or reword the text so it carries no pipe")
+}
+
+/// A row that STOPS EARLY: the missing field reads as an empty one.
+fn too_few(v: Violation) -> Violation {
+    v.why("a missing field reads exactly like an empty one")
+        .try_(Fix::Judgment, "add the missing field; `-` if it is empty")
 }
 
 /// V41: a SUPERSESSION marker points at LIVE law.
@@ -1434,6 +1536,64 @@ mod tests {
         let text = real()
             .replace("T2|.|another|V3", "T2|.|dead [superseded by T2]|V3");
         assert_eq!(supersessions_resolve(&text), Vec::<Violation>::new());
+    }
+
+    /// V42, PLANTED: a literal pipe in the text moves the field boundary,
+    /// so the last field stops being citations. The row still LOOKS fine,
+    /// which is why nothing caught it for eight rows of our own spec.
+    #[test]
+    fn v42_rejects_a_row_whose_literal_pipe_is_unescaped() {
+        let text = real()
+            .replace("T1|x|a task|V1", "T1|x|a task showing a `| M1 |` row|V1");
+        let got = rows_escape_pipes(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first().is_some_and(|v| v.msg.contains("not 4")),
+            "{got:?}"
+        );
+        assert!(got.first().is_some_and(Violation::is_mechanical), "{got:?}");
+    }
+
+    /// ...and ESCAPED, the same row is fine. This is the companion that
+    /// keeps the rule about the ESCAPE rather than about the character:
+    /// FORMAT.md permits a literal pipe, it requires it be written `\|`.
+    #[test]
+    fn v42_accepts_the_same_pipe_once_it_is_escaped() {
+        let text = real()
+            .replace("T1|x|a task|V1", "T1|x|a task showing a \\| row|V1");
+        assert_eq!(rows_escape_pipes(&text), Vec::<Violation>::new());
+    }
+
+    /// The OTHER direction, which went unreported until a review asked for
+    /// it: a row missing its last field emits an empty `cites`, which reads
+    /// exactly like a row that cites nothing. That is B29's
+    /// indistinguishability from the near side.
+    #[test]
+    fn v42_rejects_a_row_with_too_few_fields() {
+        let text =
+            real().replace("T1|x|a task|V1", "T1|x|a task with no cites");
+        let got = rows_escape_pipes(&text);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got.first()
+                .is_some_and(|v| v.msg.contains("3 fields, not 4")),
+            "{got:?}"
+        );
+        assert!(
+            got.first().is_some_and(|v| !v.is_mechanical()),
+            "adding a missing field is judgement: {got:?}"
+        );
+    }
+
+    /// The companion that matters most: a well-formed spec is SILENT, and a
+    /// row is judged only when it IS a row. A `\u{a7}V` statement carries no
+    /// fields, and the milestone table's own rows open with a pipe rather
+    /// than an id, so neither is this rule's business.
+    #[test]
+    fn v42_is_silent_on_rows_that_are_well_formed() {
+        assert_eq!(rows_escape_pipes(&real()), Vec::<Violation>::new());
+        let statement = "## \u{a7}V INVARIANTS\nV1: **a | b | c.**\n";
+        assert_eq!(rows_escape_pipes(statement), Vec::<Violation>::new());
     }
 
     /// Order is part of the format, not a convention, because every `§S.n`
