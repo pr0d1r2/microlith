@@ -20,6 +20,7 @@ docs/INTEGRATION.md
 docs/SECURITY.md
 docs/THIRD-PARTY-NOTICES.md
 rustfmt.toml
+src/SPEC.md
 src/anchors.rs
 src/check.rs
 src/cli.rs
@@ -34,6 +35,7 @@ src/migrate.rs
 src/render.rs
 src/tasks.rs
 src/violation.rs
+tests/SPEC.md
 tests/binary.rs
 tests/constructs.rs
 tests/constructs/bug-table.md

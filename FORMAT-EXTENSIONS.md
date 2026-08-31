@@ -58,13 +58,13 @@ section may be absent, but is never reordered.
 
 The header must carry **`federation`** -- matched as a stem, case-insensitively, with qualifiers free to follow. `## §F FEDERATION`, `## §F Federation` and `## §F — Federation` all name it.
 
-The edges this directory DECLARES. A spec federated over a directory tree is one file per directory, so each one names the tree it belongs to rather than restating it. Bullets, no ids -- an edge is a fact about the file, not an addressable item. A citation that crosses an edge names the file it crosses to, and is written in BACKTICKS: a bare id is read against THIS spec and nothing else, so an unquoted one resolves to the wrong rule or to none.
+The edges this directory DECLARES. A spec federated over a directory tree is one file per directory, so each one names the tree it belongs to rather than restating it. Bullets, no ids -- an edge is a fact about the file, not an addressable item -- a PIPE TABLE, `dir|owns|⊥owns|tokens`, one row per child directory. What a node does NOT own is carried beside what it does, because an edge that names only the first half sends a reader looking in the wrong node. A citation crossing an edge is written in BACKTICKS: a bare id is read against THIS spec, so an unquoted one resolves to the wrong rule or to none.
 
 ```
 ## §F FEDERATION
-- up: `../SPEC.md` -- the parent this spec refines.
-- down: `worker/SPEC.md`, `store/SPEC.md`.
-- `worker/SPEC.md §V.2` -- how a citation crosses.
+dir|owns|⊥owns|tokens
+worker|the queue consumer and its retries|the schema, which is `store`'s|-
+store|the schema and every migration|anything reading the queue|-
 ```
 
 *Measured:* 2 specs, one project, head `§F FEDERATION`. One OTHER project heads `§F` as feature flags -- the single collision claiming this letter creates, named here rather than discovered later: that section holds feature flags, so no header rewrite repairs it and the content has to move.
@@ -77,8 +77,10 @@ The DERIVED half: what a reader follows to reach a neighbour. Written down rathe
 
 ```
 ## §N NAV
-- parent: [../SPEC.md](../SPEC.md)
-- siblings: [../api/SPEC.md](../api/SPEC.md)
+rel|path|lens
+up|.|-
+self|src|the format rules and the verbs
+sib|tests|fixtures and the corpus
 ```
 
 *Measured:* 19 specs -- one project, federated over a tree -- head `§N NAV`. No other project spells `§N` at all, so the letter is unclaimed and claiming it collides with nothing. One project is one adopter, however many files it spans; the count is specs because the SECTION is what is being proposed.

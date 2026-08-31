@@ -43,13 +43,18 @@ const EXTENSIONS: &[Extension] = &[
                 directory tree is one file per directory, so each one names \
                 the tree it belongs to rather than restating it. Bullets, \
                 no ids -- an edge is a fact about the file, not an \
-                addressable item. A citation that crosses an edge names the \
-                file it crosses to, and is written in BACKTICKS: a bare id \
-                is read against THIS spec and nothing else, so an \
-                unquoted one resolves to the wrong rule or to none.",
-        example: "- up: `../SPEC.md` -- the parent this spec refines.\n\
-                  - down: `worker/SPEC.md`, `store/SPEC.md`.\n\
-                  - `worker/SPEC.md \u{a7}V.2` -- how a citation crosses.",
+                addressable item -- a PIPE TABLE, `dir|owns|\u{22a5}owns|tokens`, \
+                one row per child directory. What a node does NOT own is \
+                carried beside what it does, because an edge that names only \
+                the first half sends a reader looking in the wrong node. A \
+                citation crossing an edge is written in BACKTICKS: a bare id \
+                is read against THIS spec, so an unquoted one resolves to the \
+                wrong rule or to none.",
+        example: "dir|owns|\u{22a5}owns|tokens\n\
+                  worker|the queue consumer and its retries|the schema, \
+                  which is `store`'s|-\n\
+                  store|the schema and every migration|anything reading the \
+                  queue|-",
         measured: "2 specs, one project, head `\u{a7}F FEDERATION`. One \
                    OTHER project heads `\u{a7}F` as feature flags -- the \
                    single collision claiming this letter creates, named \
@@ -64,8 +69,10 @@ const EXTENSIONS: &[Extension] = &[
                 so a spec read on its own still says where it sits. \
                 Independent of the section above -- a leaf declares no edges \
                 and still has neighbours -- so neither implies the other.",
-        example: "- parent: [../SPEC.md](../SPEC.md)\n\
-                  - siblings: [../api/SPEC.md](../api/SPEC.md)",
+        example: "rel|path|lens\n\
+                  up|.|-\n\
+                  self|src|the format rules and the verbs\n\
+                  sib|tests|fixtures and the corpus",
         measured: "19 specs -- one project, federated over a tree -- head \
                    `\u{a7}N NAV`. No other project spells `\u{a7}N` at all, \
                    so the letter is unclaimed and claiming it collides with \
