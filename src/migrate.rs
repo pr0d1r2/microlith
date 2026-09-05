@@ -133,12 +133,25 @@ fn dialect(line: &str, section: char) -> Option<String> {
 ///
 /// Furniture is rejected here: a separator row has nothing but dashes, and a
 /// header row's first cell is not an id.
+///
+/// Split by [`crate::id::cells`], not by `split('|')`. This was the THIRD
+/// reading of the escape rule in-tree and the only one with no escape
+/// handling at all. The four-column arm HID it -- that one splits and
+/// rejoins on the same character, so the damage cancels -- and the arm that
+/// BRANCHES on the count did not: a two-column invariant whose text escapes
+/// a pipe counted three cells, missed that arm, and came out as `V1|text`,
+/// a `§V` row where the format wants a statement (B36).
 fn table_cells(line: &str) -> Option<Vec<String>> {
     let inner = line.trim().strip_prefix('|')?.strip_suffix('|')?;
     if inner.chars().all(|c| matches!(c, '-' | ':' | '|' | ' ')) {
         return None;
     }
-    Some(inner.split('|').map(|c| c.trim().to_owned()).collect())
+    Some(
+        crate::id::cells(inner)
+            .into_iter()
+            .map(|c| c.trim().to_owned())
+            .collect(),
+    )
 }
 
 fn from_table(cells: &[String], section: char) -> Option<String> {
@@ -633,6 +646,49 @@ V1: **a rule.**
         assert!(
             unfinished(text).is_empty(),
             "a fixable header is not unfinished work"
+        );
+    }
+
+    /// The COMPANION, and it passed before this change too -- recorded
+    /// because that is the finding. The four-column arm rejoins on the same
+    /// character it split on, so an escape that was cut in half is put back
+    /// unharmed and the defect is invisible from here. A guard that cannot
+    /// go red is not evidence, and this one says so rather than claiming a
+    /// catch it never made.
+    #[test]
+    fn an_escaped_pipe_in_a_table_row_stays_one_field() {
+        let text = "## \u{a7}T TASKS\n\
+            | id | status | task | cites |\n\
+            |---|---|---|---|\n\
+            | T1 | x | `Mechanical`\\|`Judgment` | V1 |\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(
+            out.contains("\nT1|x|`Mechanical`\\|`Judgment`|V1\n"),
+            "{out}"
+        );
+        let row = out
+            .lines()
+            .find(|l| l.starts_with("T1|"))
+            .unwrap_or_default();
+        assert_eq!(crate::id::cells(row).len(), 4, "{row}");
+    }
+
+    /// B36, planted on the third splitter. `table_cells` split on EVERY pipe,
+    /// so a two-column invariant whose text escapes one counted as THREE
+    /// cells, missed the two-column arm, and was rejoined as a `§V` ROW --
+    /// `V1|text` where the format wants `V1: text`. The four-column arm hid
+    /// it: that one splits and rejoins on the same character, so the damage
+    /// cancels and only the arm that BRANCHES on the count can show it.
+    #[test]
+    fn an_escaped_pipe_in_a_two_column_row_still_becomes_a_statement() {
+        let text = "## \u{a7}V INVARIANTS\n\
+            | id | invariant |\n\
+            |---|---|\n\
+            | V1 | `Mechanical`\\|`Judgment` is one taxonomy |\n";
+        let out = migrate(text).unwrap_or_default();
+        assert!(
+            out.contains("\nV1: `Mechanical`\\|`Judgment` is one taxonomy\n"),
+            "{out}"
         );
     }
 }
