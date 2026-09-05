@@ -23,9 +23,10 @@ arriving from crates.io can read the number without opening our spec.
 | `0.3` | odd | one implementation of the format rules, not two that disagree | reached |
 | `0.4` | even | those rules hold on real-world markdown, not only on this repo's own file | reached |
 | `0.5` | odd | public and usable, deliberately **partial** — a consumer may depend on it and delete their ported copy | published |
-| `0.6` | even | that surface stabilized — the fixes the first real users find, and a backlog a consumer can read without re-porting the grammar | **current**, published |
-| `0.7` | odd | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
-| `0.8` | even | mechanical editing and planning — every mutation through one verified write path | planned |
+| `0.6` | even | that surface stabilized — the fixes the first real users find, and a backlog a consumer can read without re-porting the grammar | published |
+| `0.7` | odd | one spec spans a directory tree — `§F` declares the edges a directory owns, `§N` the derived navigation, and the row codec every consumer would otherwise re-implement is exported | **current**, published |
+| `0.8` | even | the public gate is trustworthy: platform matrix, MSRV axis, release automation | planned |
+| `0.9` | odd | mechanical editing and planning — every mutation through one verified write path | planned |
 | `1.0` | even | the contract frozen: the CLI surface, the JSON output, and the library API | planned |
 
 `0.1` through `0.4` were never published to crates.io. They are recorded because
@@ -37,15 +38,49 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
-## [Unreleased]
+## [0.7.0] — 2026-09-05
 
-The format grows a published delta. `FORMAT.md` is cavekit's and ships
-verbatim; what this build enforces on top of it now has a document of its own
-rather than living in `SPEC.md` prose and three constants.
+**Odd minor: functional, not for production** (§V.34). This is the rung where
+one spec stops sitting alone at a project root and spans a directory tree
+instead: `§F` declares the edges a directory owns, `§N` the derived navigation
+to its neighbours, and the row codec every federated consumer would otherwise
+re-implement is exported rather than re-read.
 
-These are **additions** to the public surface, so the next release carrying
-them is a minor rather than a patch. Every one of them is optional: a spec that
-uses none is checked exactly as it was before.
+`0.7` was previously planned as the gate-hardening rung. It was reassigned
+because two milestones had claimed one number and only this one was ready —
+the gate rung is now `0.8`, and mechanical editing moves to `0.9`. The ordering
+that mattered is intact: a verb that writes a consumer's spec still lands after
+a gate you can trust, not before it.
+
+### Read this before upgrading — it is a minor because it breaks
+
+`V42` is a new check, and it is not silent on files that pass today. Measured
+against this project's own history rather than asserted: the `SPEC.md` that
+shipped inside the `0.6.1` `.crate` is green under `0.6.1`'s checker and **red
+under this one**, exit 1, on eight rows — `T5`, `T7c`, `T10`, `T15`, `T20`,
+`T23`, `T29`, `B15`.
+
+That is the whole reason for the version. The additions below would have been
+legal in a patch, because a `0.x` patch may add public API and `^0.6.1`
+resolves it. A check that turns a passing spec red may not: a consumer pinned
+to `^0.6.1` would have picked this up with no action and watched green CI go
+red on a file they had not touched.
+
+Across a wider corpus of 256 distinct specs the effect is **32 rows in 10
+specs, and 7 specs that pass `check` today will not after upgrading** — 1.4% of
+rows. Low enough to be worth printing, not low enough to arrive unannounced.
+
+Each hit is a real defect rather than a style preference: the row's last field
+is not what its author wrote, and any consumer reading that field has been
+believing a fragment of prose. The fix is to escape the pipe, or to reword so
+the row carries none — we took the second route in our own spec, because `\|`
+inside a code span renders its backslash and made the document worse to read.
+That trade-off is being raised with the format's author.
+
+### The additions
+
+Every one of them is optional: a spec that uses none is checked exactly as it
+was before.
 
 ### Added
 
@@ -120,24 +155,6 @@ uses none is checked exactly as it was before.
   all of them, because every other rule reads the text rather than the
   fields. If you consume `mth tasks --format json`, its `cites` are now
   trustworthy in a way they were not before.
-
-### This one will fire on specs that pass today
-
-**`V42` is a new check, and it is not silent on existing files.** It reports
-a row whose literal `|` is unescaped, which FORMAT.md has always required
-(*"literal `|` → escape as `\|`"*) and which nothing enforced until now.
-
-Measured across 256 distinct specs before it was written: **32 rows in 10
-specs, and 7 specs that pass `check` today will not after upgrading.** That
-is 1.4% of rows — low enough that we judged it worth printing, but it is not
-zero and you may meet it.
-
-Each hit is a real defect rather than a style preference: the row's last
-field is not what its author wrote, and any consumer reading that field has
-been believing a fragment of prose. The fix is to escape the pipe, or to
-reword so the row carries none — we took the second route in our own spec,
-because `\|` inside a code span renders its backslash and made the document
-worse to read. That trade-off is being raised with the format's author.
 
 ## [0.6.1] — 2026-08-14
 
@@ -239,7 +256,7 @@ maintenance afterthought.
   exercised by an outside consumer**. Adding a `pub` item is a non-breaking
   minor change, so a gap here costs a version rather than a redesign.
 - `ci.yml` has run green on every commit since the repo went public, but a green
-  **streak** is a `0.7` condition and this is not one yet.
+  **streak** is a `0.8` condition and this is not one yet.
 
 ## [0.5.0-rc.1] — 2026-08-02
 

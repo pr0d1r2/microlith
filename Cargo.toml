@@ -27,7 +27,7 @@ name = "microlith"
 # a rung is a MINOR, and a patch is what happens when the answer to "what
 # can you rely on" does not change. It carries fixes and metadata only --
 # never a new guarantee, because a new guarantee is a rung by definition.
-version = "0.6.1"
+version = "0.7.0"
 edition = "2024"
 # The floor is the PINNED toolchain, and the pin is now the fleet's one
 # nixpkgs authority (nixos-26.05) rather than a rev copied between repos --

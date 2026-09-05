@@ -301,7 +301,7 @@ failure as a gap you cannot.
 
 | gap | where it goes |
 |---|---|
-| a green **streak** before `0.7.0` — one green run is not a streak | T26 |
+| a green **streak** before `0.8.0` — one green run is not a streak | T26 |
 | build caching (nix store + cargo target) | T26 |
 | release automation and publish | T8 |
 
