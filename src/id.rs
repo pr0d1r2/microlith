@@ -137,13 +137,47 @@ pub fn cells(line: &str) -> Vec<&str> {
     out
 }
 
-/// A cell as it READS: `\|` back to `|`.
+/// A cell as it READS -- the INVERSE of the split [`cells`] performs.
 ///
-/// The inverse of what the format asks an author to type, applied only where
-/// the text is being shown rather than matched.
+/// `\` escapes the next character when that character is `\` or `|`, and is
+/// LITERAL before anything else. That is not a reading chosen here: it is
+/// what [`cells`]' toggle already does when it decides which pipes are
+/// structural, and a decoder that spends the byte differently than the
+/// splitter spends it is not decoding the same format (B36).
+///
+/// The half that was missing was `\\`. `cells` spends BOTH characters -- so
+/// a pipe after a doubled backslash is a field boundary -- while this
+/// returned them untouched, and a cell whose author wrote one backslash was
+/// shown with two by every reader downstream, `mth tasks --format json`
+/// included.
 #[must_use]
 pub fn unescape(cell: &str) -> String {
-    cell.replace("\\|", "|")
+    let mut out = String::with_capacity(cell.len());
+    let mut chars = cell.chars().peekable();
+    while let Some(c) = chars.next() {
+        // The escape is SPENT only before a character it escapes. Anywhere
+        // else the backslash is content and survives with what follows it.
+        if c == '\\' && chars.peek().is_some_and(|n| matches!(n, '\\' | '|')) {
+            out.extend(chars.next());
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// A cell as it is WRITTEN: the encoder [`unescape`] undoes.
+///
+/// The pair exists so the round trip can be PROVEN rather than assumed. A
+/// format with a decoder and no encoder has one side of its rule under test
+/// and the other written by hand at each call site, which is how the two
+/// readings in `unescape` above survived: nothing ever asked them to agree.
+///
+/// `\` first, then `|` -- the other order escapes the backslashes it just
+/// wrote and doubles every one of them.
+#[must_use]
+pub fn escape(cell: &str) -> String {
+    cell.replace('\\', "\\\\").replace('|', "\\|")
 }
 
 /// `30a` -> `(30, "a")`. An empty or non-numeric lead fails the parse, which
@@ -281,5 +315,58 @@ mod tests {
             at_line_start("V7: x").map(|i| i.label()).as_deref(),
             Some("V7")
         );
+    }
+
+    /// B36, PLANTED: the shape where the decoder disagreed with the split.
+    /// `cells` spends both characters of `\\`, so the pipe after it is a
+    /// real boundary -- and `unescape` used to hand back both, showing one
+    /// authored backslash as two.
+    #[test]
+    fn a_doubled_backslash_decodes_to_one() {
+        let row = "T1|x|ends in two\\\\|V1";
+        let got = cells(row);
+        assert_eq!(got.len(), 4, "{got:?}");
+        assert_eq!(
+            unescape(got.get(2).copied().unwrap_or("")),
+            "ends in two\\"
+        );
+        assert_eq!(unescape("a\\\\|b"), "a\\|b");
+    }
+
+    /// The companion, and the reason this is not `replace("\\", "")`: a
+    /// backslash before anything the format does not escape is LITERAL, and
+    /// eating it corrupts every Windows path a cell ever carries. `cells`
+    /// already reads it that way; the decoder now says the same.
+    #[test]
+    fn a_backslash_before_anything_else_is_literal() {
+        assert_eq!(unescape("C:\\path notes"), "C:\\path notes");
+        assert_eq!(unescape("ends in one\\"), "ends in one\\");
+        assert_eq!(cells("a|C:\\path notes|b").len(), 3);
+    }
+
+    /// Every shape the escape rule has to survive, in one place so the
+    /// round trip below reads as a property rather than a list.
+    const CELLS: [&str; 7] = [
+        "plain",
+        "a|b",
+        "a\\b",
+        "trailing\\",
+        "C:\\path|notes",
+        "the `Mechanical`|`Judgment` taxonomy",
+        "\\|",
+    ];
+
+    /// The pair is a CODEC, so prove the round trip rather than assert each
+    /// half separately -- that separateness is what let the two readings
+    /// drift. Every cell is written by `escape`, split by `cells`, and must
+    /// come back through `unescape` byte for byte.
+    #[test]
+    fn escape_survives_the_split_and_decodes_back() {
+        let row = CELLS.map(escape).join("|");
+        let got = cells(&row);
+        assert_eq!(got.len(), CELLS.len(), "{got:?}");
+        for (want, cell) in CELLS.iter().zip(got) {
+            assert_eq!(&unescape(cell), want, "{cell:?}");
+        }
     }
 }

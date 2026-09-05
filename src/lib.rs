@@ -42,6 +42,14 @@ pub use violation::{Direction, Fix, Violation};
 pub use check::parse_records;
 pub use format::{MAX_LINE, over_cap};
 
+// THE ROW CODEC, exported as a set. A pipe row is the one construct in this
+// format a consumer cannot avoid re-implementing -- `§T`, `§B`, `§F` and `§N`
+// are all rows -- and every consumer that did so wrote a fourth reading of
+// one sentence in FORMAT.md (B36). `cells` splits, `unescape` decodes what it
+// split, `escape` writes what `unescape` reads. Together they are the rule;
+// separately each was a place for the readings to drift.
+pub use id::{cells, escape, unescape};
+
 /// `mth migrate`: section headers rewritten to canonical cavekit 4.1.0.
 ///
 /// `Err` carries the reason a rewrite was declined -- a letter used for a
