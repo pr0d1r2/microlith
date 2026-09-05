@@ -25,15 +25,7 @@
 [![built with SDD](https://img.shields.io/badge/built_with-spec--driven_development-D97757)](SPEC.md)
 <!-- END badges -->
 
-> ### Built by an LLM, deliberately and in the open
->
-> This repository — code, spec, tests and prose — was written by [Claude Code](https://claude.com/claude-code) running Anthropic's **Claude Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer, and every commit is signed. A human owns every decision, reviews every diff, and is accountable for what ships.
->
-> **The method is spec-driven development.** [`SPEC.md`](SPEC.md) is the law rather than a description written afterwards: it holds the invariants that must stay true, the tasks that remain, and a record of every bug found so far paired with the rule that now catches it. A rule and its checker land in the *same commit*, because a rule with no runner gates nothing. Every guard is proven by planting the violation it exists to catch, plus a companion proving it still accepts every real shape.
->
-> **The guardrails are git hooks that also run on CI.** Entering the dev shell (`nix develop`, or `direnv allow`) installs `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk) against one definition of the gate in [`hk.pkl`](hk.pkl). Pre-commit takes the fast set — format, clippy, tests, and the tool checking its own spec. Pre-push adds what is too costly for every commit: doctests, rustdoc, `cargo llvm-cov` against a line-coverage floor that ratchets rather than sits, and the two network steps — `cargo deny` for advisories and `cargo semver-checks` against the last release tag. The floor and the measured percentage are the badges above, generated from the run itself rather than typed here, because a number typed into prose is true the day it is written and quietly wrong after. [`ci.yml`](.github/workflows/ci.yml) calls that same definition, so a laptop and a runner cannot disagree. [`INTEGRATION.md`](docs/INTEGRATION.md) has the full flow.
->
-> Deeper: [`AGENTS.md`](AGENTS.md) is the working guide · [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is the loop · [`SPEC.md`](SPEC.md) is what must hold and what remains · [`FORMAT.md`](FORMAT.md) is the format itself · [`FORMAT-EXTENSIONS.md`](FORMAT-EXTENSIONS.md) is what this copy adds to it.
+Read [LLM-DISCLAIMER](docs/LLM-DISCLAIMER.md) first.
 
 Mechanical operations on a [caveman](https://github.com/JuliusBrussee/caveman) [`SPEC.md`](FORMAT.md): lossless minify, structural check, derived reports. CPU only -- no model, no network, no judgement.
 
