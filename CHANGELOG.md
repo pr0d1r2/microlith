@@ -71,6 +71,14 @@ uses none is checked exactly as it was before.
   against a stated denominator, because a letter is only free until somebody
   else spends it.
 
+- **The row codec is public: `cells`, `escape`, `unescape`.** A pipe row is
+  the one construct in this format a consumer cannot avoid re-implementing —
+  `§T`, `§B`, `§F` and `§N` are all rows — and until now the splitter, the
+  decoder and the encoder were either private or absent, so every consumer
+  wrote its own reading of one sentence in `FORMAT.md`. They ship as a set
+  because the round trip is the property worth having: `escape` writes what
+  `unescape` reads, and `unescape` decodes exactly what `cells` split.
+
 ### Changed
 
 - **`derive` no longer calls a retired invariant an orphan.** That report asks
@@ -81,6 +89,21 @@ uses none is checked exactly as it was before.
   held to.
 
 ### Fixed
+
+- **`migrate` deleted whitespace beside an escaped pipe.** Converting a
+  markdown-table row split it on *every* pipe, including an escaped one, then
+  trimmed each fragment — so a row writing `` `\| grep` `` came back as
+  `` `\|grep` ``. It is a lossy write under a verb whose losslessness proof
+  passed, because that proof asserts every alphanumeric run survives and a
+  space is not one. Measured across 673 fleet specs: 116 files migrate
+  differently now, 33 distinct texts over 4 projects.
+
+- **`unescape` was not the inverse of the splitter it decodes for.** It
+  rewrote `\|` and left `\\` doubled, while the splitter spends both
+  characters — so a cell whose author wrote one backslash reached every
+  reader with two, `mth tasks --format json` included. A backslash before
+  anything else stays literal, as it always did in the splitter, so a path
+  in a cell is unharmed.
 
 - **`mth anchors` could not address `§F` or `§N` items at all.** It decided
   what was addressable from a hand-listed set of letters, so the two new

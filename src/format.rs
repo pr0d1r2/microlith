@@ -31,12 +31,32 @@ pub fn carries_a_marker(line: &str) -> bool {
     }
     // The SPACE is required, as it always was: a wrapped line that happens
     // to begin with a dash is prose, not a bullet.
-    if ["- ", "* ", "+ "].iter().any(|m| line.starts_with(m))
-        || line == "id|date|cause|fix"
-    {
+    if ["- ", "* ", "+ "].iter().any(|m| line.starts_with(m)) || is_row(line) {
         return true;
     }
     ordered_item(line) || id_prefixed(line)
+}
+
+/// A PIPE ROW opens a statement: its first cell is a bare word.
+///
+/// B34, and this replaced a hardcoded `line == "id|date|cause|fix"` -- the
+/// §B header, patched in as a literal string by whoever hit this before.
+/// A literal fixes one table and leaves every other one merging, which is
+/// exactly what happened: `§F`'s `dir|owns|⊥owns|tokens` and its
+/// rows, and `§N`'s `rel|path|lens`, all read as continuations and
+/// collapsed into one line each -- on the two sections V39 had just added.
+///
+/// The test is the FIRST CELL rather than the presence of a pipe, because
+/// prose may carry one: `§V` statements discuss `a|b` all the time, and
+/// a wrapped line whose first cell holds a SPACE is prose continuing. A row's
+/// opening cell is a bare word -- `dir`, `rel`, `src`, `id`, `T1`.
+fn is_row(line: &str) -> bool {
+    let Some((first, _)) = line.split_once('|') else {
+        return false;
+    };
+    !first.is_empty()
+        && !first.ends_with('\\')
+        && !first.chars().any(char::is_whitespace)
 }
 
 /// `1. `, `2) ` -- an ORDERED list item opens a statement too.

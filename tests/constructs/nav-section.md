@@ -4,9 +4,12 @@
 one line, prose -- what the code in THIS directory must do.
 
 ## §N NAV
-`§N` WITHOUT `§F`, which is the case worth a fixture of its own: a leaf declares no edges and still says where it sits, so the two sections are independent and neither implies the other.
 
-- parent: [../SPEC.md](../SPEC.md)
+rel|path|lens
+up|.|-
+up|src|the format rules and the verbs
+self|src/spec|the section split and the structural check
+sib|src/tokens|counts, with the method that took them
 
 ## §C CONSTRAINTS
 - nav is DERIVED, so it is rewritten by whatever wrote the tree, never by hand mid-review.

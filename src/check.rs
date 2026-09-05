@@ -14,7 +14,7 @@
 //! copy of these rules today, and T7 deletes it; a rule whose evidence lived
 //! only in the copy would lose that evidence with it (V19).
 
-use crate::id::{Id, at_line_start};
+use crate::id::{Id, at_line_start, cells};
 use crate::violation::{Fix, Violation};
 
 /// The section LETTER of each entry in `SECTIONS`, in the same order.
@@ -606,18 +606,14 @@ pub fn rows_escape_pipes(text: &str) -> Vec<Violation> {
 }
 
 /// How many `|` in this line are STRUCTURAL -- that is, not escaped.
+///
+/// Asked of the SPLITTER rather than counted again here. This carried its own
+/// escape toggle, a second reading of one rule (V7) inside the crate that
+/// exists to end exactly that; it happened to agree with `cells`, which is
+/// the reason nothing caught it and not a reason to keep it. A field count
+/// is one more than the boundaries between the fields.
 fn unescaped_pipes(line: &str) -> usize {
-    let mut count = 0usize;
-    let mut escaped = false;
-    for c in line.chars() {
-        match c {
-            _ if escaped => escaped = false,
-            '\\' => escaped = true,
-            '|' => count = count.saturating_add(1),
-            _ => {}
-        }
-    }
-    count
+    cells(line).len().saturating_sub(1)
 }
 
 /// BOTH directions, because the rule is "four fields", not "not too many".
