@@ -355,6 +355,28 @@ local fast = new Mapping<String, Step> {
     glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
     check = "actionlint {{files}}"
   }
+  // The SECURITY half of the same file. actionlint asks whether the workflow
+  // is CORRECT -- expression types, `run:` bodies, runner labels; zizmor asks
+  // what it can REACH -- token scope, credential persistence, an expression
+  // pasted into a `run:` body, an action reference that is not pinned. The
+  // overlap between the two is close to nothing, which is why both run rather
+  // than one replacing the other.
+  //
+  // `--persona=pedantic` ON PURPOSE, and it is the stricter setting rather
+  // than the default. Pedantic reports code SMELLS -- claims about how the
+  // file will AGE, not about what it does today -- and conforming to that
+  // stricter reading is what produces the more pristine workflow. MEASURED on
+  // a file actionlint had passed on every commit of its life: 5 findings, 3
+  // of them Medium.
+  //
+  // `-c` is passed explicitly rather than left to zizmor's own discovery, so
+  // the ledger's PATH is visible in the step that depends on it. What pedantic
+  // reports and this repo declines to fix is written down there, each entry
+  // with its reason AND the condition that would retire it.
+  ["zizmor"] {
+    glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+    check = "command -v zizmor >/dev/null 2>&1 || { echo 'hk: zizmor is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }; zizmor --no-progress --persona=pedantic -c .github/zizmor.yml {{files}} || { echo 'hk: zizmor found a workflow security finding. Fix it, or -- if it is real, understood and deliberately declined -- record it in .github/zizmor.yml with the reason and the condition that would retire it. An ignore with no exit is a rule nobody revisits. Never --no-exit-codes, never a broader pattern to make this green.' >&2; exit 1; }"
+  }
   ["typos"] {
     glob = List("**/*")
     // `pkl/` is upstream's schema, vendored VERBATIM. It carries a
