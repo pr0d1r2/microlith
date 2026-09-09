@@ -215,6 +215,16 @@
             # this a mistake there is found only by pushing. It arrives now
             # that the workflow really runs, and not before.
             pkgs.actionlint
+            # zizmor AUDITS the same file actionlint CHECKS, and is NOT a
+            # replacement for the line above: zizmor does no syntax or type
+            # checking at all, and actionlint knows nothing about token
+            # scope. Both findings that motivated adding it are structural
+            # rather than typographic -- a workflow with no `permissions:`
+            # block runs at whatever the repository default grants, and a
+            # checkout that keeps its credentials leaves a token in
+            # `.git/config` for every later step to read. Neither is a
+            # mistake actionlint is built to see.
+            pkgs.zizmor
             # Relative links break when a file MOVES, and nothing else here
             # would notice: eleven docs carry 31 of them, and two directory
             # moves rewrote them in both directions. Run `--offline` so the

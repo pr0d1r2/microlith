@@ -59,6 +59,14 @@ adding `#[allow]` to silence clippy are all ways of shipping the defect
 with the alarm switched off. Fix the cause. If the check itself is wrong,
 that is a spec change: say so in `SPEC.md`, in its own commit.
 
+That includes an `hk` step that reports a SECURITY finding. `zizmor` audits
+`ci.yml` at `--persona=pedantic`, and the two ways to make it green are FIX IT,
+or record it in `.github/zizmor.yml` -- with the reason, and with the condition
+that would retire the entry. Never `--no-exit-codes`, and never a broader
+pattern than the one instance. An ignore with no stated exit is indistinguishable
+from one nobody revisits, which is V17 seen from the other side: a rule with no
+runner is a sentence, and an exemption with no exit is the same thing.
+
 ## Reproduce a verdict
 
 Everything is a plain cargo command. No runner is required to check your

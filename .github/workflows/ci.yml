@@ -29,6 +29,24 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The token this workflow gets is the one it can leak. Nothing here writes to
+# the repository -- no tag, no comment, no commit -- so read is the whole
+# requirement, and stating it means a future step that needs more has to ask
+# for it in the diff rather than inherit it from a repository setting that
+# appears in no file at all. `zizmor` gates this: with no block, it reports
+# whatever the default happens to be today, and that default is a scope
+# chosen in a settings page and readable nowhere else.
+permissions:
+  contents: read
+
+# A second push to the same branch makes the first run's verdict worthless --
+# it reports on a tree nobody will merge, while holding runners the new one
+# needs. Keyed on the ref, so `main` and each pull request cancel only their
+# own earlier runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     runs-on: ${{ matrix.os }}
@@ -50,7 +68,15 @@ jobs:
       # trusts the tag runs it on the next push. The tag stays in the
       # comment because a SHA alone tells a reader nothing about what
       # version they are on, or whether it is behind.
+      #
+      # persist-credentials: false -- checkout writes the job token into
+      # `.git/config` as an extraheader by default, where every later step
+      # in the job can read it. Nothing here pushes, and the only thing this
+      # workflow wants from git is the tree, which is on disk once the fetch
+      # completes. After that the credential is liability with no use.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
 
       # --check, because `hk check` defaults to running FIX commands; CI

@@ -14,12 +14,12 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 33 steps
+              one definition, 34 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   30 steps           all: 33 steps      all: 33 steps
+   31 steps           all: 34 steps      all: 34 steps
    (fast + 1 local)
 ```
 
@@ -43,21 +43,21 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (30 steps)       ---fails---> fix, retry
+  git commit ---> pre-commit  (31 steps)       ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 33 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 34 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 33 steps -- same definition)
+  pull request ---> ci.yml    (all, 34 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -88,6 +88,17 @@ published measurement comes from -- lives there. It was wrong four times while
 carrying no tests at all, so a suite with no runner would have repeated the
 defect one layer out.
 
+**zizmor** audits `ci.yml` beside `actionlint`, which checks it. The two do
+not overlap: `actionlint` type-checks expressions, `run:` bodies and runner
+labels and knows nothing about token scope, while `zizmor` reads what the
+workflow can REACH -- the permissions it runs with, whether the checkout leaves
+its token in `.git/config`, whether an expression is pasted into a shell
+script, whether an action is pinned -- and does no syntax checking at all. It
+runs at `--persona=pedantic`, stricter than the findings this repo is obliged
+to fix, and what pedantic reports and this repo declines is written down in
+[`.github/zizmor.yml`](../.github/zizmor.yml) with the condition that would
+retire each entry.
+
 **pre-push** runs everything, adding the four steps too costly for every
 commit: `rustdoc`, `coverage`, and the two that need the **network** —
 `deny-advisories` fetches the RustSec database, and `semver` diffs the public
@@ -114,7 +125,7 @@ The local `no-commit-to-branch` hook changes no outcome — it moves that refusa
 earlier, to before you have built a commit you then have to move. The server
 rule is the one that defends the branch, because V23 makes every hook here skip
 outside the dev shell. Requiring a PR does not add a check either — CI runs the
-same 33 steps your pre-push hook just ran — it adds a *reader*. The gate
+same 34 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
@@ -125,9 +136,9 @@ above. Which **files** they see is separate:
 
 | stage | steps | files examined |
 |---|---|---|
-| `pre-commit` | 28 | **staged files only** (hk's default) |
-| `pre-push` | `all` — 31 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
-| CI | `all` — 31 | **every file in the repo** (`hk check --all`) |
+| `pre-commit` | 31 | **staged files only** (hk's default) |
+| `pre-push` | `all` — 34 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
+| CI | `all` — 34 | **every file in the repo** (`hk check --all`) |
 
 `fast` is a strict subset of `all`, so every step that gated your commit gates
 your push again — over a wider set of files.
@@ -181,21 +192,27 @@ serialization explicit and leaves hk free to run everything else concurrently:
 ```text
   serialized by depends -- cargo locks the target dir:
 
-    fmt --> clippy --> test --> doctest --> microlith --+--> microlith-check
-                                            fmt own     |    check own spec
-                                            spec        |
-                                                        +--> rustdoc --> coverage --> semver
-                                                                         floor 98%   vs last tag
+    fmt --> clippy --> test --+--> example-tests
+                              |    the corpus sweep
+                              |
+                              +--> doctest --> microlith --+--> microlith-check
+                                               fmt own     |    check own spec
+                                               spec        |
+                                                           +--> rustdoc --> coverage --+--> semver
+                                                                            floor 98%  |    vs last tag
+                                                                                       |
+                                                                                       +--> deny-advisories
 
   no depends, so these run concurrently:
 
-    trailing-whitespace   final-newline       line-endings
-    smart-quotes          no-bom              no-merge-conflict
-    no-private-key        ripsecrets          no-large-files
-    no-case-conflict      no-broken-symlinks  actionlint
-    typos                 links               taplo
-    nixfmt                deny                package
-    readme-badges
+    context-limits        trailing-whitespace final-newline
+    line-endings          smart-quotes        no-bom
+    no-merge-conflict     no-private-key      ripsecrets
+    no-large-files        no-case-conflict    no-broken-symlinks
+    actionlint            zizmor              typos
+    links                 taplo               nixfmt
+    deny                  package             integration-doc
+    format-upstream       readme-badges
 ```
 
 Ordering is cheapest-first on purpose. `fail_fast = true` locally, so the first

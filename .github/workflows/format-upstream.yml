@@ -25,12 +25,30 @@ on:
 permissions:
   contents: read
 
+# One question about the outside world at a time. A manual dispatch landing on
+# top of the weekly cron would ask it twice concurrently for no extra answer.
+# cancel-in-progress is FALSE on purpose: this workflow reports by FAILING its
+# own run, and a cancelled run is neither red nor green -- it would delete the
+# only signal the workflow has.
+concurrency:
+  group: format-upstream
+  cancel-in-progress: false
+
 jobs:
+  # NAMED, unlike `ci.yml`'s `gate` job. Nothing in branch protection refers to
+  # this workflow, so renaming its context costs nothing -- which is exactly
+  # the condition `.github/zizmor.yml` records as missing over there.
   upstream:
+    name: upstream FORMAT.md drift
     runs-on: ubuntu-latest
     steps:
-      # Pinned to a commit SHA with the tag as a comment, same rule as ci.yml.
+      # Pinned to a commit SHA with the tag as a comment, same rule as ci.yml,
+      # and dropping the credential for the same reason: this job reads two
+      # files and pushes nothing, so a token left in `.git/config` is reach
+      # with no use for it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: compare FORMAT.md against upstream
         run: |

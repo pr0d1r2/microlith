@@ -50,3 +50,4 @@ V31  A checker is DEFERRED
 # an unbuilt feature somebody should get round to, rather than as a decision --
 # and the seam it keeps is V6, which is the whole reason this crate is CPU-only.
 T26d ⊥ ABSORBED & ⊥ EVER: mode B
+V44  REJECTED: actionlint ALONE
