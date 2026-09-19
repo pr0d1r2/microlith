@@ -926,14 +926,28 @@ pub fn uses_milestones(text: &str) -> bool {
 
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
 /// cell the original checker reads, so the two cannot disagree about where to
-/// look.
+/// look. It is [`milestones`] with the partition flattened away.
 #[must_use]
 pub fn claims(text: &str) -> Vec<u32> {
+    milestones(text).into_iter().flat_map(|(_, t)| t).collect()
+}
+
+/// T41: each `| M<n> |` row's id and the task numbers its tasks cell claims,
+/// ranges expanded, in FILE order -- the partition V15 checks, handed to a
+/// consumer instead of re-read by it (V7).
+///
+/// A planner filtering by one milestone needs exactly this and nothing
+/// `claims` keeps. ENUMERATE, never SELECT (V6): which milestone is next is
+/// the caller's call. A suffixed row rides its base (V14), so `T7a` is in
+/// whichever milestone claims `7`.
+#[must_use]
+pub fn milestones(text: &str) -> Vec<(String, Vec<u32>)> {
     text.lines()
         .filter(|l| l.starts_with("| M"))
-        .flat_map(|l| {
+        .map(|l| {
             let fields = crate::id::cells(l);
-            expand_cell(fields.get(3).copied().unwrap_or(""))
+            let field = |n: usize| fields.get(n).copied().unwrap_or("").trim();
+            (field(1).to_owned(), expand_cell(field(3)))
         })
         .collect()
 }
@@ -1758,6 +1772,39 @@ mod tests {
         // `T2a` has a row but is never claimed on its own -- it rides `T2`.
         assert!(tasks_in_one_milestone(&real()).is_empty());
     }
+
+    /// T41: the PARTITION, per milestone -- what a planner filtering by one
+    /// milestone needs, and what `claims` flattens away. Ranges expand by
+    /// `expand_cell`'s grammar, an empty cell is a declared milestone with no
+    /// tasks, and a spec with no milestone row has none (V15's opt-in).
+    #[test]
+    fn milestones_name_each_partition_in_file_order() {
+        assert_eq!(
+            milestones(PARTITIONED),
+            vec![
+                ("M2".to_owned(), vec![4]),
+                ("M1".to_owned(), vec![1, 2, 3, 7]),
+                ("M3".to_owned(), vec![]),
+            ]
+        );
+        assert!(milestones("## \u{a7}T TASKS\n\nT1|.|x|-\n").is_empty());
+    }
+
+    /// `claims` is the partition flattened, so the two cannot drift (V7).
+    #[test]
+    fn claims_is_the_partition_flattened() {
+        let flat: Vec<u32> = milestones(PARTITIONED)
+            .into_iter()
+            .flat_map(|(_, t)| t)
+            .collect();
+        assert_eq!(claims(PARTITIONED), flat);
+    }
+
+    /// Out of id order on purpose, with a range, a list and an empty cell.
+    const PARTITIONED: &str = "## \u{a7}T TASKS\n\n\
+        | id | scope | tasks | done-when |\n|----|-------|-------|-----------|\n\
+        | M2 | second | T4 | shipped |\n| M1 | first | T1-T3, T7 | shipped |\n\
+        | M3 | later |  | - |\n";
 
     fn records(pairs: &[(&str, &str)]) -> Vec<Record> {
         pairs

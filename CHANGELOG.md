@@ -38,6 +38,15 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
+## [Unreleased]
+
+### Added
+
+- `milestones(text)` at the crate root: each `| M<n> |` row's id and the task
+  numbers its tasks cell claims, ranges expanded, in file order (T41). A
+  planner that filters `§T` by one milestone can call it instead of re-reading
+  the milestone grammar V15 already owns.
+
 ## [0.7.0] — 2026-09-05
 
 **Odd minor: functional, not for production** (§V.34). This is the rung where

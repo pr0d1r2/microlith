@@ -50,6 +50,12 @@ pub use format::{MAX_LINE, over_cap};
 // separately each was a place for the readings to drift.
 pub use id::{cells, escape, unescape};
 
+// THE MILESTONE PARTITION (T41). A federated planner filtering `§T` by one
+// milestone would otherwise re-read the `| M<n> |` grammar V15 already owns --
+// the same pressure that exported the row codec above. `claims` is its
+// flattening and stays internal; the partition is the reading a consumer needs.
+pub use check::milestones;
+
 /// `mth migrate`: section headers rewritten to canonical cavekit 4.1.0.
 ///
 /// `Err` carries the reason a rewrite was declined -- a letter used for a
