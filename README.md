@@ -226,7 +226,7 @@ That is the whole public surface: about twenty items, no public modules. The par
 
 ## Status
 
-`0.7.0`, published — [crates.io](https://crates.io/crates/microlith). A minor version here is a level of **guarantee**, not a feature count: `0.7` means one spec now spans a directory tree — `§F` declares the edges a directory owns, `§N` the derived navigation, and the row codec every consumer would otherwise re-implement is exported. An **odd** minor says functional but not production (§V.34). `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
+`0.7.1`, published — [crates.io](https://crates.io/crates/microlith). A minor version here is a level of **guarantee**, not a feature count: `0.7` means one spec now spans a directory tree — `§F` declares the edges a directory owns, `§N` the derived navigation, and the row codec every consumer would otherwise re-implement is exported. An **odd** minor says functional but not production (§V.34). `SPEC.md` §V.30 carries the ladder, and [`CHANGELOG.md`](CHANGELOG.md) renders it as a table you can read without opening the spec.
 
 **Upgrading from `0.6.x` will fail specs that pass today.** `V42` reports a row whose literal `|` is unescaped — something FORMAT.md always required and nothing enforced. Measured: the `SPEC.md` that shipped inside the `0.6.1` crate is green under `0.6.1` and red under this one, on eight rows. Across 256 specs it is 32 rows in 10, and 7 specs flip. That break, not the additions, is why this is a minor rather than a patch.
 
