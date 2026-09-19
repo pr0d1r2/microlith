@@ -38,7 +38,17 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
-## [Unreleased]
+## [0.7.1] — 2026-09-19
+
+A patch, so it sits off the version ladder above: `0.7`'s answer to *what can
+you rely on at this tag?* is unchanged. Nothing that `0.7.0` shipped changed —
+the CLI surface, the JSON output and every existing library item are as they
+were. One library item is **added**, which Cargo's 0.x rules allow in a patch:
+a consumer on `0.7.0` gets it by `cargo update` and loses nothing.
+
+It ships now, rather than waiting for `0.8`, because a consumer is dogfooding
+it: a federated planner filtering `§T` by milestone needs the partition, and
+without a release its only path is a second reading of the grammar.
 
 ### Added
 
