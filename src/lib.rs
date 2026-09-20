@@ -74,11 +74,15 @@ pub fn migrate_report(text: &str) -> String {
     migrate::report(text)
 }
 
-/// The collisions `migrate_spec` refused to touch.
+/// What `migrate_spec` refused to touch, and why each one was declined.
 ///
-/// A letter used for a DIFFERENT concept is never rewritten -- annotating
-/// one keeps the characters and inverts the meaning -- so a run that
-/// rewrote everything it could may still leave the file non-canonical.
+/// TWO kinds. A letter used for a DIFFERENT concept is never rewritten --
+/// annotating one keeps the characters and inverts the meaning. And a row in
+/// a convertible dialect under no header that can hold it is named rather
+/// than placed, since where it belongs is judgement (V6, V47).
+///
+/// Either way a run that rewrote everything it could may still leave the
+/// file non-canonical, which is the whole reason this is a separate answer.
 pub fn migrate_declined(text: &str) -> String {
     migrate::unfinished(text)
 }

@@ -4,6 +4,7 @@
 //! against the library being built, so the spec and the code cannot drift
 //! apart without the gate noticing.
 
+use microlith::migrate_declined;
 use microlith::parse_records;
 use microlith::tasks_json;
 use microlith::{MAX_LINE, over_cap};
@@ -76,6 +77,17 @@ fn is_id(cite: &str) -> bool {
     let mut chars = cite.chars();
     let kind = chars.next().is_some_and(|c| "VTBRIGCFN".contains(c));
     kind && chars.next().is_some_and(|c| c.is_ascii_digit())
+}
+
+/// V47: and every row in our own law is one a header can hold.
+///
+/// `migrate --check` is not an `hk` step, so nothing else runs this against
+/// SPEC.md -- and the milestone table is exactly the shape a report that
+/// over-reached would fire on. It is the companion to V47's planted rows,
+/// taken against a real file rather than a fixture.
+#[test]
+fn our_own_spec_leaves_migrate_nothing_it_cannot_place() {
+    assert_eq!(migrate_declined(&spec()), "");
 }
 
 /// V5/V9: and no line is over the cap.

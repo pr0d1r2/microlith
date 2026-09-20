@@ -60,6 +60,23 @@ pipeline gets proven before a permanent number is spent.
   owe a multi-file shape nothing upstream defines. It reopens if FORMAT.md
   settles one, or if a caller turns up that cannot loop.
 
+- **A row `migrate` cannot place is now named, not declined in silence**
+  (V47, B38). A spec whose section heading was not recognised *and* whose
+  rows were in the bracketed dialect reported clean from `tasks`, `check`
+  and `migrate --check` alike — the file with two defects was the one no
+  verb could see. The defects masked each other: an unrecognised heading
+  means the rows never parse, and rows that never parse are never items, so
+  V11's orphan rule had nothing left to fire on.
+
+  `migrate --check` now reports each such row, naming the header that would
+  hold it, and exits 1. The row is still not converted — where it belongs is
+  judgement (V6) — so naming the section and re-running `migrate` is the
+  repair, after which `check` sees the spec for the first time.
+
+  Keying V11 on the heading instead was rejected: FORMAT.md permits ordinary
+  `##` headings that open no section, so that rule would fire on prose. It
+  reopens if a grammar arrives that says which `##` lines are sections.
+
 ## [0.7.1] — 2026-09-19
 
 A patch, so it sits off the version ladder above: `0.7`'s answer to *what can
