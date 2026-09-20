@@ -60,6 +60,45 @@ pipeline gets proven before a permanent number is spent.
   owe a multi-file shape nothing upstream defines. It reopens if FORMAT.md
   settles one, or if a caller turns up that cannot loop.
 
+- **`mth <verb> --help` answers instead of running the verb** (V51, B41).
+  Every verb read `--help` as its positional path. Outside a project that
+  meant a complaint about the directory when the reader had asked about the
+  flag. Inside one it is worse by a category:
+
+  ```
+  $ mth fmt --help
+  mth: fmt rewrote SPEC.md
+  $ mth archive --help
+  mth: archive moved 1 row from SPEC.md to SPEC-ARCHIVE.md
+  ```
+
+  A write nobody asked for, reached by the one argument that means *not
+  yet*. V10 says a tool that rewrites law is one a user must invoke
+  deliberately, and typing `--help` is the plainest statement there is of
+  not having decided to.
+
+  Two features composed into it: `positional()` skips a flag's value but
+  never asked whether the flag takes one, so `--help` was skipped as a flag
+  and the path fell through to `SPEC.md`'s default.
+
+  Now every verb answers, rendered from the one command registry (V33), so
+  a new verb gets help the day it is listed and no second copy can go stale:
+
+  ```
+  $ mth check --help
+  usage:
+    mth check [--records <file>] [--format human|json] [--verbose] [<path>]
+
+  The structural rules: sections present and ordered, ids unique, citations
+  resolve, rows sorted, ...
+
+  exit: 0 ok | 1 drift or violation | 2 usage
+  ```
+
+  `-h` works the same, and the flag is read anywhere in the arguments —
+  `mth check --records r.txt --help` is still a question. An unknown verb is
+  still reported as one, which is the answer a caller needs before any help.
+
 - **A dangling citation in a federated node now names the nodes** (V50, B40).
   A child's invariant cited from its parent read as dangling, and both
   judgments pointed the wrong way: "point it at the rule that was meant"

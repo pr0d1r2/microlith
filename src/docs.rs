@@ -121,6 +121,24 @@ pub(crate) fn usage() -> String {
     format!("{HEAD}{body}{FOOT}\n{verbs}\n{EXIT_LINE}\n")
 }
 
+/// ONE verb's help, from the same registry (V33).
+///
+/// `mth <verb> --help` is the first thing most people try, and until V51 the
+/// verb read `--help` as a PATH: outside a project it answered about a
+/// missing file, and inside one it RAN -- `fmt --help` rewrote SPEC.md and
+/// `archive --help` moved a row into the sink (B41).
+///
+/// The same synopsis and blurb the top-level usage prints, because there is
+/// one registry and no second text to keep in step with it.
+pub(crate) fn help(verb: &str) -> Option<String> {
+    let c = COMMANDS.iter().find(|c| c.name == verb)?;
+    Some(format!(
+        "usage:\n  mth {}\n\n{}\n{EXIT_LINE}\n",
+        c.synopsis,
+        wrap(c.blurb, "", WIDTH)
+    ))
+}
+
 /// Every verb the registry carries, in order.
 pub(crate) fn names() -> Vec<&'static str> {
     COMMANDS.iter().map(|c| c.name).collect()
