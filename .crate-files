@@ -25,6 +25,7 @@ rustfmt.toml
 src/SPEC.md
 src/anchors.rs
 src/archive.rs
+src/bugs.rs
 src/check.rs
 src/cli.rs
 src/derive.rs
@@ -36,6 +37,7 @@ src/lib.rs
 src/main.rs
 src/migrate.rs
 src/render.rs
+src/rows.rs
 src/tasks.rs
 src/violation.rs
 tests/SPEC.md

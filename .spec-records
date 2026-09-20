@@ -71,3 +71,9 @@ V48  Lifting a done row OUT
 # file is not empty of candidates". Without this line it reads as the obvious
 # signal nobody got round to adding.
 V49  REJECTED: a distinct EXIT CODE
+
+# T42 rejected a `--section` flag on `tasks` on a fact about a PUBLISHED
+# artifact: an older `mth` IGNORES the flag and answers §T rows at exit 0.
+# Without this line the flag reads as the obvious cheaper shape nobody got
+# round to, which is exactly what the issue proposing it assumed.
+T42  REJECTED: `tasks --section B`
