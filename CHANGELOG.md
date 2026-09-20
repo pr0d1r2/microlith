@@ -38,6 +38,28 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
+## [Unreleased]
+
+### Fixed
+
+- **A second path is now REFUSED, not silently dropped** (V46, B37). `mth
+  check` and `mth fmt --check` took the first positional path and ignored the
+  rest in silence, so `mth check clean.md broken.md` exited 0 with `broken.md`
+  never read, and a gate written `mth check *.md` reported green over a set it
+  never examined. All six reading verbs shared the defect, since all six
+  resolved their path the same way. Extra paths are now a usage error (exit 2)
+  naming each one; run `mth` once per path.
+
+  **This changes an exit code a caller may depend on**: a command that passed
+  several paths used to exit 0 or 1 on the first of them and now exits 2. That
+  verdict was never about the files it was given, so a caller reading it was
+  already being misinformed, but the number itself is new.
+
+  Fanning out over every path was rejected rather than deferred: `check` and
+  `tasks` each emit a JSON document naming one path, so `--format json` would
+  owe a multi-file shape nothing upstream defines. It reopens if FORMAT.md
+  settles one, or if a caller turns up that cannot loop.
+
 ## [0.7.1] — 2026-09-19
 
 A patch, so it sits off the version ladder above: `0.7`'s answer to *what can
