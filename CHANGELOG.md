@@ -60,6 +60,39 @@ pipeline gets proven before a permanent number is spent.
   owe a multi-file shape nothing upstream defines. It reopens if FORMAT.md
   settles one, or if a caller turns up that cannot loop.
 
+- **A dangling citation in a federated node now names the nodes** (V50, B40).
+  A child's invariant cited from its parent read as dangling, and both
+  judgments pointed the wrong way: "point it at the rule that was meant"
+  already did, and "declare V10" would duplicate an id the child owns, which
+  is the one thing V12 forbids.
+
+  B26 had already built the repair and keyed it on the wrong thing.
+  `names_a_spec_file` tests the LINE, which is true for the §F row it was
+  found on and false for every prose citation in the node — so it fired on
+  the one line that needed it least and stayed quiet where the reader had
+  nothing to go on:
+
+  ```
+  src/SPEC.md:11: microlith/V13: `V10` is cited but never declared
+      why: a dangling reference reads as authoritative, so nobody follows it
+      judgment: this spec federates with api, db -- if `V10` is a rule of one of them,
+                write it in backticks as `api:V10` (V19, §F)
+      judgment: point it at the rule that was meant
+      judgment: declare V10, if the rule is real but missing
+  ```
+
+  The candidates are read from the file that already lists them: §F's `dir`
+  column and §N's `path`. It NAMES rather than RESOLVES — which node declares
+  the rule needs the other files, and a check over one `&str` should not
+  pretend otherwise — so it narrows the hunt and says that is what it is
+  doing. A spec that declares no edges is told nothing, because advice
+  offered everywhere is advice nobody reads.
+
+  A test asserts the recommended form actually passes. Worth knowing if you
+  hit this through another tool: a bare `src/api:V10` does **not** resolve
+  here, whatever a wrapper may do with it — backticks are what make a
+  qualified id a literal, which is FORMAT-EXTENSIONS.md's own §F sentence.
+
 - **`tasks` and `check` no longer answer silence for rows they cannot read**
   (V49, B39). A spec whose §T is written as a markdown table came back
   `{"tasks":[],"unread":0}`-shaped — an empty array and exit 0 — with the

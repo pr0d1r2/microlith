@@ -485,16 +485,71 @@ pub fn citations_resolve(text: &str) -> Vec<Violation> {
     let mut seen: Vec<String> = Vec::new();
     let mut out = Vec::new();
     let lines: Vec<&str> = text.lines().collect();
+    let nodes = federated_with(text);
     for (line, cite) in cited_at(text) {
-        if !known.contains(&cite) && !seen.contains(&cite) {
-            seen.push(cite.clone());
-            let crossing = lines
-                .get(line.saturating_sub(1))
-                .is_some_and(|l| names_a_spec_file(l));
-            out.push(dangling(&cite, crossing).at(line));
+        if known.contains(&cite) || seen.contains(&cite) {
+            continue;
+        }
+        seen.push(cite.clone());
+        out.push(unresolved(&lines, (line, &cite), &nodes));
+    }
+    out
+}
+
+/// One dangling citation, with the two facts that choose its repair: does
+/// the LINE name a neighbouring spec, and does the FILE declare any.
+fn unresolved(
+    lines: &[&str],
+    at: (usize, &str),
+    nodes: &[String],
+) -> Violation {
+    let (line, cite) = at;
+    let crossing = lines
+        .get(line.saturating_sub(1))
+        .is_some_and(|l| names_a_spec_file(l));
+    dangling(cite, crossing, nodes).at(line)
+}
+
+/// The neighbouring nodes this spec DECLARES, in file order (V50).
+///
+/// `§F` names the children a directory owns (`dir|owns|⊥owns|tokens`) and
+/// `§N` the neighbours it reaches (`rel|path|lens`), so between them the file
+/// says which OTHER namespaces exist -- without reading one of them, which a
+/// pure function over one `&str` cannot do and should not pretend to.
+///
+/// FURNITURE is dropped by VALUE rather than by position: the header row's
+/// own words, the `-` empty cell FORMAT.md defines, and `.` for a node
+/// naming itself. A cell carrying a space is prose rather than a path, which
+/// is what `§N`'s `lens` column holds.
+#[must_use]
+pub fn federated_with(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut section = ' ';
+    for line in text.lines() {
+        if let Some(k) = section_of(line) {
+            section = k;
+        }
+        let Some(node) = edge(line, section) else {
+            continue;
+        };
+        if !out.contains(&node) {
+            out.push(node);
         }
     }
     out
+}
+
+/// The node this row names: `§F`'s first cell, `§N`'s second.
+fn edge(line: &str, section: char) -> Option<String> {
+    let at = match section {
+        'F' => 0,
+        'N' => 1,
+        _ => return None,
+    };
+    let cell = crate::id::cells(line.trim_end()).get(at)?.trim().to_owned();
+    let furniture =
+        ["dir", "rel", "path", "lens", "owns", "-", ".", ""].contains(&&*cell);
+    (!furniture && !cell.contains(' ')).then_some(cell)
 }
 
 /// Whether this line names ANOTHER spec file, outside backticks.
@@ -530,22 +585,57 @@ fn names_a_spec_file(line: &str) -> bool {
 /// line names a file, because there it is the likeliest fix -- and offered
 /// as JUDGEMENT, since only a reader knows whether `V2` is a rule elsewhere
 /// or one missing here.
-fn dangling(cite: &str, crossing: bool) -> Violation {
+fn dangling(cite: &str, crossing: bool, nodes: &[String]) -> Violation {
     let v = Violation::new(
         "V13",
         format!("`{cite}` is cited but never declared"),
     )
     .why("a dangling reference reads as authoritative, so nobody follows it");
-    let v = if crossing {
-        v.try_(Fix::Judgment, cross_file_repair(cite))
-    } else {
-        v
+    let v = match elsewhere(cite, crossing, nodes) {
+        Some(repair) => v.try_(Fix::Judgment, repair),
+        None => v,
     };
     v.try_(Fix::Judgment, "point it at the rule that was meant")
         .try_(
             Fix::Judgment,
             format!("declare {cite}, if the rule is real but missing"),
         )
+}
+
+/// The repair for an id that probably belongs to ANOTHER namespace, if this
+/// file gives any reason to think one exists.
+///
+/// The LINE naming a neighbour outranks the FILE declaring edges: a line
+/// that names `worker/SPEC.md` says which node it means, and the `§F` list
+/// only says which nodes there are.
+fn elsewhere(cite: &str, crossing: bool, nodes: &[String]) -> Option<String> {
+    if crossing {
+        return Some(cross_file_repair(cite));
+    }
+    Some(federated_repair(cite, nodes.first()?, nodes))
+}
+
+/// V50: the repair for a spec that DECLARES edges, whatever the line says.
+///
+/// B26 added the cross-file direction for a line that NAMES a neighbouring
+/// spec, which is right for a `§F` row and misses the ordinary case: in a
+/// federated node the edge is declared once in `§F` and the citation is
+/// plain prose ten lines down. The reader who reported it got two judgments
+/// that both pointed the wrong way -- "point it at the rule that was meant"
+/// already was, and "declare it" would duplicate an id another node owns,
+/// which is the one thing V12 forbids (B40).
+///
+/// NAMES THE CANDIDATES, since the file already lists them. Resolving WHICH
+/// node declares the rule needs the other files, which is out of scope for a
+/// check over one `&str` -- so this narrows the hunt rather than ending it,
+/// and says which it is doing.
+fn federated_repair(cite: &str, first: &str, nodes: &[String]) -> String {
+    let named: Vec<&str> = nodes.iter().take(3).map(String::as_str).collect();
+    format!(
+        "this spec federates with {} -- if `{cite}` is a rule of one of \
+         them, write it in backticks as `{first}:{cite}` (V19, \u{a7}F)",
+        named.join(", ")
+    )
 }
 
 fn cross_file_repair(cite: &str) -> String {
@@ -1826,6 +1916,63 @@ mod tests {
         let first = advice(&got);
         assert!(first.contains("backticks"), "{first}");
         assert!(first.contains("V19"), "{first}");
+    }
+
+    /// PLANTED (V50): in a FEDERATED node the edge is declared once and the
+    /// citation is plain prose, so B26's line-level test never fires.
+    ///
+    /// The reported case (B40): a child's rule cited from its parent, and
+    /// both judgments pointing the wrong way -- it already named the rule
+    /// meant, and declaring it would duplicate an id another node owns.
+    #[test]
+    fn v13_names_the_nodes_when_the_spec_declares_a_federation() {
+        let text = "## \u{a7}F FEDERATION\n\
+                    dir|owns|\u{22a5}owns|tokens\n\
+                    api|the http surface|the schema|-\n\
+                    db|the schema|the http surface|-\n\n\
+                    ## \u{a7}V INVARIANTS\n\
+                    V13: **a rule.** it leans on V10.\n";
+        let first = advice(&citations_resolve(text));
+        assert!(first.contains("federates with api, db"), "{first}");
+        assert!(first.contains("`api:V10`"), "names the form: {first}");
+        assert!(first.contains("V19"), "{first}");
+    }
+
+    /// ...and the form it names RESOLVES, which is the half a message can
+    /// get wrong while reading perfectly: advice nobody checked against the
+    /// rule it is advice about.
+    #[test]
+    fn the_form_v13_recommends_actually_passes() {
+        let text = "## \u{a7}F FEDERATION\n\
+                    dir|owns|\u{22a5}owns|tokens\n\
+                    api|the http surface|the schema|-\n\n\
+                    ## \u{a7}V INVARIANTS\n\
+                    V13: **a rule.** it leans on `api:V10`.\n";
+        assert_eq!(citations_resolve(text), Vec::<Violation>::new());
+    }
+
+    /// The nodes are read from BOTH halves of the federation: `\u{a7}F` names
+    /// the children a directory owns, `\u{a7}N` the neighbours it reaches,
+    /// and a leaf declares no edges while still having neighbours.
+    #[test]
+    fn the_nodes_come_from_the_edges_and_the_nav_alike() {
+        let f =
+            "## \u{a7}F FEDERATION\ndir|owns|\u{22a5}owns|tokens\napi|a|b|-\n";
+        assert_eq!(federated_with(f), vec!["api".to_owned()]);
+        let n = "## \u{a7}N NAV\nrel|path|lens\nup|-|-\nself|.|-\nsib|tests|the fixtures\n";
+        assert_eq!(federated_with(n), vec!["tests".to_owned()]);
+    }
+
+    /// The COMPANION (V18): a spec that declares NO edges is told nothing
+    /// about nodes. Advice offered everywhere is advice nobody reads, which
+    /// is the failure V15 recorded and this rule is one finding away from.
+    #[test]
+    fn a_spec_with_no_federation_is_told_nothing_about_nodes() {
+        let text = "## \u{a7}V INVARIANTS\nV1: **a rule.** see V9\n";
+        let first = advice(&citations_resolve(text));
+        assert!(!first.contains("federates"), "{first}");
+        assert_eq!(federated_with(text), Vec::<String>::new());
+        assert_eq!(federated_with(&real()), Vec::<String>::new());
     }
 
     /// The companion, and the one that keeps the advice from becoming noise:
