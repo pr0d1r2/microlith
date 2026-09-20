@@ -38,6 +38,39 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
+## [Unreleased]
+
+### Fixed
+
+- **Corrects two figures published from an unrepeatable measurement**
+  (B42). `0.7.2`'s entry below says 76 of 419 distinct spec texts, across 18
+  projects, go from a clean `check` to a reported violation. Measured with
+  the corpus sweep at both tags — which is the method this repo keeps
+  tested, for exactly this reason — the figure is **74 of 379**, `clean`
+  falling from 223 to 149. The project count has no backing from that
+  method at all and is withdrawn.
+
+  The published script deduplicated specs by content only; the sweep also
+  drops copies by name, so roughly forty texts it excludes were counted.
+  That is B31's defect — two denominators for one population — and B27,
+  B28, B31 and B33 are the same shape four times before this one.
+
+  The 0.7.2 entry is left as written. crates.io is immutable, so the text a
+  consumer already has cannot be edited; correcting it here is the only
+  honest place, and editing history to hide a wrong number would be worse
+  than the number.
+
+### Added
+
+- **The sweep counts empty-id furniture rows** and documents the two-build
+  comparison it cannot make. #27 was answered with a count of rows whose id
+  cell is empty — group labels between tasks — produced by a script that no
+  longer exists. That count now lives in `examples/corpus.rs` with its own
+  tests: **67 rows in 13 specs** of 379, correcting the 71-in-14 that was
+  posted. A question of the form "how many specs change verdict between two
+  releases" needs two builds and one program cannot be two, so the module
+  documents running the sweep at each tag and diffing `clean:`.
+
 ## [0.7.2] — 2026-09-20
 
 A patch by number. **Read this before updating: `check` now fails on specs it
