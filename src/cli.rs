@@ -30,6 +30,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "check" => one_path(verb, rest, check),
         "derive" | "anchors" => one_path(verb, rest, |r| reporting(verb, r)),
         "tasks" => one_path(verb, rest, tasks),
+        "bugs" => one_path(verb, rest, bugs),
         "migrate" => one_path(verb, rest, migrate),
         "archive" => one_path(verb, rest, archive),
         "docs" => asked(verb, rest, docs_reference),
@@ -476,6 +477,31 @@ fn unreadable(path: &str) -> Output {
 /// it is the signal a caller falls back on when this verb is absent
 /// altogether.
 fn tasks(rest: &[String]) -> Output {
+    enumerated(rest, crate::tasks::report, crate::tasks::json)
+}
+
+/// `bugs [--format human|json] <path>`: enumerate `§B`, exit 0.
+///
+/// A VERB rather than a `--section` flag on `tasks`, and the reason is this
+/// file's own: every verb here IGNORES an unknown flag, so an older
+/// published `mth` answers `--all-sections` with §T rows and exit 0 -- the
+/// wrong answer in the shape of the right one. An unknown verb exits 2, so
+/// a caller's fallback fires on ABSENCE (V30, T29's argument).
+fn bugs(rest: &[String]) -> Output {
+    enumerated(rest, crate::bugs::report, crate::bugs::json)
+}
+
+/// The ENUMERATING verbs, which differ only in WHICH section they read.
+///
+/// One function for both, as `reporting` is for `derive` and `anchors`
+/// (V7): the path, the rendering choice and the unreadable-path answer are
+/// the same question three times, and a second copy is where they would
+/// drift apart.
+fn enumerated(
+    rest: &[String],
+    human: fn(&str, bool) -> String,
+    json: fn(&str, &str) -> String,
+) -> Output {
     let path = target(rest);
     let as_json = match wants_json(rest) {
         Err(e) => return Output::usage(e),
@@ -485,9 +511,9 @@ fn tasks(rest: &[String]) -> Output {
         return unreadable(&path);
     };
     Output::ok(if as_json {
-        crate::tasks::json(&path, &text)
+        json(&path, &text)
     } else {
-        crate::tasks::report(&text, verbose(rest))
+        human(&text, verbose(rest))
     })
 }
 
@@ -660,6 +686,7 @@ mod tests {
         for argv in [
             ["check", "SPEC.md"],
             ["tasks", "SPEC.md"],
+            ["bugs", "SPEC.md"],
             ["derive", "SPEC.md"],
             ["anchors", "SPEC.md"],
             ["fmt", "--check"],
@@ -1096,6 +1123,82 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// A spec whose §B carries one record, written as FORMAT.md writes it.
+    fn recorded(name: &str) -> String {
+        write_temp(
+            name,
+            "## \u{a7}B BUGS\nid|date|cause|fix\n\
+             B1|2026-08-01|a cause|the rule that catches it\n",
+        )
+    }
+
+    /// `bugs` enumerates §B through the real argv path, and exits 0.
+    #[test]
+    fn bugs_enumerates_and_exits_zero() {
+        let path = recorded("bugsverb");
+        let human = run(&args(&["bugs", &path]));
+        assert_eq!(human.code, 0, "{}", human.err);
+        assert!(human.out.starts_with("bugs: 1 rows"), "{}", human.out);
+        assert!(human.out.contains("bug B1: 2026-08-01"), "{}", human.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The JSON carries §B's OWN fields: a date where `tasks` reports a
+    /// status, and no `status` or `cites` key at all -- asserted because a
+    /// consumer reusing `tasks`'s shape is who runs this verb first.
+    #[test]
+    fn the_bug_json_carries_a_date_and_no_status() {
+        let path = recorded("bugsjson");
+        let json = run(&args(&["bugs", "--format", "json", &path]));
+        assert_eq!(json.code, 0, "{}", json.err);
+        assert!(json.out.contains("\"id\":\"B1\""), "{}", json.out);
+        assert!(json.out.contains("\"date\":\"2026-08-01\""), "{}", json.out);
+        assert!(!json.out.contains("\"status\""), "{}", json.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// WHY `bugs` IS A VERB, planted rather than argued (V18).
+    ///
+    /// Every verb here IGNORES a flag it does not know, so a build older
+    /// than the flag answers `--all-sections` with §T rows and exit 0 -- bug
+    /// records asked for, task rows delivered, and nothing in the exchange
+    /// saying so. `--section=B` is the same silence. An unknown VERB exits
+    /// 2, so a caller's fallback fires on ABSENCE instead (V30).
+    ///
+    /// STATED AGAINST OURSELVES (§G): the SPACED form `--section B` is
+    /// refused today, and by accident rather than by design -- `B` is not a
+    /// known flag's value, so V46's arity guard counts it as a second PATH
+    /// and says "one path per run", which names the wrong problem. Two of
+    /// the three spellings are silent, so the argument stands on the
+    /// spellings, not on the guard.
+    #[test]
+    fn an_unknown_flag_is_ignored_which_is_why_the_section_is_a_verb() {
+        let path = reportable("sectionflag");
+        for flag in ["--all-sections", "--section=B"] {
+            let flagged = run(&args(&["tasks", flag, &path]));
+            assert_eq!(flagged.code, 0, "{flag}: {}", flagged.err);
+            assert!(flagged.out.contains("task T1:"), "{}", flagged.out);
+        }
+        let spaced = run(&args(&["tasks", "--section", "B", &path]));
+        assert_eq!(spaced.code, 2, "{}", spaced.out);
+        assert!(spaced.err.contains("one path per run"), "{}", spaced.err);
+        assert_eq!(run(&args(&["bugz", &path])).code, 2, "an unknown verb");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A spec with NO bugs still answers, and exits 0 doing it -- the same
+    /// distinction `tasks` turns on, for the section beside it.
+    #[test]
+    fn a_spec_with_no_bugs_answers_rather_than_going_silent() {
+        let path = write_temp("nobugs", "## \u{a7}V INVARIANTS\nV1: alone.\n");
+        let o = run(&args(&["bugs", "--format", "json", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("\"bugs\":[]"), "{}", o.out);
+        assert_eq!(run(&args(&["bugs", "no/such/file"])).code, 2);
+        assert_eq!(run(&args(&["bugs", "--format", "yaml"])).code, 2);
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// A spec with NO tasks still answers, and exits 0 doing it. This is the
     /// case the consumer distinguishes on: an empty backlog is a fact, and
     /// the absence it falls back on is an unreadable file (exit 2) or a
@@ -1289,6 +1392,7 @@ mod tests {
         deepens("anchors", &path);
         deepens("derive", &path);
         deepens("tasks", &path);
+        deepens("bugs", &path);
         let _ = std::fs::remove_file(&path);
     }
 

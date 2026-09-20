@@ -40,6 +40,32 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+### Added
+
+- **`mth bugs` enumerates `§B`** — `id`, `date`, `cause` and `fix` for every
+  bug record, in id order, in `human` or `json`, with `unread` beside the
+  array exactly as `tasks` carries it (T42, issue #41). The rows were already
+  parsed: `check` validates their ids and citations and `derive` counts
+  them, so nothing new is read here — what was missing was a way for a
+  caller to ask, which left a consumer acting on bug records keeping its own
+  parser of a grammar this crate owns.
+
+  `§B` is not `§T` with other words, and a caller reusing that shape gets a
+  wrong answer: FORMAT.md gives `§B` `id|date|cause|fix` with **no status
+  column**, so the second cell is a date, and the fix cell is carried as
+  written rather than split into citations it may not be — the corpus holds
+  prose there as often as a rule id.
+
+  A verb rather than `tasks --section B`: every verb here ignores a flag it
+  does not know, so an older published `mth` answers `--all-sections` with
+  `§T` rows and exit 0. An unknown verb exits 2, so a caller's fallback
+  fires on absence. That is T29's argument against `derive --format json`,
+  on a worse case — here the wrong answer is shaped exactly like the right
+  one.
+
+  Internally the four-field pipe row now has **one** reader (`rows`), shared
+  by both verbs, so `§R` will need no third parse when it lands.
+
 ### Fixed
 
 - **Corrects two figures published from an unrepeatable measurement**

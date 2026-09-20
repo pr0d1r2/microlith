@@ -10,7 +10,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 99.40%](https://img.shields.io/badge/coverage-99.40%25-brightgreen)](hk.pkl)
+[![coverage 99.43%](https://img.shields.io/badge/coverage-99.43%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -163,6 +163,14 @@ tasks [--format human|json] [--verbose] [<path>]
 ```
 
 Every task row's id, status, text, citations and the milestone claiming it, in id order -- a suffixed id rides its base, so `T7a` follows `T7` and belongs to whichever milestone claims 7. Report-only, and it ENUMERATES rather than SELECTS: which rows are pending is mechanical, which one to work next is judgement and stays with the caller. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one, and `unread` counts rows that are there in a dialect this build cannot read. A row's `milestone` is null both when the spec declares none and when the declared ones left it out; `declares_milestones` beside the array says which. `--verbose` prints each task in full, not a 60-char gist.
+
+### `bugs`
+
+```text
+bugs [--format human|json] [--verbose] [<path>]
+```
+
+Every bug record's id, date, cause and fix, in id order -- the same enumeration `tasks` gives `§T`, for the section beside it. These rows were already parsed: `check` validates their ids and citations and `derive` counts them, so this adds no reading, only a way to ask for one a consumer would otherwise re-implement. `§B` is not `§T` with different words -- the second cell is a DATE and there is no status column, and the fix cell is carried as written because the corpus holds prose there as often as a rule id. `--format json` is the machine rendering, always emitted, and `unread` counts rows that are there in a dialect this build cannot read -- so a spec that has recorded no bug and one whose records this build cannot read are never spelled the same way. `--verbose` prints each cause in full, not a 60-char gist.
 
 ### `anchors`
 

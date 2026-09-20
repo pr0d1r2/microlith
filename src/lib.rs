@@ -19,6 +19,7 @@
 // asymmetry is the whole reason to start small.
 pub(crate) mod anchors;
 pub(crate) mod archive;
+pub(crate) mod bugs;
 pub(crate) mod check;
 pub(crate) mod cli;
 pub(crate) mod derive;
@@ -28,6 +29,7 @@ pub(crate) mod format;
 pub(crate) mod id;
 pub(crate) mod migrate;
 pub(crate) mod render;
+pub(crate) mod rows;
 pub(crate) mod tasks;
 pub(crate) mod violation;
 
@@ -154,6 +156,32 @@ pub fn tasks_report_verbose(text: &str) -> String {
 /// run that never reached the file.
 pub fn tasks_json(file: &str, text: &str) -> String {
     tasks::json(file, text)
+}
+
+/// `mth bugs`: every `§B` row's id, date, cause and fix, in V14 order.
+///
+/// The counterpart of [`tasks_report`] for the OTHER pipe section. `check`
+/// and `derive` already read these rows; this is the answer a caller could
+/// not previously ask for, and without it a consumer acting on bug records
+/// had to keep a second parser of a grammar this crate owns (V7).
+pub fn bugs_report(text: &str) -> String {
+    bugs::report(text, false)
+}
+
+/// `bugs_report` with each cause in full rather than a 60-char gist.
+pub fn bugs_report_verbose(text: &str) -> String {
+    bugs::report(text, true)
+}
+
+/// The same enumeration as JSON -- the rendering a consumer parses.
+///
+/// `file` is echoed back in the object, and `"bugs":[]` is always emitted,
+/// for the reason `tasks_json` always emits its array: an empty stream is
+/// indistinguishable from a run that never reached the file. `unread`
+/// separates a spec with no records from one whose records this build
+/// cannot read.
+pub fn bugs_json(file: &str, text: &str) -> String {
+    bugs::json(file, text)
 }
 
 /// `mth anchors`: the section address of every item beside the id it
@@ -386,6 +414,19 @@ mod tests {
         assert!(tasks_report(CANON).contains("task T1: x"));
         assert!(tasks_json("SPEC.md", CANON).contains("\"id\":\"T1\""));
         assert!(tasks_json("SPEC.md", CANON).contains("\"file\":\"SPEC.md\""));
+    }
+
+    /// The same for `§B`, which had no entry point at all: `check` read
+    /// those rows and `derive` counted them, and a consumer acting on them
+    /// still had to parse the section itself.
+    #[test]
+    fn the_bug_enumeration_is_reachable_in_one_call() {
+        let spec =
+            format!("{CANON}\n## \u{a7}B BUGS\nB1|2026-08-01|a cause|V1\n");
+        assert!(bugs_report(&spec).contains("bug B1: 2026-08-01"));
+        assert!(bugs_json("SPEC.md", &spec).contains("\"id\":\"B1\""));
+        assert!(bugs_json("SPEC.md", &spec).contains("\"file\":\"SPEC.md\""));
+        assert!(bugs_report_verbose(&spec).len() >= bugs_report(&spec).len());
     }
 
     #[test]

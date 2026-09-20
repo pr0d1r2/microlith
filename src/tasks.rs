@@ -22,7 +22,7 @@
 //! `check` finding and not a reason to hand a consumer a different sequence
 //! than the format promises.
 
-use crate::id::{Id, at_line_start, cells, unescape};
+use crate::rows::Row;
 
 /// One `§T` row, as the format defines it: `T<n>|status|task|cites`.
 #[derive(Debug, PartialEq, Eq)]
@@ -48,19 +48,15 @@ pub(crate) struct Task {
 }
 
 /// Every `§T` row, in V14 order.
+///
+/// The ROW is read by `rows`, shared with every other pipe section (V7).
+/// What §T calls those three cells is the part that lives here.
 pub(crate) fn tasks(text: &str) -> Vec<Task> {
     let owners = crate::check::milestones(text);
-    let mut rows: Vec<(Id, Task)> = text
-        .lines()
-        .filter_map(|line| {
-            let id = at_line_start(line).filter(|i| i.kind == 'T')?;
-            let mut row = one(line)?;
-            row.milestone = claimed_by(&owners, id.num);
-            Some((id, row))
-        })
-        .collect();
-    rows.sort_by_key(|(id, _)| id.sort_key());
-    rows.into_iter().map(|(_, t)| t).collect()
+    crate::rows::of(text, 'T')
+        .into_iter()
+        .map(|row| one(&owners, row))
+        .collect()
 }
 
 /// The milestone claiming this task NUMBER, if one does.
@@ -79,28 +75,16 @@ fn claimed_by(owners: &[(String, Vec<u32>)], num: u32) -> Option<String> {
         .map(|(id, _)| id.clone())
 }
 
-/// One row's cells. A row with no `|` at all -- V26's bulleted `- T1 text`
-/// dialect, which has no fields -- carries no status to report, so it is not
-/// a task row this verb can speak about.
-fn one(line: &str) -> Option<Task> {
-    let cells = cells(line);
-    let cell = |n: usize| unescape(cells.get(n).copied().unwrap_or("").trim());
-    Some(Task {
-        id: at_line_start(line)?.label(),
-        status: cells.get(1).map(|c| c.trim().to_owned())?,
-        text: cell(2),
-        cites: cites(&cell(3)),
-        milestone: None,
-    })
-}
-
-/// `V1,V2` -> the two. `-` is FORMAT.md's empty cell, not a citation.
-fn cites(cell: &str) -> Vec<String> {
-    cell.split(',')
-        .map(str::trim)
-        .filter(|c| !c.is_empty() && *c != "-")
-        .map(str::to_owned)
-        .collect()
+/// One row, under §T's names for its three cells.
+fn one(owners: &[(String, Vec<u32>)], row: Row) -> Task {
+    let [status, text, cites] = row.cells;
+    Task {
+        milestone: claimed_by(owners, row.num),
+        id: row.id,
+        status,
+        text,
+        cites: crate::rows::cites(&cites),
+    }
 }
 
 /// How many rows carry each status, in FORMAT.md's own order.
@@ -120,24 +104,15 @@ pub(crate) fn report(text: &str, full: bool) -> String {
     let rows = tasks(text);
     let mut out = head(&rows, unread(text));
     for t in &rows {
-        let shown = if full { t.text.clone() } else { gist(&t.text) };
+        let shown = crate::rows::shown(&t.text, full);
         out.push_str(&format!("task {}: {} -- {shown}\n", t.id, t.status));
     }
     out
 }
 
 /// How many §T rows this build could not read (V49).
-///
-/// Asked of the CHECKER rather than counted again here: a second reading of
-/// what a dialect row is would be the drift V7 exists to end, and this verb
-/// and `check` disagreeing about whether a spec has tasks is exactly the
-/// confusion the count was added to remove.
 fn unread(text: &str) -> usize {
-    crate::check::unread_rows(text)
-        .iter()
-        .filter(|u| u.kind == 'T')
-        .map(|u| u.count)
-        .sum()
+    crate::rows::unread(text, 'T')
 }
 
 /// The count line: how many rows, how many of each status, and how many
@@ -150,7 +125,7 @@ fn unread(text: &str) -> usize {
 /// `check` is where it becomes one.
 fn head(rows: &[Task], unread: usize) -> String {
     if rows.is_empty() {
-        return none_read(unread);
+        return crate::rows::none_read("tasks", 'T', unread);
     }
     let counts: Vec<String> = tally(rows)
         .iter()
@@ -160,39 +135,8 @@ fn head(rows: &[Task], unread: usize) -> String {
         "tasks: {} rows -- {}{}\n",
         rows.len(),
         counts.join(", "),
-        also(unread)
+        crate::rows::also(unread)
     )
-}
-
-/// Nothing was read -- which is TWO different facts, and saying `none` for
-/// both is the whole of what was reported. An empty backlog and a §T nobody
-/// here can parse are the states a caller must tell apart.
-fn none_read(unread: usize) -> String {
-    match unread {
-        0 => "tasks: none -- no \u{a7}T rows here\n".to_owned(),
-        n => format!(
-            "tasks: none READ -- {n} \u{a7}T rows are here in a dialect this \
-             build cannot read; `mth migrate` converts them\n"
-        ),
-    }
-}
-
-/// The same fact beside rows that WERE read: a partial answer said to be one.
-fn also(unread: usize) -> String {
-    match unread {
-        0 => String::new(),
-        n => format!("; {n} more unread, in a dialect (`mth migrate`)"),
-    }
-}
-
-/// Enough of the task to recognise it; `--verbose` prints all of it. The same
-/// width `anchors` uses, so the two reports read alike.
-fn gist(text: &str) -> String {
-    let short: String = text.chars().take(60).collect();
-    if short.chars().count() < text.chars().count() {
-        return format!("{short}...");
-    }
-    short
 }
 
 /// The machine rendering: one object, `tasks` in V14 order.

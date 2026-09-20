@@ -18,6 +18,7 @@
 //! list forces a fixture, and adding a fixture forces it to be named.
 
 use microlith::parse_records;
+use microlith::{bugs_json, bugs_report};
 use microlith::{check_spec, format_spec};
 use microlith::{tasks_json, tasks_report};
 
@@ -156,6 +157,35 @@ fn tasks_answers_on_every_construct() {
             "{name} emitted more than one line"
         );
     }
+}
+
+/// The same of `§B` (V29): it must ANSWER on every construct rather than
+/// panicking or going silent, and `bug-table` is where the answer is
+/// checkable -- a record's id, its date, and the fix cell carried as it was
+/// written rather than split into citations it may not be.
+#[test]
+fn bugs_answers_on_every_construct() {
+    for name in CONSTRUCTS {
+        let out = bugs_report(&fixture(name));
+        assert!(out.starts_with("bugs: "), "{name} got no answer: {out}");
+        let json = bugs_json(name, &fixture(name));
+        assert!(json.contains("\"bugs\":["), "{name}: {json}");
+        assert_eq!(json.lines().count(), 1, "{name} emitted >1 line");
+    }
+}
+
+/// The fields themselves, on the fixture that exists for §B: a record's id,
+/// its date, and the fix cell carried as it was written rather than split
+/// into citations it may not be.
+#[test]
+fn the_bug_fixture_reports_its_record_under_the_format_s_own_names() {
+    let table = bugs_json("bug-table", &fixture("bug-table"));
+    assert!(table.contains("\"id\":\"B1\""), "{table}");
+    assert!(table.contains("\"date\":\"2026-08-01\""), "{table}");
+    assert!(
+        table.contains("\"fix\":\"the rule that now catches it\""),
+        "{table}"
+    );
 }
 
 /// V14 through the fixture that exists for it: a suffixed id RIDES its base,
