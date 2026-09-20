@@ -40,6 +40,26 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.7.3] — 2026-09-20
+
+A patch, and unlike the last one it **meets the test `0.7.1` set** — *"a
+consumer gets it by `cargo update` and loses nothing"*. Measured rather than
+assumed, because `0.7.2` did not meet that test and had to say so.
+
+MEASURED two ways, both with two builds, because one program cannot be two
+(B42). Over **869 `SPEC.md` files on disk**, the `0.7.2` binary and this one
+were run side by side on `check`, `derive`, `anchors` and `tasks --format
+json`: **byte-identical output and identical exit codes on every file, for
+every verb**. The corpus sweep, run at both tags over its own deduplicated
+denominator, agrees — 381 specs in 73 projects, `clean: 150`, 522 violations,
+the same per-rule tallies on both sides.
+
+The one observable difference is the one that was added: `mth bugs SPEC.md`
+exits 2 on `0.7.2` (unknown command) and 0 here. That asymmetry is the whole
+reason it is a verb rather than a flag.
+
 ### Added
 
 - **`mth bugs` enumerates `§B`** — `id`, `date`, `cause` and `fix` for every
@@ -626,7 +646,8 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.3
 [0.6.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.1
 [0.6.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.0
 [0.5.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.5.0
