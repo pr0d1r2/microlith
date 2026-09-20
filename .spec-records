@@ -51,3 +51,8 @@ V31  A checker is DEFERRED
 # and the seam it keeps is V6, which is the whole reason this crate is CPU-only.
 T26d ⊥ ABSORBED & ⊥ EVER: mode B
 V44  REJECTED: actionlint ALONE
+
+# V46 rejected FANNING OUT over several paths, choosing a usage error. Without
+# this line the fan-out reads as an unbuilt convenience rather than a decision
+# with a trigger.
+V46  REJECTED: FAN OUT

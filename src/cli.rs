@@ -26,15 +26,28 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
     match verb {
         "--help" | "-h" => Output::ok(usage()),
         "--version" | "-V" => version(),
-        "fmt" => fmt(rest),
-        "check" => check(rest),
-        "derive" => reporting(rest, derive_report(rest)),
-        "anchors" => reporting(rest, anchors_report(rest)),
-        "tasks" => tasks(rest),
-        "migrate" => migrate(rest),
+        "fmt" => one_path(rest, fmt),
+        "check" => one_path(rest, check),
+        "derive" => one_path(rest, |r| reporting(r, derive_report(r))),
+        "anchors" => one_path(rest, |r| reporting(r, anchors_report(r))),
+        "tasks" => one_path(rest, tasks),
+        "migrate" => one_path(rest, migrate),
         "docs" => Output::ok(crate::docs::markdown()),
         "extensions" => Output::ok(crate::extensions::markdown()),
         other => unknown(other),
+    }
+}
+
+/// The arity guard, in ONE place rather than once per verb (V7).
+///
+/// It wraps the verbs that READ a spec; `docs`, `extensions`, `--help` and
+/// `--version` take no path at all. It sits INSIDE the match rather than in
+/// front of it, so an unknown verb is still reported as one: `mth ancors a.md
+/// b.md` names the verb, which is the answer the caller needs first.
+fn one_path(rest: &[String], verb: impl Fn(&[String]) -> Output) -> Output {
+    match extra_paths(rest) {
+        Some(refused) => refused,
+        None => verb(rest),
     }
 }
 
@@ -285,14 +298,45 @@ fn verbose(rest: &[String]) -> bool {
     rest.iter().any(|a| a == "--verbose" || a == "-v")
 }
 
-/// The first argument that is neither a flag nor a flag's value.
-fn positional(rest: &[String]) -> Option<&String> {
+/// Every argument that is neither a flag nor a flag's value, in order.
+fn positionals(rest: &[String]) -> Vec<&String> {
     let skip: Vec<String> = ["--records", "--format"]
         .iter()
         .filter_map(|f| flag_value(rest, f))
         .collect();
     rest.iter()
-        .find(|a| !a.starts_with('-') && !skip.contains(a))
+        .filter(|a| !a.starts_with('-') && !skip.contains(a))
+        .collect()
+}
+
+/// The first argument that is neither a flag nor a flag's value.
+fn positional(rest: &[String]) -> Option<&String> {
+    positionals(rest).first().copied()
+}
+
+/// The paths after the first, REFUSED rather than dropped (V46).
+///
+/// Every verb here reads ONE spec -- §I spells them all `<path>` -- and this
+/// used to take the first positional and ignore the rest in silence. So `mth
+/// check *.md` examined one file and exited 0 for the whole set, with the
+/// ignored paths as likely to hold the violation as the one that was read.
+/// Silence is how this tool spells PASS (V10), which is exactly what made a
+/// dropped path indistinguishable from an examined one.
+///
+/// Exit 2, not 1: nothing was checked, so this is not drift but a call the
+/// tool cannot honour -- and a caller already scripts against that split.
+fn extra_paths(rest: &[String]) -> Option<Output> {
+    let given = positionals(rest);
+    let extra = given.get(1..).unwrap_or_default();
+    if extra.is_empty() {
+        return None;
+    }
+    let named: Vec<&str> = extra.iter().map(|p| p.as_str()).collect();
+    Some(Output::usage(format!(
+        "mth: one path per run -- also given: {} \
+         (run mth once per path)\n",
+        named.join(", ")
+    )))
 }
 
 /// The path to work on: what was asked for, or the convention.
@@ -446,6 +490,80 @@ mod tests {
         assert_eq!(o.code, 2, "{}", o.err);
         assert!(o.err.contains("cannot read"), "{}", o.err);
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// PLANTED (V18): a second path is REFUSED, not dropped.
+    ///
+    /// This is the shape that reported green over a set it never examined --
+    /// `check` on a clean file and a broken one exited 0 because only the
+    /// first was read. It runs on both gating verbs, and on `check` in the
+    /// order that used to pass by accident (the broken file first).
+    #[test]
+    fn a_second_path_is_a_usage_error_rather_than_ignored() {
+        let clean = write_temp("many-clean", "# spec\n");
+        let bad = write_temp("many-bad", "# spec\n\nV1: no header.\n");
+        for argv in [
+            vec!["check", &clean, &bad],
+            vec!["check", &bad, &clean],
+            vec!["fmt", "--check", &clean, &bad],
+            vec!["tasks", "--format", "json", &clean, &bad],
+        ] {
+            let o = run(&args(&argv));
+            assert_eq!(o.code, 2, "{argv:?}: {}{}", o.out, o.err);
+            assert!(o.err.contains("one path per run"), "{}", o.err);
+        }
+        let _ = std::fs::remove_file(&clean);
+        let _ = std::fs::remove_file(&bad);
+    }
+
+    /// The refusal NAMES the paths it declined, so the caller sees which
+    /// arguments were surplus rather than being told the count.
+    #[test]
+    fn the_refusal_names_every_extra_path() {
+        let o = run(&args(&["check", "a.md", "b.md", "c.md"]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("b.md, c.md"), "{}", o.err);
+        assert!(!o.err.contains("a.md"), "{}", o.err);
+    }
+
+    /// The COMPANION (V18): one path still reaches every verb that reads one.
+    ///
+    /// A guard that refused two paths by refusing everything would satisfy
+    /// the planted test above, so this pins what must stay accepted. Run from
+    /// the crate root, so the paths are this repo's own files (read-only
+    /// verbs only, for the reason the default-path test gives).
+    #[test]
+    fn every_verb_still_accepts_one_path() {
+        for argv in [
+            ["check", "SPEC.md"],
+            ["tasks", "SPEC.md"],
+            ["derive", "SPEC.md"],
+            ["anchors", "SPEC.md"],
+            ["fmt", "--check"],
+            ["migrate", "--check"],
+        ] {
+            let o = run(&args(&argv));
+            assert_eq!(o.code, 0, "{argv:?}: {}{}", o.out, o.err);
+        }
+        assert!(extra_paths(&args(&["check"])).is_none());
+    }
+
+    /// The other half of the companion: a flag's VALUE is not a second path.
+    ///
+    /// `--records <file>` and `--format json` both put a non-flag word on the
+    /// line, which is the argument a naive arity count would refuse -- and
+    /// refusing it would break the flags while looking like a stricter gate.
+    #[test]
+    fn a_flag_value_is_not_counted_as_a_second_path() {
+        for argv in [
+            vec!["check", "--records", ".spec-records", "SPEC.md"],
+            vec!["check", "--format", "json", "SPEC.md"],
+            vec!["check", "--verbose", "SPEC.md"],
+            vec!["tasks", "--format", "json", "SPEC.md"],
+        ] {
+            let o = run(&args(&argv));
+            assert_eq!(o.code, 0, "{argv:?}: {}{}", o.out, o.err);
+        }
     }
 
     /// The path must survive a flag sitting in front of it, and must not be
