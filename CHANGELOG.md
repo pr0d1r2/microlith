@@ -60,6 +60,37 @@ pipeline gets proven before a permanent number is spent.
   owe a multi-file shape nothing upstream defines. It reopens if FORMAT.md
   settles one, or if a caller turns up that cannot loop.
 
+- **`tasks` and `check` no longer answer silence for rows they cannot read**
+  (V49, B39). A spec whose §T is written as a markdown table came back
+  `{"tasks":[],"unread":0}`-shaped — an empty array and exit 0 — with the
+  rows sitting right there. A consumer enumerating tasks could not tell an
+  empty backlog from an unreadable one, and the only verb that knew was
+  `migrate --check`, which a reader has no reason to run first.
+
+  `check` now reports it, once per section, naming the count and the one
+  action that fixes it:
+
+  ```
+  SPEC.md:7: microlith/V49: §T holds 2 declarations in a DIALECT this build cannot read
+      why: an unread declaration is not an absent one, and every verb reports it as absent
+      mechanical: run `mth migrate <path>` -- the rows convert to the canonical form
+  ```
+
+  One finding per section rather than per row, deliberately: B15 measured
+  1,227 such rows across 21 fleet specs, and V15's own history is a check
+  that fired once per row and was too loud to read.
+
+  `tasks` carries the same number and stays exit 0. The JSON gains an
+  `unread` field — additive, so a consumer that ignores it is unaffected —
+  and the human count line says `none READ` rather than `none` when rows
+  were there.
+
+  Both read `migrate`'s own answer rather than a second opinion about it, so
+  a line counted here is exactly a line `migrate` would convert. Giving
+  `tasks` a distinct exit code was rejected and recorded: §I promises
+  report-only, and a third code would break every caller scripting the
+  0/1/2 split.
+
 - **A row `migrate` cannot place is now named, not declined in silence**
   (V47, B38). A spec whose section heading was not recognised *and* whose
   rows were in the bracketed dialect reported clean from `tasks`, `check`

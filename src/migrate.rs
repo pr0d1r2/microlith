@@ -122,7 +122,7 @@ fn canonical_header(kind: char) -> Option<&'static str> {
 /// `M` is excluded deliberately: a `| M1 | scope | tasks | done-when |` row is
 /// a milestone, which the format renders AS a table. Converting it would
 /// destroy a legal shape.
-fn dialect(line: &str, section: char) -> Option<String> {
+pub(crate) fn dialect(line: &str, section: char) -> Option<String> {
     if let Some(cells) = table_cells(line) {
         return from_table(&cells, section);
     }
