@@ -38,19 +38,45 @@ pub(crate) struct Task {
     pub text: String,
     /// The cites cell, split on commas. `-` means none, per FORMAT.md.
     pub cites: Vec<String>,
+    /// The milestone claiming this row, if one does (V52).
+    ///
+    /// `None` is TWO facts and the row alone cannot tell them apart: a spec
+    /// that declares no milestones at all, and a row that every declared
+    /// milestone left out. The first is V15 opting out; the second is V15
+    /// firing. Which one it is, the DOCUMENT says.
+    pub milestone: Option<String>,
 }
 
 /// Every `§T` row, in V14 order.
 pub(crate) fn tasks(text: &str) -> Vec<Task> {
+    let owners = crate::check::milestones(text);
     let mut rows: Vec<(Id, Task)> = text
         .lines()
         .filter_map(|line| {
             let id = at_line_start(line).filter(|i| i.kind == 'T')?;
-            Some((id, one(line)?))
+            let mut row = one(line)?;
+            row.milestone = claimed_by(&owners, id.num);
+            Some((id, row))
         })
         .collect();
     rows.sort_by_key(|(id, _)| id.sort_key());
     rows.into_iter().map(|(_, t)| t).collect()
+}
+
+/// The milestone claiming this task NUMBER, if one does.
+///
+/// By number rather than by label, because a suffixed row RIDES its base
+/// (V14): `T7a` belongs to whichever milestone claims `7`, and a lookup on
+/// the written id would find nothing and call it unclaimed.
+///
+/// The partition comes from `check::milestones`, so a consumer reading this
+/// field and a consumer calling that function get the same answer -- and
+/// `check` reads the same cell when V15 fires (V7).
+fn claimed_by(owners: &[(String, Vec<u32>)], num: u32) -> Option<String> {
+    owners
+        .iter()
+        .find(|(_, claimed)| claimed.contains(&num))
+        .map(|(id, _)| id.clone())
 }
 
 /// One row's cells. A row with no `|` at all -- V26's bulleted `- T1 text`
@@ -64,6 +90,7 @@ fn one(line: &str) -> Option<Task> {
         status: cells.get(1).map(|c| c.trim().to_owned())?,
         text: cell(2),
         cites: cites(&cell(3)),
+        milestone: None,
     })
 }
 
@@ -178,10 +205,12 @@ fn gist(text: &str) -> String {
 pub(crate) fn json(file: &str, text: &str) -> String {
     let items: Vec<String> = tasks(text).iter().map(one_json).collect();
     format!(
-        "{{\"file\":{},\"tasks\":[{}],\"unread\":{}}}\n",
+        "{{\"file\":{},\"tasks\":[{}],\"unread\":{},\
+         \"declares_milestones\":{}}}\n",
         crate::render::quote(file),
         items.join(","),
-        unread(text)
+        unread(text),
+        crate::check::uses_milestones(text)
     )
 }
 
@@ -189,12 +218,24 @@ fn one_json(t: &Task) -> String {
     let cites: Vec<String> =
         t.cites.iter().map(|c| crate::render::quote(c)).collect();
     format!(
-        "{{\"id\":{},\"status\":{},\"text\":{},\"cites\":[{}]}}",
+        "{{\"id\":{},\"status\":{},\"text\":{},\"cites\":[{}],\
+         \"milestone\":{}}}",
         crate::render::quote(&t.id),
         crate::render::quote(&t.status),
         crate::render::quote(&t.text),
-        cites.join(",")
+        cites.join(","),
+        claimed_json(t.milestone.as_deref())
     )
+}
+
+/// The milestone, or JSON's own word for "no answer here".
+///
+/// `null` rather than `""` or a missing key: an empty string is a value
+/// somebody has to know is special, and a key that comes and goes makes
+/// every reader test for it before indexing. `declares_milestones` beside
+/// the array says which of `null`'s two meanings applies.
+fn claimed_json(milestone: Option<&str>) -> String {
+    milestone.map_or_else(|| "null".to_owned(), crate::render::quote)
 }
 
 #[cfg(test)]
@@ -300,11 +341,73 @@ T2a|.|a todo task riding T2|-
         assert!(report(none, false).starts_with("tasks: none"), "empty spec");
         assert_eq!(
             json("f", none),
-            "{\"file\":\"f\",\"tasks\":[],\"unread\":0}\n"
+            "{\"file\":\"f\",\"tasks\":[],\"unread\":0,\
+             \"declares_milestones\":false}\n"
         );
         let done = SPEC.replace("|~|", "|x|").replace("|.|", "|x|");
         assert!(report(&done, false).contains("3 rows -- 0 ., 0 ~, 3 x"));
         assert!(json("f", &done).contains("\"status\":\"x\""));
+    }
+
+    /// V52: each row carries the milestone that claims it.
+    ///
+    /// The point of the field: a consumer filtering §T by milestone had the
+    /// partition only through the library, so a CLI caller re-read the
+    /// `| M<n> |` grammar itself -- the duplication V7 exists to prevent.
+    #[test]
+    fn each_row_carries_the_milestone_claiming_it() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M1 | first | T1-T2 | done |\n\
+            | M2 | second | T4 | done |\n\
+            T1|x|one|-\nT2|.|two|-\nT4|.|four|-\n";
+        let out = json("f", text);
+        assert!(out.contains("\"id\":\"T1\",\"status\":\"x\",\"text\":\"one\",\"cites\":[],\"milestone\":\"M1\""), "{out}");
+        assert!(out.contains("\"id\":\"T2\",\"status\":\".\",\"text\":\"two\",\"cites\":[],\"milestone\":\"M1\""), "{out}");
+        assert!(out.contains("\"id\":\"T4\",\"status\":\".\",\"text\":\"four\",\"cites\":[],\"milestone\":\"M2\""), "{out}");
+    }
+
+    /// A suffixed row RIDES its base (V14), so `T7a` is in whichever
+    /// milestone claims `7`. Looking it up by the WRITTEN id would find
+    /// nothing and report it unclaimed -- a wrong answer that reads exactly
+    /// like a right one.
+    #[test]
+    fn a_suffixed_row_rides_its_base_into_a_milestone() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M1 | first | T7 | done |\n\
+            T7|x|the base|-\nT7a|.|rides it|-\n";
+        let out = json("f", text);
+        assert_eq!(out.matches("\"milestone\":\"M1\"").count(), 2, "{out}");
+    }
+
+    /// `null`'s TWO meanings, kept apart by the document rather than by the
+    /// row: a spec that declares no milestones has opted out of V15, and a
+    /// spec that declares some and left a row out is V15 FIRING. Both put
+    /// `null` on the row; only `declares_milestones` says which.
+    #[test]
+    fn null_is_told_apart_by_the_document_not_the_row() {
+        let opted_out = "## \u{a7}T TASKS\n\nT1|x|a task|-\n";
+        let out = json("f", opted_out);
+        assert!(out.contains("\"milestone\":null"), "{out}");
+        assert!(out.contains("\"declares_milestones\":false"), "{out}");
+
+        let unclaimed = "## \u{a7}T TASKS\n\n\
+            | M1 | first | T1 | done |\n\
+            T1|x|claimed|-\nT2|.|left out|-\n";
+        let out = json("f", unclaimed);
+        assert!(out.contains("\"declares_milestones\":true"), "{out}");
+        assert!(out.contains("\"id\":\"T2\""), "{out}");
+        assert_eq!(out.matches("\"milestone\":null").count(), 1, "{out}");
+    }
+
+    /// The COMPANION (V18): a MILESTONE row is not a task, so it never
+    /// appears as one -- and the field did not quietly turn it into one.
+    #[test]
+    fn a_milestone_row_still_never_becomes_a_task() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M1 | first | T1 | done |\nT1|x|one|-\n";
+        let out = json("f", text);
+        assert!(!out.contains("\"id\":\"M1\""), "{out}");
+        assert_eq!(out.matches("\"id\":").count(), 1, "{out}");
     }
 
     /// THE issue, in one test: three states a caller must tell apart.
