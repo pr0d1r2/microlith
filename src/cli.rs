@@ -26,30 +26,58 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
     match verb {
         "--help" | "-h" => Output::ok(usage()),
         "--version" | "-V" => version(),
-        "fmt" => one_path(rest, fmt),
-        "check" => one_path(rest, check),
-        "derive" => one_path(rest, |r| reporting(r, derive_report(r))),
-        "anchors" => one_path(rest, |r| reporting(r, anchors_report(r))),
-        "tasks" => one_path(rest, tasks),
-        "migrate" => one_path(rest, migrate),
-        "archive" => one_path(rest, archive),
-        "docs" => Output::ok(crate::docs::markdown()),
-        "extensions" => Output::ok(crate::extensions::markdown()),
+        "fmt" => one_path(verb, rest, fmt),
+        "check" => one_path(verb, rest, check),
+        "derive" | "anchors" => one_path(verb, rest, |r| reporting(verb, r)),
+        "tasks" => one_path(verb, rest, tasks),
+        "migrate" => one_path(verb, rest, migrate),
+        "archive" => one_path(verb, rest, archive),
+        "docs" => asked(verb, rest, docs_reference),
+        "extensions" => asked(verb, rest, extensions_reference),
         other => unknown(other),
     }
 }
 
-/// The arity guard, in ONE place rather than once per verb (V7).
+/// The two guards every verb passes, in ONE place rather than once each
+/// (V7): is the caller ASKING about the verb, and did they give it more
+/// paths than it takes.
 ///
-/// It wraps the verbs that READ a spec; `docs`, `extensions`, `--help` and
-/// `--version` take no path at all. It sits INSIDE the match rather than in
-/// front of it, so an unknown verb is still reported as one: `mth ancors a.md
-/// b.md` names the verb, which is the answer the caller needs first.
-fn one_path(rest: &[String], verb: impl Fn(&[String]) -> Output) -> Output {
-    match extra_paths(rest) {
+/// It sits INSIDE the match rather than in front of it, so an unknown verb
+/// is still reported as one: `mth ancors a.md b.md` names the verb, which is
+/// the answer the caller needs first.
+fn one_path(
+    name: &str,
+    rest: &[String],
+    verb: impl Fn(&[String]) -> Output,
+) -> Output {
+    asked(name, rest, || match extra_paths(rest) {
         Some(refused) => refused,
         None => verb(rest),
+    })
+}
+
+/// `--help` ANSWERED rather than read as a path (V51).
+///
+/// It comes FIRST, before the arity guard and before the verb, because the
+/// alternative was measured and it is not a papercut: `mth fmt --help` in a
+/// project REWROTE SPEC.md, and `mth archive --help` moved a row into the
+/// sink. A tool that rewrites law is one a user must invoke DELIBERATELY
+/// (V10), and typing `--help` is the plainest statement there is of not yet
+/// having decided to.
+fn asked(name: &str, rest: &[String], verb: impl Fn() -> Output) -> Output {
+    match crate::docs::help(name).filter(|_| wants_help(rest)) {
+        Some(text) => Output::ok(text),
+        None => verb(),
     }
+}
+
+/// Whether the caller asked ABOUT the verb rather than asked it to run.
+///
+/// Read anywhere in the arguments, as `--verbose` is: `mth check --records
+/// r.txt --help` is still a question, and answering the one before it would
+/// be reading the flags in the order they happened to be typed.
+fn wants_help(rest: &[String]) -> bool {
+    rest.iter().any(|a| a == "--help" || a == "-h")
 }
 
 fn version() -> Output {
@@ -471,7 +499,27 @@ fn tasks(rest: &[String]) -> Output {
 /// shifted address goes to stdout for a reader to judge. A path that cannot
 /// be read is still a usage error -- that is a broken invocation, not a
 /// finding.
-fn reporting(rest: &[String], report: fn(&str) -> String) -> Output {
+fn docs_reference() -> Output {
+    Output::ok(crate::docs::markdown())
+}
+
+fn extensions_reference() -> Output {
+    Output::ok(crate::extensions::markdown())
+}
+
+/// The report-only verbs, which differ only in WHICH rendering they run.
+///
+/// Chosen from the verb name here rather than at the call site, so the two
+/// share one dispatch arm and `--verbose` is read once for both.
+fn reporting(verb: &str, rest: &[String]) -> Output {
+    let report: fn(&str) -> String = match verb {
+        "derive" => derive_report(rest),
+        _ => anchors_report(rest),
+    };
+    reported(rest, report)
+}
+
+fn reported(rest: &[String], report: fn(&str) -> String) -> Output {
     let path = target(rest);
     match std::fs::read_to_string(&path) {
         Err(_) => unreadable(&path),
@@ -793,6 +841,66 @@ mod tests {
             beside("docs/SPEC.md"),
             format!("docs/{}", crate::archive::ARCHIVE)
         );
+    }
+
+    /// PLANTED (V51): `--help` on a WRITING verb must not write.
+    ///
+    /// The measured bug, and the reason this is not a papercut: `mth fmt
+    /// --help` inside a project rewrote SPEC.md, and `mth archive --help`
+    /// moved a row into the sink. Asking what a verb does must not be the
+    /// way it gets done (B41).
+    #[test]
+    fn help_on_a_writing_verb_explains_rather_than_writes() {
+        let (dir, path) = a_spec_in_its_own_directory("help");
+        let before = std::fs::read_to_string(&path).unwrap_or_default();
+        for verb in ["fmt", "migrate", "archive"] {
+            let o = run(&args(&[verb, "--help", &path]));
+            assert_eq!(o.code, 0, "{verb}: {}", o.err);
+            assert!(o.out.contains("usage:"), "{verb}: {}", o.out);
+            let now = std::fs::read_to_string(&path).unwrap_or_default();
+            assert_eq!(now, before, "{verb} wrote to the spec");
+        }
+        assert!(!dir.join(crate::archive::ARCHIVE).exists(), "sink written");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// ...and it ANSWERS rather than reporting a missing file, which is what
+    /// a reader outside a project used to be told.
+    #[test]
+    fn help_on_a_verb_answers_about_the_verb() {
+        for verb in crate::docs::names() {
+            let o = run(&args(&[verb, "--help"]));
+            assert_eq!(o.code, 0, "{verb}: {}", o.err);
+            assert!(o.out.contains(&format!("mth {verb}")), "{}", o.out);
+            assert!(!o.err.contains(DEFAULT_PATH), "{verb}: {}", o.err);
+        }
+    }
+
+    /// `-h` is accepted wherever `--help` is, and READ anywhere in the
+    /// arguments: a question with a flag before it is still a question.
+    #[test]
+    fn the_short_flag_and_a_late_flag_are_both_questions() {
+        let short = run(&args(&["check", "-h"]));
+        assert!(short.out.contains("usage:"), "{}", short.out);
+        let late = run(&args(&["check", "--records", "r.txt", "--help"]));
+        assert!(late.out.contains("usage:"), "{}", late.out);
+        assert_eq!(late.code, 0, "{}", late.err);
+    }
+
+    /// The COMPANION (V18): without the flag every verb still RUNS.
+    ///
+    /// A guard that answered a question by never doing the work would pass
+    /// every test above, so this pins that the ordinary invocation is
+    /// untouched -- including the one that reports a violation.
+    #[test]
+    fn a_verb_without_the_flag_still_does_its_work() {
+        assert_eq!(run(&args(&["check", "SPEC.md"])).code, 0);
+        assert_eq!(run(&args(&["fmt", "--check", "SPEC.md"])).code, 0);
+        let bad = write_temp("helpless", "# spec\n\nV1: no header.\n");
+        let o = run(&args(&["check", &bad]));
+        assert_eq!(o.code, 1, "{}{}", o.out, o.err);
+        assert!(o.err.contains("V11"), "{}", o.err);
+        let _ = std::fs::remove_file(&bad);
     }
 
     /// A one-row spec in a directory of its own, so the SIBLING the verb
