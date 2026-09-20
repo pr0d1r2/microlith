@@ -38,7 +38,38 @@ is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
 
-## [Unreleased]
+## [0.7.2] — 2026-09-20
+
+A patch by number. **Read this before updating: `check` now fails on specs it
+used to pass.**
+
+MEASURED against `0.7.1` over 419 distinct spec texts: **76 of them, across 18
+distinct projects, go from a clean `check` to a reported violation.** None goes
+the other way. `0.7.1`'s own entry set the test a patch has to meet — *"a
+consumer gets it by `cargo update` and loses nothing"* — and this release does
+not meet it. The number stays `0.7.2` as a deliberate call; the figure is
+recorded here so nobody meets it as a surprise in CI.
+
+The cause is V49, and the change is the point rather than an accident: a `§T`
+written as a markdown table is invisible to the id grammar, so the section read
+as ABSENT rather than unreadable. B15 recorded 16 specs passing `check` with
+their whole task section unseen. Those specs now say so, once per section, and
+`mth migrate <path>` converts them — the mechanical fix the finding names.
+
+Three smaller changes to behaviour that already existed:
+
+| invocation | `0.7.1` | `0.7.2` |
+|---|---|---|
+| `check`/`fmt --check` with several paths | exit 0 or 1 | exit 2 |
+| `<verb> --help` | ran the verb | prints help |
+| `tasks --format json` | 4 fields per row | adds `unread`, `milestone`, `declares_milestones` |
+
+`fmt --help` inside a project rewrote `SPEC.md` before this release, and
+`archive --help` moved a row into the sink; both now explain themselves.
+
+The LIBRARY surface is additive only — `archive_spec`, `archive_report` and
+`ARCHIVE` join it, and nothing existing changed shape — so a consumer
+compiling against the crate is unaffected.
 
 ### Fixed
 
