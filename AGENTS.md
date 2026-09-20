@@ -32,8 +32,14 @@ Outside that shell the hooks **skip loudly**: one line on stderr, exit 0
 stands behind them, so that line means genuinely ungated rather than
 merely local — enter the shell (B19).
 
-The next unstarted task is **T8**, publish, in `SPEC.md`. T7 is `~` and
-blocked on it.
+`SPEC.md` names what is next, and it is the file to read rather than a
+sentence here that goes stale -- this one did, naming a publish that had
+already happened five releases earlier. `mth tasks SPEC.md` prints the
+backlog in id order, and a row carrying `~` is work somebody started.
+
+One thing that list cannot say: **T7**'s remaining work is in ANOTHER repo.
+Its blocker lifted when `0.7.2` reached the registry, and the delete it asks
+for lands where the third implementation lives, not here.
 
 Releasing is `cargo-release`, configured in `release.toml` — never a script
 (§V.37). Dry-run is its default, so any step without `--execute` verifies and
