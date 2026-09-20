@@ -66,3 +66,8 @@ V47  REJECTED: keying V11 on the HEADING
 # that was supposed to rescue it. Both are the obvious compaction, so without
 # this line the stub reads as an odd choice somebody should simplify.
 V48  Lifting a done row OUT
+
+# V49 rejected giving `tasks` a distinct exit code for "read nothing, but the
+# file is not empty of candidates". Without this line it reads as the obvious
+# signal nobody got round to adding.
+V49  REJECTED: a distinct EXIT CODE

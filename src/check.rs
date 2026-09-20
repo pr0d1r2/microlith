@@ -773,6 +773,105 @@ fn winner_is_retired(id: &str, winner: &str) -> Violation {
         )
 }
 
+/// One section whose declarations this build cannot read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Unread {
+    /// The section letter the unread declarations sit under.
+    pub kind: char,
+    /// The 1-based line of the first one.
+    pub line: usize,
+    /// How many there are.
+    pub count: usize,
+}
+
+/// V49: declarations written in a DIALECT are COUNTED, never silence.
+///
+/// A `| T1 | x | task | - |` row is a markdown table, and FORMAT.md's §T is a
+/// BARE pipe table, so the id grammar never sees it. B15 measured what that
+/// costs: 21 fleet specs write §T that way, 1,227 rows, and 16 of them PASSED
+/// `check` while their whole task section was invisible.
+///
+/// The reading is `migrate`'s, called rather than restated (V7): a line this
+/// counts is exactly a line `migrate` would convert. The two answers cannot
+/// drift, because there is one of them.
+///
+/// ONE finding per SECTION, not per row, and that is the rule working rather
+/// than a rounding: V15 fired once per row on a spec that had declined an
+/// optional feature and was, in its own words, a check too loud to read. A
+/// section naming its count and its fix is one line somebody acts on.
+#[must_use]
+pub fn unread_rows(text: &str) -> Vec<Unread> {
+    let mut out: Vec<Unread> = Vec::new();
+    let mut at = (' ', false);
+    for (i, line) in text.lines().enumerate() {
+        tally_one(&mut out, &mut at, i.saturating_add(1), line);
+    }
+    out
+}
+
+/// One line, with the section and fence state it is read in -- `migrate`'s
+/// own bookkeeping, so a line counted here is one the rewrite would reach.
+fn tally_one(
+    out: &mut Vec<Unread>,
+    at: &mut (char, bool),
+    line_no: usize,
+    line: &str,
+) {
+    let (section, fenced) = at;
+    if crate::format::is_fence(line) {
+        *fenced = !*fenced;
+        return;
+    }
+    if let Some(k) = section_of(line) {
+        *section = k;
+    }
+    if !*fenced && crate::migrate::dialect(line.trim_end(), *section).is_some()
+    {
+        count_one(out, *section, line_no);
+    }
+}
+
+/// This line, folded into its section's tally.
+fn count_one(out: &mut Vec<Unread>, kind: char, line: usize) {
+    match out.iter_mut().find(|u| u.kind == kind) {
+        Some(seen) => seen.count = seen.count.saturating_add(1),
+        None => out.push(Unread {
+            kind,
+            line,
+            count: 1,
+        }),
+    }
+}
+
+/// The section a header opens, if it opens one.
+fn section_of(line: &str) -> Option<char> {
+    KINDS.into_iter().find(|k| is_header_for(line, *k))
+}
+
+/// V49 as findings: one per section, each naming the one action that fixes it.
+#[must_use]
+pub fn rows_are_readable(text: &str) -> Vec<Violation> {
+    unread_rows(text).into_iter().map(unread).collect()
+}
+
+fn unread(u: Unread) -> Violation {
+    let what = if u.count == 1 {
+        "declaration"
+    } else {
+        "declarations"
+    };
+    Violation::new(
+        "V49",
+        format!("\u{a7}{} holds {} {what} in a DIALECT this build cannot read", u.kind, u.count),
+    )
+    .why("an unread declaration is not an absent one, and every verb reports it as absent")
+    .try_(
+        Fix::Mechanical,
+        "run `mth migrate <path>` -- the rows convert to the canonical form",
+    )
+    .at(u.line)
+}
+
 /// V14: rows appear in SORTED id order, and a suffixed id RIDES its base.
 #[must_use]
 pub fn rows_sorted(text: &str) -> Vec<Violation> {
@@ -1550,6 +1649,64 @@ mod tests {
 
     /// V42, PLANTED: a literal pipe in the text moves the field boundary,
     /// so the last field stops being citations. The row still LOOKS fine,
+    /// PLANTED (V49): a §T written as a markdown table is COUNTED.
+    ///
+    /// The shape B15 measured -- 21 fleet specs, 1,227 rows, 16 of them
+    /// passing `check` with their whole task section invisible. One finding
+    /// for the section, naming how many and the one action that fixes it.
+    #[test]
+    fn a_section_written_in_a_dialect_is_reported_once_with_its_count() {
+        let text = "## \u{a7}T TASKS\n\
+            | id | status | task | cites |\n\
+            | --- | --- | --- | --- |\n\
+            | T1 | x | first | - |\n\
+            | T2 | . | second | - |\n";
+        let found = rows_are_readable(text);
+        assert_eq!(found.len(), 1, "one per SECTION, not per row: {found:?}");
+        let one = found.first().map(ToString::to_string).unwrap_or_default();
+        assert!(one.contains("V49"), "{one}");
+        assert!(one.contains("2 declarations"), "{one}");
+        assert!(one.contains("\u{a7}T"), "{one}");
+    }
+
+    /// The count is what `tasks` reports too, from the SAME reading (V7).
+    #[test]
+    fn the_count_is_per_section_and_survives_a_mixed_section() {
+        let text =
+            "## \u{a7}T TASKS\n\nT1|x|read fine|-\n| T2 | . | not | - |\n";
+        let got = unread_rows(text);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got.first().map(|u| (u.kind, u.count)), Some(('T', 1)));
+    }
+
+    /// An ordinal §V list is the same defect in another dialect, so it
+    /// arrives free -- and proves the rule reads `migrate` rather than
+    /// hard-coding what a table looks like.
+    #[test]
+    fn an_ordinal_invariant_list_is_counted_too() {
+        let text =
+            "## \u{a7}V INVARIANTS\n\n1. the first rule.\n2. the second.\n";
+        assert_eq!(
+            unread_rows(text).first().map(|u| (u.kind, u.count)),
+            Some(('V', 2))
+        );
+    }
+
+    /// The COMPANION (V18): every shape the format PERMITS stays silent.
+    ///
+    /// A guard that counted every table would fire on the milestone rows in
+    /// `real()` -- which is the construct FORMAT.md renders AS a table -- and
+    /// on a fenced example, which is somebody's illustration (B14).
+    #[test]
+    fn a_canonical_spec_has_nothing_unread() {
+        assert_eq!(rows_are_readable(&real()), Vec::<Violation>::new());
+        let fenced = "## \u{a7}T TASKS\n\n```\n| T1 | x | shown | - |\n```\n";
+        assert_eq!(unread_rows(fenced), Vec::<Unread>::new());
+        let milestone =
+            "## \u{a7}T TASKS\n\n| M1 | scope | T1 | done |\nT1|x|a|-\n";
+        assert_eq!(unread_rows(milestone), Vec::<Unread>::new());
+    }
+
     /// which is why nothing caught it for eight rows of our own spec.
     #[test]
     fn v42_rejects_a_row_whose_literal_pipe_is_unescaped() {

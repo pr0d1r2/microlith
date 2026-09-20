@@ -91,7 +91,7 @@ pub(crate) fn tally(rows: &[Task]) -> Vec<(&'static str, usize)> {
 /// indistinguishable from a run that failed to reach the file.
 pub(crate) fn report(text: &str, full: bool) -> String {
     let rows = tasks(text);
-    let mut out = head(&rows);
+    let mut out = head(&rows, unread(text));
     for t in &rows {
         let shown = if full { t.text.clone() } else { gist(&t.text) };
         out.push_str(&format!("task {}: {} -- {shown}\n", t.id, t.status));
@@ -99,16 +99,63 @@ pub(crate) fn report(text: &str, full: bool) -> String {
     out
 }
 
-/// The count line: how many rows, and how many of each status.
-fn head(rows: &[Task]) -> String {
+/// How many §T rows this build could not read (V49).
+///
+/// Asked of the CHECKER rather than counted again here: a second reading of
+/// what a dialect row is would be the drift V7 exists to end, and this verb
+/// and `check` disagreeing about whether a spec has tasks is exactly the
+/// confusion the count was added to remove.
+fn unread(text: &str) -> usize {
+    crate::check::unread_rows(text)
+        .iter()
+        .filter(|u| u.kind == 'T')
+        .map(|u| u.count)
+        .sum()
+}
+
+/// The count line: how many rows, how many of each status, and how many
+/// rows were THERE but unreadable.
+///
+/// The last part is why `none` is not the whole answer. A spec whose §T is
+/// written in a dialect reported `none` and exit 0, which a caller cannot
+/// tell from a spec with an empty backlog -- and the rows were sitting right
+/// there. Report-only still (V10): this is an ANSWER, not a verdict, and
+/// `check` is where it becomes one.
+fn head(rows: &[Task], unread: usize) -> String {
     if rows.is_empty() {
-        return "tasks: none -- no \u{a7}T rows here\n".to_owned();
+        return none_read(unread);
     }
     let counts: Vec<String> = tally(rows)
         .iter()
         .map(|(s, n)| format!("{n} {s}"))
         .collect();
-    format!("tasks: {} rows -- {}\n", rows.len(), counts.join(", "))
+    format!(
+        "tasks: {} rows -- {}{}\n",
+        rows.len(),
+        counts.join(", "),
+        also(unread)
+    )
+}
+
+/// Nothing was read -- which is TWO different facts, and saying `none` for
+/// both is the whole of what was reported. An empty backlog and a §T nobody
+/// here can parse are the states a caller must tell apart.
+fn none_read(unread: usize) -> String {
+    match unread {
+        0 => "tasks: none -- no \u{a7}T rows here\n".to_owned(),
+        n => format!(
+            "tasks: none READ -- {n} \u{a7}T rows are here in a dialect this \
+             build cannot read; `mth migrate` converts them\n"
+        ),
+    }
+}
+
+/// The same fact beside rows that WERE read: a partial answer said to be one.
+fn also(unread: usize) -> String {
+    match unread {
+        0 => String::new(),
+        n => format!("; {n} more unread, in a dialect (`mth migrate`)"),
+    }
 }
 
 /// Enough of the task to recognise it; `--verbose` prints all of it. The same
@@ -131,9 +178,10 @@ fn gist(text: &str) -> String {
 pub(crate) fn json(file: &str, text: &str) -> String {
     let items: Vec<String> = tasks(text).iter().map(one_json).collect();
     format!(
-        "{{\"file\":{},\"tasks\":[{}]}}\n",
+        "{{\"file\":{},\"tasks\":[{}],\"unread\":{}}}\n",
         crate::render::quote(file),
-        items.join(",")
+        items.join(","),
+        unread(text)
     )
 }
 
@@ -250,10 +298,45 @@ T2a|.|a todo task riding T2|-
     fn no_tasks_reads_differently_from_all_done() {
         let none = "## \u{a7}V INVARIANTS\nV1: **a rule.** alone here.\n";
         assert!(report(none, false).starts_with("tasks: none"), "empty spec");
-        assert_eq!(json("f", none), "{\"file\":\"f\",\"tasks\":[]}\n");
+        assert_eq!(
+            json("f", none),
+            "{\"file\":\"f\",\"tasks\":[],\"unread\":0}\n"
+        );
         let done = SPEC.replace("|~|", "|x|").replace("|.|", "|x|");
         assert!(report(&done, false).contains("3 rows -- 0 ., 0 ~, 3 x"));
         assert!(json("f", &done).contains("\"status\":\"x\""));
+    }
+
+    /// THE issue, in one test: three states a caller must tell apart.
+    ///
+    /// An empty backlog, a readable one, and a §T whose rows are there but
+    /// in a dialect. The third used to be spelled exactly like the first --
+    /// `"tasks":[]`, exit 0 -- with two id-shaped rows sitting right there,
+    /// and the only verb that knew was one a reader has no reason to run.
+    #[test]
+    fn an_unread_section_is_not_spelled_like_an_empty_one() {
+        let dialect = "## \u{a7}T TASKS\n\n\
+            | T1 | x | first | - |\n| T2 | . | second | - |\n";
+        let empty = "## \u{a7}T TASKS\n\nnothing here yet.\n";
+        assert!(json("f", dialect).contains("\"unread\":2"), "counted");
+        assert!(json("f", empty).contains("\"unread\":0"), "really empty");
+        assert!(
+            json("f", dialect).contains("\"tasks\":[]"),
+            "still enumerates"
+        );
+        assert!(report(dialect, false).starts_with("tasks: none READ"));
+        assert!(report(empty, false).starts_with("tasks: none --"));
+    }
+
+    /// A section that is PARTLY readable says so beside the rows it read,
+    /// rather than reporting a count the caller would believe is the whole.
+    #[test]
+    fn a_partly_read_section_says_how_many_it_missed() {
+        let mixed =
+            "## \u{a7}T TASKS\n\nT1|x|read fine|-\n| T2 | . | not | - |\n";
+        let said = report(mixed, false);
+        assert!(said.contains("1 more unread"), "{said}");
+        assert!(json("f", mixed).contains("\"unread\":1"), "{mixed}");
     }
 
     /// The JSON is the contract: every field the consumer indexes on, in one
