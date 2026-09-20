@@ -338,22 +338,88 @@ pub fn report(text: &str) -> String {
         .collect()
 }
 
-/// What migrate could NOT do -- the collisions it refuses to touch.
+/// What migrate could NOT do -- everything it refuses to touch.
 ///
 /// Reported separately because it is the one case where a successful run
 /// leaves the file still not canonical. Folding it into silence would say
 /// the job was finished when the hard half was declined.
+///
+/// TWO kinds, and the second is why this walks the file rather than mapping
+/// over lines: a letter COLLISION is decided by the header alone, but an
+/// UNPLACEABLE ROW is decided by the header ABOVE it, so the section and the
+/// fence have to be carried along exactly as `rewrite` carries them.
 #[must_use]
 pub fn unfinished(text: &str) -> String {
-    text.lines()
-        .enumerate()
-        .filter_map(|(i, line)| match plan(line)? {
-            Plan::Leave(was) => {
-                Some(describe(i.saturating_add(1), &Plan::Leave(was)))
-            }
-            _ => None,
-        })
-        .collect()
+    let mut out = String::new();
+    let mut at = (' ', false);
+    for (i, line) in text.lines().enumerate() {
+        note(&mut out, &mut at, i.saturating_add(1), line);
+    }
+    out
+}
+
+/// One line, with the section and fence state it is read in.
+///
+/// `emit`'s bookkeeping, for the READING pass rather than the writing one --
+/// same two pieces of state, tracked the same way, because a report that
+/// disagreed with the rewrite about which section a line sits in would name
+/// lines the rewrite never considered.
+fn note(out: &mut String, at: &mut (char, bool), n: usize, line: &str) {
+    let (section, fenced) = at;
+    if crate::format::is_fence(line) {
+        *fenced = !*fenced;
+        return;
+    }
+    if *fenced {
+        return;
+    }
+    if let Some(k) = section_of(line) {
+        *section = k;
+    }
+    out.push_str(&declined(n, line, *section));
+}
+
+/// What this one line costs the run, if anything.
+fn declined(n: usize, line: &str, section: char) -> String {
+    if let Some(Plan::Leave(was)) = plan(line) {
+        return describe(n, &Plan::Leave(was));
+    }
+    unplaceable(line, section).map_or_else(String::new, |id| unplaced(n, &id))
+}
+
+/// A row in a convertible DIALECT that no header can place (V47).
+///
+/// `dialect` converts a table row only into the section its own letter names,
+/// which is right -- a `| T1 |` row is a §T row and writing it anywhere else
+/// would invent a claim. But declining it in SILENCE is what let a spec carry
+/// two defects and report clean from every verb: an unrecognised heading
+/// leaves the rows unparsed, and unparsed rows are never ITEMS, so V11 has
+/// nothing to call orphaned either. The two hid each other (B38).
+///
+/// So the row is still not converted -- where it belongs is the reader's
+/// judgement (V6) -- and it is no longer silent.
+///
+/// `M` is excluded for the reason `from_table` excludes it: a milestone row
+/// is a table BY DESIGN, so it is placed exactly where it should be.
+fn unplaceable(line: &str, section: char) -> Option<String> {
+    let cells = table_cells(line.trim_end())?;
+    let first = cells.first()?;
+    let id = crate::id::at_line_start(&format!("{first}:"))?;
+    if id.kind == 'M' || from_table(&cells, section).is_some() {
+        return None;
+    }
+    Some(first.clone())
+}
+
+/// Named with the header that WOULD place it, so the fix is one edit.
+fn unplaced(n: usize, id: &str) -> String {
+    let kind =
+        crate::id::at_line_start(&format!("{id}:")).map_or(' ', |i| i.kind);
+    let header = canonical_header(kind).unwrap_or("its own section");
+    format!(
+        "{n}: `{id}` is a row in a CONVERTIBLE dialect with no `{header}` \
+         above it -- unplaceable, so it is left alone\n"
+    )
 }
 
 fn describe(line: usize, plan: &Plan) -> String {
@@ -647,6 +713,72 @@ V1: **a rule.**
             unfinished(text).is_empty(),
             "a fixable header is not unfinished work"
         );
+    }
+
+    /// The two-defect file from the report, PLANTED (V18).
+    ///
+    /// An unrecognised heading and rows in the bracketed dialect. Each rule
+    /// that could speak is disarmed by the other: the rows never parse, so
+    /// they are never ITEMS, so V11 has nothing to call orphaned -- and the
+    /// file with TWO problems was the one that reported clean from `tasks`,
+    /// `check` and `migrate --check` alike (B38). `migrate` now says so.
+    #[test]
+    fn a_dialect_row_under_an_unrecognised_heading_is_reported() {
+        let text = "# SPEC\n\n## S.T Tasks\n\n\
+            | id | status | task | cites |\n\
+            | --- | --- | --- | --- |\n\
+            | T1 | x | first task | - |\n\
+            | T2 | . | second task | - |\n";
+        let out = unfinished(text);
+        assert!(out.contains("7: `T1`"), "{out}");
+        assert!(out.contains("8: `T2`"), "{out}");
+        assert!(out.contains("## \u{a7}T TASKS"), "names the fix: {out}");
+        assert_eq!(migrate(text).unwrap_or_default(), text, "left alone");
+    }
+
+    /// The same silence under a heading that IS recognised but is not the
+    /// row's own. A `| T1 |` row under `\u{a7}B` is an item outliving its
+    /// header, and V11 cannot see it for the same reason: it never parses.
+    #[test]
+    fn a_dialect_row_under_the_wrong_section_is_reported() {
+        let text = "## \u{a7}B BUGS\n\n| T1 | x | first | - |\n";
+        assert!(unfinished(text).contains("3: `T1`"), "{text}");
+    }
+
+    /// Naming the header that WOULD place it is the whole direction, so it
+    /// is pinned per letter rather than assumed from the one case above.
+    #[test]
+    fn the_report_names_the_header_for_the_row_it_found() {
+        for (id, header) in [
+            ("T1 | x | t | -", "## \u{a7}T TASKS"),
+            ("B1 | d | c | f", "## \u{a7}B BUGS"),
+            ("R1 | t | f | s", "## \u{a7}R RESEARCH"),
+        ] {
+            let text = format!("# SPEC\n\n| {id} |\n");
+            assert!(unfinished(&text).contains(header), "{text}");
+        }
+    }
+
+    /// The COMPANION (V18): every row that is placed, or is not a row at
+    /// all, stays SILENT. A guard that reported the unplaceable ones by
+    /// reporting every table would be indistinguishable from this one on
+    /// the test above, and would fire on our own spec's milestones.
+    #[test]
+    fn a_placed_or_furniture_row_is_not_reported() {
+        for text in [
+            // converted into its own section, so there is nothing to say
+            "## \u{a7}T TASKS\n| T1 | x | first | - |\n",
+            // a milestone is a table BY DESIGN (V15)
+            "## \u{a7}T TASKS\n| M1 | scope | T1-T3 | done-when |\n",
+            // furniture: a header row and a separator declare nothing
+            "# SPEC\n\n| id | status | task | cites |\n| --- | --- | --- |\n",
+            // a table inside a fence is an EXAMPLE, not a declaration (B14)
+            "# SPEC\n\n```\n| T1 | x | first | - |\n```\n",
+            // not a table at all
+            "# SPEC\n\nT1|x|first|-\n",
+        ] {
+            assert_eq!(unfinished(text), "", "{text}");
+        }
     }
 
     /// The COMPANION, and it passed before this change too -- recorded

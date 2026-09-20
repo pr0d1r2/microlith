@@ -56,3 +56,8 @@ V44  REJECTED: actionlint ALONE
 # this line the fan-out reads as an unbuilt convenience rather than a decision
 # with a trigger.
 V46  REJECTED: FAN OUT
+
+# V47 rejected keying V11 on the heading instead of on the rows, because
+# FORMAT.md permits ordinary `##` headings that open no section at all.
+# Without this line it reads as the obvious fix nobody got round to.
+V47  REJECTED: keying V11 on the HEADING
