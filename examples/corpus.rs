@@ -12,6 +12,20 @@
 //! the language the rules are written in, calling the same `check_spec` a
 //! consumer calls (V7).
 //!
+//! WHAT IT CANNOT ANSWER, said here so the next person does not reach for a
+//! shell pipeline the way B27 and B31 did. A question of the form "how many
+//! specs CHANGE VERDICT between two releases" needs TWO builds, and this
+//! program is one. Run the sweep at each tag and diff the `clean:` line --
+//! both sides then use this same sieve, which is the part that matters:
+//!
+//!     git worktree add /tmp/old v0.7.1
+//!     (cd /tmp/old && cargo run -q --example corpus -- ~/projects)
+//!     cargo run -q --example corpus -- ~/projects
+//!
+//! Measured that way, 0.7.1 -> 0.7.2 took `clean` from 223 to 149 of 379
+//! (B42). A comparison made any other way gets a different denominator, and
+//! that is not a rounding difference -- it is the defect B31 records.
+//!
 //! NOT A VERB, and not shipped. `Cargo.toml` excludes `examples/` from the
 //! `.crate`: this reads paths that exist only on a developer's disk, and a
 //! crate a consumer downloads has no fleet to sweep. It stays inside the
@@ -209,6 +223,13 @@ struct Sweep {
     fmt_rewrites: usize,
     fmt_unstable: usize,
     migrate_declined: usize,
+    /// Rows inside a §-section whose ID CELL IS EMPTY -- the group
+    /// labels #27 asked about. No rule reports them and none should: they
+    /// declare nothing, so V12, V14 and V15 have nothing to say. Counted
+    /// because the ANSWER to that question was a number, and a number
+    /// nobody can reproduce is the defect B27, B28, B31 and B33 record.
+    furniture_rows: usize,
+    furniture_specs: usize,
     /// The letter whose LABELS are being read, and what they say.
     watched: Option<char>,
     labels: BTreeMap<String, usize>,
@@ -253,6 +274,7 @@ impl Sweep {
     fn add(&mut self, text: &str) {
         self.files = self.files.saturating_add(1);
         self.census(text);
+        self.furniture(text);
         self.read_labels(text);
         self.rewrite(text);
         // V16 needs a baseline of named records, which is a claim about ONE
@@ -349,6 +371,24 @@ impl Sweep {
         }
     }
 
+    /// Rows a table carries that declare NOTHING: an empty id cell.
+    ///
+    /// A header row and a separator row are the same category and are
+    /// already excluded -- neither reaches here, because the first cell of
+    /// a header is a word and a separator is all dashes. What is left is
+    /// the group label somebody wrote between two tasks.
+    ///
+    /// Scoped to §-sections, so a comparison table in prose is not counted
+    /// as spec furniture.
+    fn furniture(&mut self, text: &str) {
+        let n = furniture_rows(text);
+        if n == 0 {
+            return;
+        }
+        self.furniture_rows = self.furniture_rows.saturating_add(n);
+        self.furniture_specs = self.furniture_specs.saturating_add(1);
+    }
+
     /// Which letters this ONE spec carries, counted once each.
     fn census(&mut self, text: &str) {
         let mut seen: Vec<char> = Vec::new();
@@ -396,12 +436,15 @@ impl Sweep {
         format!(
             "fmt would rewrite: {}\nfmt over the cap: {}\n\
              fmt REFUSED its own proof (a defect, V1): {}\n\
-             fmt UNSTABLE (a defect, V2): {}\nmigrate declined: {}\n",
+             fmt UNSTABLE (a defect, V2): {}\nmigrate declined: {}\n\
+             empty-id furniture rows: {} in {} specs\n",
             self.fmt_rewrites,
             self.fmt_over_cap,
             self.fmt_refused,
             self.fmt_unstable,
-            self.migrate_declined
+            self.migrate_declined,
+            self.furniture_rows,
+            self.furniture_specs
         )
     }
 
@@ -420,6 +463,47 @@ impl Sweep {
         }
         out
     }
+}
+
+/// Rows inside a §-section whose first cell is EMPTY, counted per spec.
+///
+/// Fences are skipped for B14's reason: a table inside one is somebody's
+/// example of the format, not a declaration in this spec.
+fn furniture_rows(text: &str) -> usize {
+    let mut at = (false, false);
+    text.lines()
+        .filter(|line| in_a_section(&mut at, line))
+        .count()
+}
+
+/// One line, with the `(inside a section, inside a fence)` state it is read
+/// in -- and whether it is a row that declares nothing.
+fn in_a_section(at: &mut (bool, bool), line: &str) -> bool {
+    let (sectioned, fenced) = at;
+    if line.trim_start().starts_with("```") {
+        *fenced = !*fenced;
+        return false;
+    }
+    if header_letter(line).is_some() {
+        *sectioned = true;
+    }
+    *sectioned && !*fenced && declares_nothing(line)
+}
+
+/// A bracketed table row whose id cell is empty, and which is not a
+/// separator. A header row does not reach here: `id` is a word, not empty.
+fn declares_nothing(line: &str) -> bool {
+    let t = line.trim();
+    let Some(inner) = t.strip_prefix('|').and_then(|l| l.strip_suffix('|'))
+    else {
+        return false;
+    };
+    if inner.chars().all(|c| matches!(c, '-' | ':' | '|' | ' ')) {
+        return false;
+    }
+    microlith::cells(inner)
+        .first()
+        .is_some_and(|c| c.trim().is_empty())
 }
 
 /// Every `SPEC.md` under these roots, once each.
@@ -590,6 +674,52 @@ mod tests {
 
     /// B28: the largest distortion was never NAMED like a copy -- one
     /// workspace held hundreds of checkouts under ordinary directory names.
+    /// #27's answer, with a runner behind it.
+    ///
+    /// The question was whether an empty id cell is furniture or a gap. It
+    /// is furniture, and the evidence was a COUNT -- so the count lives
+    /// here, where it can be re-run, rather than in a script that answered
+    /// the issue and was deleted. That is B27, B28, B31 and B33's whole
+    /// lesson, and the first three of those were published figures.
+    #[test]
+    fn a_row_with_an_empty_id_cell_is_counted_as_furniture() {
+        let text = "## \u{a7}T TASKS\n\
+            | id | status | task | cites |\n\
+            |----|--------|------|-------|\n\
+            | T1 | x | first | - |\n\
+            |    |   | **\u{2014} a group label \u{2014}** |   |\n\
+            | T2 | . | second | - |\n";
+        assert_eq!(furniture_rows(text), 1);
+    }
+
+    /// The COMPANION: every row that DOES declare something, and every
+    /// piece of table furniture already excluded, stays uncounted.
+    ///
+    /// A guard that counted the header and the separator would have
+    /// reported three where the answer is one, and the issue was answered
+    /// with a number.
+    #[test]
+    fn a_header_a_separator_and_a_real_row_are_not_furniture() {
+        let header = "## \u{a7}T TASKS\n| id | status | task | cites |\n";
+        assert_eq!(furniture_rows(header), 0);
+        let sep = "## \u{a7}T TASKS\n|----|----|\n| --- | :-: |\n";
+        assert_eq!(furniture_rows(sep), 0);
+        let row = "## \u{a7}T TASKS\n| T1 | x | a task | - |\n";
+        assert_eq!(furniture_rows(row), 0);
+        let bare = "## \u{a7}T TASKS\nT1|x|a task|-\n";
+        assert_eq!(furniture_rows(bare), 0);
+    }
+
+    /// Outside a §-section it is somebody's prose table, not spec
+    /// furniture -- and inside a FENCE it is an example (B14).
+    #[test]
+    fn furniture_is_read_only_inside_a_section_and_outside_a_fence() {
+        let prose = "# SPEC\n\n|  | a comparison |\n";
+        assert_eq!(furniture_rows(prose), 0);
+        let fenced = "## \u{a7}T TASKS\n```\n|  |  | a label |  |\n```\n";
+        assert_eq!(furniture_rows(fenced), 0);
+    }
+
     /// Identical text is one spec however many paths carry it.
     #[test]
     fn identical_text_is_counted_once() {
