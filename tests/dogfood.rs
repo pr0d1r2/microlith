@@ -4,6 +4,7 @@
 //! against the library being built, so the spec and the code cannot drift
 //! apart without the gate noticing.
 
+use microlith::ARCHIVE;
 use microlith::migrate_declined;
 use microlith::parse_records;
 use microlith::tasks_json;
@@ -88,6 +89,34 @@ fn is_id(cite: &str) -> bool {
 #[test]
 fn our_own_spec_leaves_migrate_nothing_it_cannot_place() {
     assert_eq!(migrate_declined(&spec()), "");
+}
+
+/// V48: every stub in our own spec points at text the archive really holds.
+///
+/// The half of the fold no other test would notice. A stub says the text
+/// moved; if the sink does not hold it, the text went nowhere and the row
+/// that used to carry it now says so in a file nobody will re-read.
+///
+/// It does NOT assert the spec is fully folded. Whether to fold is the
+/// caller's threshold (V48), so a row finished this morning and not yet
+/// archived is an ordinary state, not a defect -- and a guard that said
+/// otherwise would make `mth archive` mandatory on every commit that
+/// finishes a task.
+#[test]
+fn every_stub_in_our_own_spec_points_at_text_the_archive_holds() {
+    let stored = at_root(ARCHIVE);
+    let stubs = spec().lines().filter(|l| l.contains("ARCHIVED to")).count();
+    assert!(stubs > 0, "nothing has ever been archived");
+    for id in spec()
+        .lines()
+        .filter(|l| l.contains("ARCHIVED to"))
+        .filter_map(|l| l.split('|').next().map(str::to_owned))
+    {
+        assert!(
+            stored.contains(&format!("\n{id}|x|")),
+            "{id} is not in {ARCHIVE}"
+        );
+    }
 }
 
 /// V5/V9: and no line is over the cap.

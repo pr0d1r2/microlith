@@ -37,6 +37,11 @@ const COMMANDS: &[Command] = &[
         blurb: "Section headers to canonical 4.1.0. A case or punctuation difference is rewritten silently; a label carrying real text is rewritten with the original kept beneath it, so nothing is discarded. Every alphanumeric run of the original is proven to survive before any write. A letter used for a DIFFERENT concept is never touched -- annotating one keeps the characters and inverts the meaning -- so those are reported and exit 1. `--check` reports without writing.",
     },
     Command {
+        name: "archive",
+        synopsis: "archive [--check] [--records <file>] [--verbose] [<path>]",
+        blurb: "Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place. The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.",
+    },
+    Command {
         name: "derive",
         synopsis: "derive [--verbose] [<path>]",
         blurb: "Sizes, the citation graph, invariants cited by nothing, and statements said twice. Report-only: exits 0 even with findings, because an orphan is a question for a reader, not a build failure. `--verbose` adds every statement's size, biggest first: what to cut.",

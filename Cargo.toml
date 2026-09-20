@@ -105,7 +105,9 @@ exclude = [
 #                   this build adds, sends that reader away wrong
 #   SPEC.md         `tests/dogfood.rs` reads it; without it `cargo test` on
 #   .spec-records   the unpacked crate fails rather than dogfooding
-#   .context-limits the ceiling and the reasoning behind eleven raises
+#   .context-limits the ceiling, and the reasoning behind every move of
+#                   it -- twelve raises and, once `mth archive` existed, the
+#                   first lowering
 #   clippy.toml     the code limits this source was written against, so it
 #   rustfmt.toml    lints and formats identically once unpacked
 [package.metadata.microlith]
@@ -113,6 +115,10 @@ must-package = [
   "FORMAT.md",
   "FORMAT-EXTENSIONS.md",
   "SPEC.md",
+  # SPEC.md carries stub rows that NAME this file (V48). Shipping one
+  # without the other publishes 29 pointers into nothing, which is the
+  # dangling-reference defect V13 exists to stop, one file out.
+  "SPEC-ARCHIVE.md",
   ".spec-records",
   ".context-limits",
   "clippy.toml",
