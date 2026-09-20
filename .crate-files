@@ -11,6 +11,7 @@ FORMAT-EXTENSIONS.md
 FORMAT.md
 LICENSE
 README.md
+SPEC-ARCHIVE.md
 SPEC.md
 clippy.toml
 deny.toml
@@ -23,6 +24,7 @@ docs/THIRD-PARTY-NOTICES.md
 rustfmt.toml
 src/SPEC.md
 src/anchors.rs
+src/archive.rs
 src/check.rs
 src/cli.rs
 src/derive.rs

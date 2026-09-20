@@ -77,6 +77,54 @@ pipeline gets proven before a permanent number is spent.
   `##` headings that open no section, so that rule would fire on prose. It
   reopens if a grammar arrives that says which `##` lines are sections.
 
+### Added
+
+- **`mth archive` — the compaction sink** (V48, T39). Moves a finished task's
+  TEXT to `SPEC-ARCHIVE.md` and leaves a stub row in its place:
+
+  ```
+  $ mth archive --check --records .spec-records SPEC.md
+  mth: 28 rows would move to SPEC-ARCHIVE.md (26802 chars): T1, T2, T3, ...
+  mth: 5 held back -- T6, T10, T20, T26d, T29 carry a closed-option record (V16)
+  ```
+
+  The row stays; only the text leaves. A stub keeps the id, the status and
+  the citations, so an id is never reused (V12), a milestone still finds the
+  row it claims (V15), and the citation graph `derive` reads is unchanged.
+  Lifting the rows out entirely was measured first and rejected: it makes
+  every milestone claim a task with no row, and the milestone-at-a-time
+  variant that was meant to rescue it qualified three of twelve milestones,
+  because one held row blocks a whole claim.
+
+  A row carrying a closed-option record is held back and named — that is the
+  one thing compaction may never trade for bytes — so pass `--records`, or
+  those rows move too.
+
+  The move is proven before either file is written: every row arrived byte
+  for byte, every id stayed, every citation cell was carried. The sink is
+  written first, so a failure between the two writes leaves the text in both
+  files rather than in neither. A duplicate is a finding somebody fixes; a
+  hole is data nobody gets back.
+
+  `--check` reports and exits 0. It is not a gate: V10 names the gates and
+  closes the list, and a spec with finished work in it is an ordinary spec.
+  When a file is big enough to fold is the caller's threshold, measured with
+  a tool that can count tokens — which this crate deliberately cannot.
+
+  New library items: `archive_spec`, `archive_report`, `ARCHIVE`.
+
+### Changed
+
+- **The `SPEC.md` ceiling came down, for the first time in this file's life:
+  36,800 → 34,100.** Every previous entry in `.context-limits` argues a
+  raise. `0.7`'s raise to 36,800 was taken because the runner had to land
+  somewhere that day, not because the file had earned the room, and T39 said
+  so at the time. The fold moved 28 of 33 finished rows and took the spec
+  from 36,757 to 29,738 o200k; the new ceiling follows the same ~13% headroom
+  ratio every previous line used, so a lowering cannot quietly become a
+  stricter rule.
+
+
 ## [0.7.1] — 2026-09-19
 
 A patch, so it sits off the version ladder above: `0.7`'s answer to *what can

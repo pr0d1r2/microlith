@@ -18,6 +18,7 @@
 // Widening later is a MINOR release. Narrowing later is a MAJOR one. That
 // asymmetry is the whole reason to start small.
 pub(crate) mod anchors;
+pub(crate) mod archive;
 pub(crate) mod check;
 pub(crate) mod cli;
 pub(crate) mod derive;
@@ -54,6 +55,7 @@ pub use id::{cells, escape, unescape};
 // milestone would otherwise re-read the `| M<n> |` grammar V15 already owns --
 // the same pressure that exported the row codec above. `claims` is its
 // flattening and stays internal; the partition is the reading a consumer needs.
+pub use archive::ARCHIVE;
 pub use check::milestones;
 
 /// `mth migrate`: section headers rewritten to canonical cavekit 4.1.0.
@@ -85,6 +87,37 @@ pub fn migrate_report(text: &str) -> String {
 /// file non-canonical, which is the whole reason this is a separate answer.
 pub fn migrate_declined(text: &str) -> String {
     migrate::unfinished(text)
+}
+
+/// The spec and the archive, after moving every finished row that may leave.
+///
+/// The TEXT moves; the ROW stays. A stub keeps the id, the status and the
+/// citations, so V12 still sees the id, V15 still finds the row its milestone
+/// claims, and a citation to an archived row still resolves. A row carrying
+/// one of `records`' closed-option decisions is held back (V16).
+///
+/// `archive` is the file's current contents, or `""` the first time.
+///
+/// # Errors
+///
+/// If the move cannot be proven -- a row that did not arrive, an id that did
+/// not stay, a citation cell the stub failed to carry, or an id the archive
+/// already holds. Nothing is written when the proof fails.
+pub fn archive_spec(
+    spec: &str,
+    archive: &str,
+    records: &[Record],
+) -> Result<(String, String), String> {
+    archive::archive(spec, archive, records)
+}
+
+/// What `archive_spec` would move, and what it would hold back.
+///
+/// Report-only: a spec with finished work in it is an ORDINARY spec, so
+/// there is no verdict here, only an answer. Whether the file is big enough
+/// to fold is the caller's threshold -- this crate does not count tokens.
+pub fn archive_report(spec: &str, records: &[Record]) -> String {
+    archive::report(spec, records)
 }
 
 /// `mth derive`: statement sizes, the citation graph, orphans, duplication.
@@ -275,6 +308,20 @@ mod tests {
     fn formatting_returns_the_unwrapped_text() {
         let got = format_spec("V1: a rule\nwrapped\n").unwrap_or_default();
         assert_eq!(got, "V1: a rule wrapped\n");
+    }
+
+    /// The archive pair is PUBLIC surface (V32), so it gets a runner here
+    /// rather than only through the verb that happens to call it.
+    #[test]
+    fn archiving_moves_the_text_and_reports_what_would_move() {
+        let spec = "## \u{a7}T TASKS\n\nT1|x|the text|V1\n";
+        let said = archive_report(spec, &[]);
+        assert!(said.contains("1 row would move"), "{said}");
+        let (folded, stored) = archive_spec(spec, "", &[]).unwrap_or_default();
+        assert!(folded.contains("T1|x|ARCHIVED to"), "{folded}");
+        assert!(stored.contains("T1|x|the text|V1"), "{stored}");
+        assert!(stored.starts_with("# SPEC ARCHIVE"), "{stored}");
+        assert_eq!(ARCHIVE, "SPEC-ARCHIVE.md", "the name the stub writes");
     }
 
     /// V5: an over-long line is refused with its number and its length,

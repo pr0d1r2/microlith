@@ -32,6 +32,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "anchors" => one_path(rest, |r| reporting(r, anchors_report(r))),
         "tasks" => one_path(rest, tasks),
         "migrate" => one_path(rest, migrate),
+        "archive" => one_path(rest, archive),
         "docs" => Output::ok(crate::docs::markdown()),
         "extensions" => Output::ok(crate::extensions::markdown()),
         other => unknown(other),
@@ -124,6 +125,80 @@ fn migrate(rest: &[String]) -> Output {
     match crate::migrate::migrate(&text) {
         Err(e) => Output::drift(format!("mth: {path}: {e}\n")),
         Ok(out) => migrated(rest, &path, (&text, &out), check),
+    }
+}
+
+/// `archive [--check] [--records <file>]`: fold finished work out of the way.
+///
+/// The THIRD mutation, and the only one that writes TWO files -- so the
+/// proof comes first and neither is written unless both can be. A partial
+/// archive is the one outcome worse than no archive: the text is out of the
+/// spec and not yet in the sink.
+///
+/// It does NOT gate. V10 names the gates and closes the list, and a spec
+/// with finished rows in it is an ordinary spec rather than a defective one
+/// -- so `--check` reports what would move and exits 0. When the file is big
+/// enough to fold is the caller's threshold, measured with a tool that can
+/// count tokens, which this crate deliberately cannot (§C).
+fn archive(rest: &[String]) -> Output {
+    let path = target(rest);
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
+    };
+    let records = match records_from(rest) {
+        Err(e) => return Output::usage(e),
+        Ok(r) => r,
+    };
+    if rest.iter().any(|a| a == "--check") {
+        return Output::ok(crate::archive::report(&text, &records));
+    }
+    archived(&path, &text, &records)
+}
+
+/// The write half: both files, or neither.
+///
+/// The sink is a SIBLING of the spec, so archiving `docs/SPEC.md` writes
+/// `docs/SPEC-ARCHIVE.md` -- the stub names the file beside it, which is the
+/// only name that stays true when the pair is moved.
+fn archived(path: &str, text: &str, records: &[Record]) -> Output {
+    let sink = beside(path);
+    let held = std::fs::read_to_string(&sink).unwrap_or_default();
+    let (folded, stored) = match crate::archive::archive(text, &held, records) {
+        Err(e) => return Output::drift(format!("mth: {path}: {e}\n")),
+        Ok(pair) => pair,
+    };
+    if folded == text {
+        return Output::ok(crate::archive::report(text, records));
+    }
+    let moved = crate::archive::moves(text, records).len();
+    match std::fs::write(&sink, &stored) {
+        Err(e) => Output::usage(format!("mth: cannot write {sink}: {e}\n")),
+        Ok(()) => wrote((path, &folded), &sink, moved),
+    }
+}
+
+/// The spec, once the sink holds what is leaving it.
+///
+/// This order is deliberate: the sink is written FIRST, so a failure between
+/// the two writes leaves the text in BOTH files rather than in neither. A
+/// duplicate is a `check` finding somebody fixes; a hole is data nobody can
+/// get back.
+fn wrote(spec: (&str, &str), sink: &str, moved: usize) -> Output {
+    let (path, folded) = spec;
+    match std::fs::write(path, folded) {
+        Err(e) => Output::usage(format!("mth: cannot write {path}: {e}\n")),
+        Ok(()) => Output::ok(format!(
+            "mth: archive moved {moved} {} from {path} to {sink}\n",
+            if moved == 1 { "row" } else { "rows" }
+        )),
+    }
+}
+
+/// The archive that belongs to this spec: its sibling, named by the format.
+fn beside(path: &str) -> String {
+    match path.rsplit_once('/') {
+        Some((dir, _)) => format!("{dir}/{}", crate::archive::ARCHIVE),
+        None => crate::archive::ARCHIVE.to_owned(),
     }
 }
 
@@ -574,6 +649,169 @@ mod tests {
         assert_eq!(positional(&rest).map(String::as_str), Some("SPEC.md"));
         assert_eq!(flag_value(&rest, "--records").as_deref(), Some("recs.txt"));
         assert_eq!(flag_value(&args(&["--records"]), "--records"), None);
+    }
+
+    /// `archive --check` is REPORT-ONLY and exits 0 (V10).
+    ///
+    /// The gates are named and the list is closed, and a spec with finished
+    /// work in it is an ordinary spec. A third gate would turn every repo
+    /// with a done task red on the day it adopted this.
+    ///
+    /// Run WITHOUT `--records` on purpose, which is the state that shows
+    /// what the flag is worth: the five rows carrying a closed-option record
+    /// are offered, because nothing told this run they exist. `--records` is
+    /// opt-in for `check` and opt-in here, and the cost of forgetting it is
+    /// the same cost in both places.
+    #[test]
+    fn archive_check_reports_without_writing_and_exits_zero() {
+        let o = run(&args(&["archive", "--check", "SPEC.md"]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("rows would move"), "{}", o.out);
+        let held = run(&args(&[
+            "archive",
+            "--check",
+            "--records",
+            ".spec-records",
+            "SPEC.md",
+        ]));
+        assert_eq!(held.code, 0, "{}", held.err);
+        assert!(held.out.contains("nothing to archive"), "{}", held.out);
+        assert!(std::fs::read_to_string("SPEC.md").is_ok(), "unwritten");
+    }
+
+    /// The write path, end to end, on a COPY -- and both files or neither.
+    ///
+    /// The sink is a sibling of the spec, so this works in a temp directory
+    /// without knowing anything about where it runs.
+    #[test]
+    fn archive_moves_the_text_and_leaves_the_row() {
+        let (dir, path) = a_spec_in_its_own_directory("moved");
+        let o = run(&args(&["archive", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        let folded = std::fs::read_to_string(&path).unwrap_or_default();
+        let sink = dir.join(crate::archive::ARCHIVE);
+        let stored = std::fs::read_to_string(&sink).unwrap_or_default();
+        assert!(folded.contains("T1|x|ARCHIVED to"), "{folded}");
+        assert!(folded.contains("|V1\n"), "cites stayed: {folded}");
+        assert!(stored.contains("T1|x|the long text|V1"), "{stored}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A spec with nothing to fold is told so, and neither file is written.
+    #[test]
+    fn archive_on_a_folded_spec_reports_and_writes_nothing() {
+        let (dir, path) = a_spec_in_its_own_directory("folded");
+        let _ = std::fs::write(&path, "## \u{a7}T TASKS\n\nT1|.|pending|-\n");
+        let o = run(&args(&["archive", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("nothing to archive"), "{}", o.out);
+        assert!(!dir.join(crate::archive::ARCHIVE).exists(), "sink written");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The proof reaches the CLI as a refusal, not a partial write.
+    ///
+    /// An archive already holding the id is the reachable way to fail it:
+    /// folding the row in would leave two rows with one id, which is V12's
+    /// defect written by the tool that checks it. The spec must be untouched
+    /// afterwards -- a refusal that had already rewritten one file is the
+    /// half-done state the proof exists to prevent.
+    #[test]
+    fn a_refused_move_leaves_the_spec_exactly_as_it_was() {
+        let (dir, path) = a_spec_in_its_own_directory("refused");
+        let before = std::fs::read_to_string(&path).unwrap_or_default();
+        let sink = dir.join(crate::archive::ARCHIVE);
+        let _ = std::fs::write(&sink, "## \u{a7}T TASKS\n\nT1|x|elsewhere|-\n");
+        let o = run(&args(&["archive", &path]));
+        assert_eq!(o.code, 1, "{}{}", o.out, o.err);
+        assert!(o.err.contains("already archived"), "{}", o.err);
+        assert_eq!(std::fs::read_to_string(&path).unwrap_or_default(), before);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A sink that cannot be written is a USAGE error, and the spec keeps
+    /// its text -- the sink is written FIRST for exactly this case.
+    #[test]
+    fn an_unwritable_sink_stops_the_fold_before_the_spec_changes() {
+        let (dir, path) = a_spec_in_its_own_directory("unwritable");
+        let before = std::fs::read_to_string(&path).unwrap_or_default();
+        let _ = std::fs::create_dir_all(dir.join(crate::archive::ARCHIVE));
+        let o = run(&args(&["archive", &path]));
+        assert_eq!(o.code, 2, "{}{}", o.out, o.err);
+        assert!(o.err.contains("cannot write"), "{}", o.err);
+        assert_eq!(std::fs::read_to_string(&path).unwrap_or_default(), before);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The claim V48 makes about write ORDER, with a runner behind it.
+    ///
+    /// The sink is written first, so a failure on the SECOND write leaves
+    /// the text in BOTH files rather than in neither. A read-only spec is
+    /// the reachable way to reach that state, and the assertion is the part
+    /// that matters: the text is still somewhere.
+    #[test]
+    fn a_failure_between_the_two_writes_leaves_the_text_in_both() {
+        let (dir, path) = a_spec_in_its_own_directory("readonly");
+        let mut perms = match std::fs::metadata(&path) {
+            Ok(m) => m.permissions(),
+            Err(_) => return,
+        };
+        perms.set_readonly(true);
+        let _ = std::fs::set_permissions(&path, perms);
+        let o = run(&args(&["archive", &path]));
+        assert_eq!(o.code, 2, "{}{}", o.out, o.err);
+        let sink = dir.join(crate::archive::ARCHIVE);
+        let stored = std::fs::read_to_string(&sink).unwrap_or_default();
+        let kept = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(stored.contains("the long text"), "sink: {stored}");
+        assert!(kept.contains("the long text"), "spec: {kept}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `--records` is checked the same way `check` checks it: a path that
+    /// cannot be read is a usage error, never a silent fold of the rows it
+    /// would have held back.
+    #[test]
+    fn an_unreadable_records_file_stops_an_archive_too() {
+        let o = run(&args(&[
+            "archive",
+            "--check",
+            "--records",
+            "no/such/file",
+            "SPEC.md",
+        ]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("cannot read"), "{}", o.err);
+    }
+
+    /// The sink is the spec's SIBLING, whatever directory the spec is in --
+    /// including none, which is the bare `SPEC.md` a project root gives.
+    #[test]
+    fn the_sink_sits_beside_the_spec_it_belongs_to() {
+        assert_eq!(beside("SPEC.md"), crate::archive::ARCHIVE);
+        assert_eq!(
+            beside("docs/SPEC.md"),
+            format!("docs/{}", crate::archive::ARCHIVE)
+        );
+    }
+
+    /// A one-row spec in a directory of its own, so the SIBLING the verb
+    /// writes lands there rather than beside this repo's real files.
+    ///
+    /// Named per TEST, not per process: these run in parallel and the sink
+    /// is a fixed filename, so one directory for all of them is four tests
+    /// writing one archive and reading each other's answers.
+    fn a_spec_in_its_own_directory(name: &str) -> (std::path::PathBuf, String) {
+        let dir = std::env::temp_dir()
+            .join(format!("microlith-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let spec = dir.join(DEFAULT_PATH);
+        let _ = std::fs::write(
+            &spec,
+            "# SPEC\n\n## \u{a7}T TASKS\n\nT1|x|the long text|V1\n",
+        );
+        (dir, spec.to_string_lossy().into_owned())
     }
 
     /// The default is exercised end to end, in READ-ONLY mode only: this

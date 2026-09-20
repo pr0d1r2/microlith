@@ -61,3 +61,8 @@ V46  REJECTED: FAN OUT
 # FORMAT.md permits ordinary `##` headings that open no section at all.
 # Without this line it reads as the obvious fix nobody got round to.
 V47  REJECTED: keying V11 on the HEADING
+
+# V48 rejected lifting the done rows OUT, and the milestone-at-a-time variant
+# that was supposed to rescue it. Both are the obvious compaction, so without
+# this line the stub reads as an odd choice somebody should simplify.
+V48  Lifting a done row OUT

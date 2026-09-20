@@ -345,4 +345,32 @@
 # landed and did NOT take this over: `mth check` reads SPEC.md's structure,
 # not its size. T5's `derive` reports sizes; whether the GATE moves here is a
 # decision for T5, not an assumption to leave standing in a comment.
-SPEC.md    36800
+# LOWERED, for the first time in this file's life: 36,800 -> 34,100.
+#
+# Every previous line here argues a RAISE. This one argues the other
+# direction, and it is the entry the eleven raises were building toward:
+# T38's raise to 36,800 was taken because the runner had to land somewhere
+# that day, not because the file had earned the room, and T39 said so at
+# the time.
+#
+# WHAT CHANGED IS THE FILE, not the judgement about it. `mth archive`
+# (V48) moved 28 of SPEC.md's 33 finished task rows to SPEC-ARCHIVE.md,
+# leaving a stub that keeps each row's id, status and citations. Measured
+# by `itok check` (o200k, pinned --bpe): 36,757 before, 29,738 after the
+# fold, 30,188 once V48, the §I bullet and T39's own record were written.
+#
+# Five rows did NOT move, and that is the rule working rather than a
+# shortfall: T6, T10, T20, T26d and T29 each carry a V16 closed-option
+# record, which compaction may never trade for bytes.
+#
+# THE NUMBER FOLLOWS THE SAME RATIO EVERY OTHER LINE HERE USED, so that a
+# lowering cannot quietly be a stricter rule: 30,188 measured takes 34,100
+# at the ~13% headroom V21 asks for (20,483 took 23,200; 32,513 took
+# 36,800). A ceiling set AT the measurement fires on the next sentence.
+#
+# NOT A ONE-WAY RATCHET, and this is the part worth keeping: the fold is
+# repeatable now. A row finished after this one archives on the next run,
+# so the next time this file is over, the first question is whether
+# `mth archive --check` has work to do -- and only then whether the law
+# itself grew.
+SPEC.md    34100

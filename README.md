@@ -10,7 +10,7 @@
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![coverage 99.30%](https://img.shields.io/badge/coverage-99.30%25-brightgreen)](hk.pkl)
+[![coverage 99.37%](https://img.shields.io/badge/coverage-99.37%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -139,6 +139,14 @@ migrate [--check] [--verbose] [<path>]
 ```
 
 Section headers to canonical 4.1.0. A case or punctuation difference is rewritten silently; a label carrying real text is rewritten with the original kept beneath it, so nothing is discarded. Every alphanumeric run of the original is proven to survive before any write. A letter used for a DIFFERENT concept is never touched -- annotating one keeps the characters and inverts the meaning -- so those are reported and exit 1. `--check` reports without writing.
+
+### `archive`
+
+```text
+archive [--check] [--records <file>] [--verbose] [<path>]
+```
+
+Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place. The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.
 
 ### `derive`
 
