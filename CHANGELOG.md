@@ -182,6 +182,32 @@ pipeline gets proven before a permanent number is spent.
 
 ### Added
 
+- **`mth tasks --format json` carries each row's milestone** (V52). T41
+  exported the partition for a library consumer and rejected this field at
+  the time, rightly: a lib caller would have parsed JSON to learn what a
+  pure function returns. The CLI caller is the other half, and had no path
+  but re-reading the `| M<n> |` grammar — the duplication V7 exists to end.
+  T41's row named the trigger ("can follow later w/o breaking this"); it
+  fired.
+
+  ```json
+  {"id":"T41","status":"x","text":"...","cites":["V6","V7","V15"],"milestone":"M8"}
+  ```
+
+  Read by **number**, not by label: a suffixed row rides its base (V14), so
+  `T7a` belongs to whichever milestone claims 7. A lookup on the written id
+  finds nothing and calls it unclaimed — a wrong answer that reads exactly
+  like a right one.
+
+  `null` is two facts a row cannot separate: a spec that declares no
+  milestones (V15 opted out) and a row the declared ones left out (V15
+  firing). So `declares_milestones` sits beside the array and says which,
+  and the row keeps one shape. Not a missing key and not `""` — a key that
+  comes and goes makes every reader test before indexing, and an empty
+  string is a value somebody has to know is special.
+
+  Both fields are additive, so a consumer ignoring them is unaffected.
+
 - **`mth archive` — the compaction sink** (V48, T39). Moves a finished task's
   TEXT to `SPEC-ARCHIVE.md` and leaves a stub row in its place:
 
