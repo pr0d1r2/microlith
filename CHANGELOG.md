@@ -60,6 +60,17 @@ pipeline gets proven before a permanent number is spent.
 
   Additive: a consumer that ignores the key is unaffected (V32).
 
+### Fixed
+
+- **A table header is no longer read as a milestone** (B43). A §T table
+  whose header names its first column `M` — `| M | capability | ids | gate
+  to exit |` — was read as a milestone called `M` claiming nothing, because
+  every milestone reader matched the `| M` prefix. `milestones()` has
+  returned that phantom since `0.7.1`, and the new `milestones` array
+  printed it. A row now counts only when its id cell is `M` followed by
+  digits. Found by running this build over 871 specs in `../`: one file was
+  affected, and its output changed only by losing the phantom.
+
 ## [0.7.3] — 2026-09-20
 
 A patch, and unlike the last one it **meets the test `0.7.1` set** — *"a
