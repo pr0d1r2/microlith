@@ -2,9 +2,9 @@
 
 This repository — code, spec, tests and prose — was written by
 [Claude Code](https://claude.com/claude-code) running Anthropic's **Claude
-Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer, and
-every commit is signed. A human owns every decision, reviews every diff, and is
-accountable for what ships.
+Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer. A
+human owns every decision, reviews every diff, and is accountable for what
+ships.
 
 That is the disclaimer. The rest of this file is why it is stated as a design
 note rather than as an apology, and what a reader can check for themselves.
@@ -73,9 +73,9 @@ In the order it matters:
 
 ## Accountability
 
-The human named in [`LICENSE`](../LICENSE) is responsible for this code,
-including the parts a model wrote and the parts nobody caught. "The LLM wrote
-it" is an explanation of provenance, never a transfer of responsibility.
+The project maintainers are responsible for this code, including the parts a
+model wrote and the parts nobody caught. "The LLM wrote it" is an explanation
+of provenance, never a transfer of responsibility.
 
 Bug reports are welcome and unflattering ones are more useful — see
 [`SECURITY.md`](SECURITY.md) for the ones that should not be public, and
