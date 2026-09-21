@@ -147,14 +147,51 @@ fn head(rows: &[Task], unread: usize) -> String {
 /// empty stream is indistinguishable from a crash, and the consumer's whole
 /// question is whether the backlog is empty or merely unreadable.
 pub(crate) fn json(file: &str, text: &str) -> String {
-    let items: Vec<String> = tasks(text).iter().map(one_json).collect();
+    let rows = tasks(text);
+    let items: Vec<String> = rows.iter().map(one_json).collect();
     format!(
         "{{\"file\":{},\"tasks\":[{}],\"unread\":{},\
-         \"declares_milestones\":{}}}\n",
+         \"declares_milestones\":{},\"milestones\":[{}]}}\n",
         crate::render::quote(file),
         items.join(","),
         unread(text),
-        crate::check::uses_milestones(text)
+        crate::check::uses_milestones(text),
+        milestones_json(text, &rows)
+    )
+}
+
+/// Each declared milestone, in FILE order: its id, the version it ships as
+/// (V53), the rows it claims in V14 order, and how many are not yet `x`.
+///
+/// `ships` is `null` where the scope names no version, so "unversioned" is a
+/// value rather than a missing key. `pending` counts every row whose status
+/// is not `x`, including one outside the set: a row nobody can call done is
+/// not done, and V25 is where its status becomes a finding. The array is
+/// EMPTY, never absent, when the spec declares none -- a key that comes and
+/// goes makes every reader test before indexing (V52).
+fn milestones_json(text: &str, rows: &[Task]) -> String {
+    let items: Vec<String> = crate::check::ships(text)
+        .into_iter()
+        .map(|(id, ships)| milestone_json(&id, ships.as_deref(), rows))
+        .collect();
+    items.join(",")
+}
+
+/// One milestone. Its rows are the ones whose `milestone` field names it, so
+/// the array and the per-row field cannot disagree about who owns what (V7).
+fn milestone_json(id: &str, ships: Option<&str>, rows: &[Task]) -> String {
+    let owned: Vec<&Task> = rows
+        .iter()
+        .filter(|t| t.milestone.as_deref() == Some(id))
+        .collect();
+    let ids: Vec<String> =
+        owned.iter().map(|t| crate::render::quote(&t.id)).collect();
+    format!(
+        "{{\"id\":{},\"ships\":{},\"tasks\":[{}],\"pending\":{}}}",
+        crate::render::quote(id),
+        claimed_json(ships),
+        ids.join(","),
+        owned.iter().filter(|t| t.status != "x").count()
     )
 }
 
@@ -286,7 +323,7 @@ T2a|.|a todo task riding T2|-
         assert_eq!(
             json("f", none),
             "{\"file\":\"f\",\"tasks\":[],\"unread\":0,\
-             \"declares_milestones\":false}\n"
+             \"declares_milestones\":false,\"milestones\":[]}\n"
         );
         let done = SPEC.replace("|~|", "|x|").replace("|.|", "|x|");
         assert!(report(&done, false).contains("3 rows -- 0 ., 0 ~, 3 x"));
@@ -350,8 +387,50 @@ T2a|.|a todo task riding T2|-
         let text = "## \u{a7}T TASKS\n\n\
             | M1 | first | T1 | done |\nT1|x|one|-\n";
         let out = json("f", text);
-        assert!(!out.contains("\"id\":\"M1\""), "{out}");
-        assert_eq!(out.matches("\"id\":").count(), 1, "{out}");
+        // Only the `tasks` array: since V53 the milestone itself is listed,
+        // under `milestones`, where an `M1` id is the right answer.
+        let tasks = out.split("\"unread\"").next().unwrap_or_default();
+        assert!(!tasks.contains("\"id\":\"M1\""), "{out}");
+        assert_eq!(tasks.matches("\"id\":").count(), 1, "{out}");
+    }
+
+    /// V53: each milestone carries the version it ships as, the rows it
+    /// claims -- a suffix riding its base -- and how many are not yet done.
+    /// Milestone numbers are NOT release order here, so the array keeps the
+    /// FILE's and leaves ordering releases to the caller.
+    #[test]
+    fn each_milestone_carries_its_version_rows_and_pending_count() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M9 | later; ships as `0.8.0` | T7 | done |\n\
+            | M2 | never shipped alone | T1-T2 | done |\n\
+            T1|x|one|-\nT2|~|two|-\nT7|x|seven|-\nT7a|.|rides it|-\n";
+        let out = json("f", text);
+        assert!(
+            out.contains(
+                "\"milestones\":[\
+                 {\"id\":\"M9\",\"ships\":\"0.8.0\",\"tasks\":[\"T7\",\"T7a\"],\"pending\":1},\
+                 {\"id\":\"M2\",\"ships\":null,\"tasks\":[\"T1\",\"T2\"],\"pending\":1}]"
+            ),
+            "{out}"
+        );
+    }
+
+    /// The companion (V18): a declared milestone claiming nothing is still
+    /// listed, with an empty array and zero pending -- dropping it would
+    /// read exactly like a spec that never declared it.
+    #[test]
+    fn an_empty_milestone_is_listed_not_dropped() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M1 | first; ships as `1.0.0` | T1 | done |\n\
+            | M2 | later |  | tbd |\nT1|.|one|-\n";
+        let out = json("f", text);
+        assert!(
+            out.contains(
+                "{\"id\":\"M2\",\"ships\":null,\"tasks\":[],\"pending\":0}"
+            ),
+            "{out}"
+        );
+        assert!(out.contains("\"ships\":\"1.0.0\""), "{out}");
     }
 
     /// THE issue, in one test: three states a caller must tell apart.

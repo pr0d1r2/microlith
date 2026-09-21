@@ -1110,7 +1110,26 @@ fn bad_status(label: &str, status: &str) -> Violation {
 /// milestone, so "which tasks are in it" is a fair question.
 #[must_use]
 pub fn uses_milestones(text: &str) -> bool {
-    text.lines().any(|l| l.starts_with("| M"))
+    text.lines().any(milestone_row)
+}
+
+/// A `| M<n> |` row: the id cell is `M` and DIGITS, nothing else (B43).
+///
+/// The prefix alone is not the row. A table whose header names its first
+/// column `M` -- `| M | capability | ids | gate to exit |`, measured in a
+/// fleet spec -- starts the same way, and read by prefix it became a
+/// milestone called `M` claiming nothing. So did any table opening on a
+/// word that starts with M (`| Metric |`). One predicate, so the partition,
+/// the ship versions and V15's opt-in cannot disagree about which rows count.
+fn milestone_row(line: &str) -> bool {
+    let fields = crate::id::cells(line);
+    line.starts_with("| M")
+        && fields
+            .get(1)
+            .and_then(|id| id.trim().strip_prefix('M'))
+            .is_some_and(|n| {
+                !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())
+            })
 }
 
 /// Every task number claimed by a `| M<n> |` row's THIRD field -- the same
@@ -1132,13 +1151,43 @@ pub fn claims(text: &str) -> Vec<u32> {
 #[must_use]
 pub fn milestones(text: &str) -> Vec<(String, Vec<u32>)> {
     text.lines()
-        .filter(|l| l.starts_with("| M"))
+        .filter(|l| milestone_row(l))
         .map(|l| {
             let fields = crate::id::cells(l);
             let field = |n: usize| fields.get(n).copied().unwrap_or("").trim();
             (field(1).to_owned(), expand_cell(field(3)))
         })
         .collect()
+}
+
+/// V53: each `| M<n> |` row's id and the version its SCOPE cell says it
+/// ships as, in FILE order -- the same rows [`milestones`] reads.
+///
+/// The phrase is `ships as` followed by a backticked version, and the FIRST
+/// one wins: a scope recording a move (`` ships as `0.8.0`, MOVED there from
+/// `0.7.0` ``) names the old rung too, and only the phrase says which is
+/// current. `None` is a milestone that names no version, which a consumer
+/// must be able to tell from one nobody read. The version is carried
+/// VERBATIM: ordering releases, and choosing which is next, stay the
+/// caller's (V6).
+#[must_use]
+pub fn ships(text: &str) -> Vec<(String, Option<String>)> {
+    text.lines()
+        .filter(|l| milestone_row(l))
+        .map(|l| {
+            let fields = crate::id::cells(l);
+            let field = |n: usize| fields.get(n).copied().unwrap_or("").trim();
+            (field(1).to_owned(), ships_as(field(2)))
+        })
+        .collect()
+}
+
+/// The version after the first `` ships as ` ``, up to its closing backtick.
+fn ships_as(scope: &str) -> Option<String> {
+    let (_, after) = scope.split_once("ships as `")?;
+    let (version, _) = after.split_once('`')?;
+    let version = version.trim();
+    (!version.is_empty()).then(|| version.to_owned())
 }
 
 /// `T1-T4, T12` -> the task numbers it names.
@@ -2092,6 +2141,72 @@ mod tests {
             ]
         );
         assert!(milestones("## \u{a7}T TASKS\n\nT1|.|x|-\n").is_empty());
+    }
+
+    /// V53: the version a milestone ships as, read from its scope cell.
+    /// The FIRST phrase wins, so a scope recording a MOVE names the rung it
+    /// moved TO -- the shape this repo's own M9 row is written in.
+    #[test]
+    fn ships_reads_the_version_each_milestone_names() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M9 | hard; ships as `0.8.0`, MOVED from `0.7.0` | T1 | ok |\n\
+            | M2 | the gate | T2 | ok |\n\
+            | M4 | adoption; ships as `0.5.0` | T3 | ok |\n";
+        assert_eq!(
+            ships(text),
+            vec![
+                ("M9".to_owned(), Some("0.8.0".to_owned())),
+                ("M2".to_owned(), None),
+                ("M4".to_owned(), Some("0.5.0".to_owned())),
+            ]
+        );
+    }
+
+    /// The companion (V18): a version NOT introduced by the phrase is not a
+    /// ship version, and neither is an empty or unclosed pair of backticks.
+    /// Reading any backticked version would turn a row that merely MENTIONS
+    /// `0.7.0` into one that ships as it.
+    #[test]
+    fn ships_rejects_what_the_phrase_does_not_name() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M1 | moved from `0.7.0` | T1 | ok |\n\
+            | M2 | ships as `` | T2 | ok |\n\
+            | M3 | ships as `0.9.0 | T3 | ok |\n";
+        assert_eq!(
+            ships(text),
+            vec![
+                ("M1".to_owned(), None),
+                ("M2".to_owned(), None),
+                ("M3".to_owned(), None),
+            ]
+        );
+        assert!(ships("## \u{a7}T TASKS\n\nT1|.|x|-\n").is_empty());
+    }
+
+    /// B43: a table HEADER naming its first column `M` is not a milestone,
+    /// and neither is a row opening on a word that starts with M. Measured
+    /// in a fleet spec, whose §T header read as a milestone called `M`.
+    #[test]
+    fn a_header_named_m_is_not_a_milestone() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M | capability | ids | gate to exit |\n|---|---|---|---|\n\
+            | M12 | real; ships as `1.0.0` | T1 | ok |\n\
+            | Metric | value | T2 | - |\nT1|.|one|-\nT2|.|two|-\n";
+        assert_eq!(milestones(text), vec![("M12".to_owned(), vec![1])]);
+        assert_eq!(
+            ships(text),
+            vec![("M12".to_owned(), Some("1.0.0".to_owned()))]
+        );
+    }
+
+    /// The companion: a header alone is no opt-in, so V15 stays silent on a
+    /// spec whose only `| M` line is the header of a table with no rows.
+    #[test]
+    fn a_header_alone_does_not_opt_into_v15() {
+        let text = "## \u{a7}T TASKS\n\n\
+            | M | capability | ids | gate |\n|---|---|---|---|\nT1|.|one|-\n";
+        assert!(!uses_milestones(text));
+        assert_eq!(tasks_in_one_milestone(text), Vec::<Violation>::new());
     }
 
     /// `claims` is the partition flattened, so the two cannot drift (V7).

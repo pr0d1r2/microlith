@@ -59,6 +59,9 @@ pub use id::{cells, escape, unescape};
 // flattening and stays internal; the partition is the reading a consumer needs.
 pub use archive::ARCHIVE;
 pub use check::milestones;
+// ...and the version each one ships as (V53), read from the same rows, so a
+// consumer ordering the backlog by release never re-reads the scope prose.
+pub use check::ships;
 
 /// `mth migrate`: section headers rewritten to canonical cavekit 4.1.0.
 ///
