@@ -28,9 +28,8 @@ not for the merges the loop makes now.
 
 This repository — code, spec, tests and prose — was written by
 [Claude Code](https://claude.com/claude-code) running Anthropic's **Claude
-Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer, and
-every commit is signed. A human owns every decision, reviews every diff, and is
-accountable for what ships.
+Opus 5**. Most commits carry a `Co-Authored-By: Claude Opus 5` trailer. A human
+owns every decision, reviews every diff, and is accountable for what ships.
 
 That is the disclaimer. The rest of this file is why it is stated as a design
 note rather than as an apology, and what a reader can check for themselves.
