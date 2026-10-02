@@ -736,7 +736,9 @@ mod tests {
     /// what the flag is worth: the five rows carrying a closed-option record
     /// are offered, because nothing told this run they exist. `--records` is
     /// opt-in for `check` and opt-in here, and the cost of forgetting it is
-    /// the same cost in both places.
+    /// the same cost in both places. T26b is now complete, so it is the one
+    /// ordinary finished row left to archive after the record-held rows are
+    /// excluded.
     #[test]
     fn archive_check_reports_without_writing_and_exits_zero() {
         let o = run(&args(&["archive", "--check", "SPEC.md"]));
@@ -750,7 +752,7 @@ mod tests {
             "SPEC.md",
         ]));
         assert_eq!(held.code, 0, "{}", held.err);
-        assert!(held.out.contains("nothing to archive"), "{}", held.out);
+        assert!(held.out.contains("T26b"), "{}", held.out);
         assert!(std::fs::read_to_string("SPEC.md").is_ok(), "unwritten");
     }
 
