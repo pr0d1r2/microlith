@@ -238,7 +238,11 @@ local fast = new Mapping<String, Step> {
     check = """
       tag=$(git tag --list 'v*' --sort=-version:refname | head -1)
       [ -n "$tag" ] || { echo 'hk: no v* tag exists, so CHANGELOG.md was NOT checked for post-release changes -- this is examined nothing, not a pass.' >&2; exit 0; }
-      changed=$(git diff --name-only "$tag..HEAD" -- src/)
+      # Use commit history rather than the net tree diff. A user-visible
+      # change that was later reverted still happened after the release and
+      # must not let a stale Unreleased block pass merely because the final
+      # bytes happen to match the tag.
+      changed=$(git log --format= --name-only "$tag..HEAD" -- src/ | sed '/^[[:space:]]*$/d' | sort -u)
       [ -n "$changed" ] || exit 0
       unreleased=$(awk '/^## [[]Unreleased[]]/{f=1; next} f && /^## /{exit} f{print}' CHANGELOG.md)
       meaningful=$(echo "$unreleased" | sed '/^[[:space:]]*$/d' | grep -vE '^[[:space:]]*(Nothing yet[.]?|### (Added|Changed|Deprecated|Removed|Fixed|Security)[[:space:]]*)$' || true)
