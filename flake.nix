@@ -34,33 +34,16 @@
     nixpkgs.follows = "nixpkgs-lock/nixpkgs";
     nix-hk.url = "github:pr0d1r2/nix-hk";
     nix-hk.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
-    # `.context-limits` names a ceiling for SPEC.md and says itok OWNS the
-    # checker for it -- so the rule sat with NO RUNNER, was raised eleven
-    # times unenforced, and the file drifted ~37% over without a word.
-    # Counting BPE tokens here would mean a tokenizer, which is a table or
-    # a dependency in a crate that promises neither, so the answer was
-    # always to CALL the tool that already does it (V7).
-    #
-    # What was missing was something to call: itok exposed a dev-shell shim
-    # and no consumable package. It publishes one now, to the cache this
-    # flake already trusts, so the input costs a substitution rather than a
-    # build.
-    #
-    # NOT A CYCLE, though it reads like one: itok pins microlith at a TAG,
-    # a frozen rev, so the graph terminates rather than looping.
-    itok.url = "github:pr0d1r2/itok";
-    itok.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
-    itok.inputs.hk.follows = "nix-hk";
   };
 
   outputs =
     {
       nixpkgs,
       nix-hk,
-      itok,
       ...
     }:
     let
+      cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
       systems = [
         "aarch64-darwin"
         "x86_64-linux"
@@ -144,11 +127,14 @@
       # the guarantee should not depend on staying dependency-free.
       microlithPkg =
         pkgs:
+        assert pkgs.lib.assertMsg (
+          cargoToml.package."rust-version" == pkgs.lib.versions.majorMinor pkgs.rustc.version
+        ) "Cargo.toml rust-version must equal the flake-pinned rustc version";
         pkgs.rustPlatform.buildRustPackage {
           pname = "microlith";
           # Read from Cargo.toml so there is ONE version, never two that can
           # disagree.
-          version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+          version = cargoToml.package.version;
           # Only what the BUILD reads. With `src = ./.` every tracked file is
           # an input, so editing SPEC.md would rebuild the crate from
           # scratch -- which for a tool whose job is editing SPEC.md would be
@@ -205,9 +191,6 @@
             # happened to install.
             pkgs.typos
             pkgs.taplo
-            # The token ceiling `.context-limits` records, with a runner at
-            # last. From itok's own package rather than a second count here.
-            itok.packages.${pkgs.stdenv.hostPlatform.system}.default
             # `nixfmt --check` gates this very file: the flake decides what
             # every other step runs with, so drift here is drift everywhere.
             pkgs.nixfmt
