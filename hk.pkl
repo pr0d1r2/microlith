@@ -229,6 +229,26 @@ local fast = new Mapping<String, Step> {
       echo "$stated" | grep -qxE "$fast|$pc" || { echo "hk: docs/INTEGRATION.md never states the commit-side count ($fast fast, or $pc with the pre-commit-only guard). Stating only the all count hides drift in the half you meet on every commit." >&2; exit 1; }
       """
   }
+  // A changelog entry is HUMAN narrative, not a generated registry (V33),
+  // so this checks only the mechanical half: whether user-visible code
+  // shipped since the last version tag while Unreleased stayed a placeholder.
+  // The wording remains judgement (V6).
+  ["changelog-unreleased"] {
+    glob = List("CHANGELOG.md", "src/**")
+    check = """
+      tag=$(git tag --list 'v*' --sort=-version:refname | head -1)
+      [ -n "$tag" ] || { echo 'hk: no v* tag exists, so CHANGELOG.md was NOT checked for post-release changes -- this is examined nothing, not a pass.' >&2; exit 0; }
+      # Use commit history rather than the net tree diff. A user-visible
+      # change that was later reverted still happened after the release and
+      # must not let a stale Unreleased block pass merely because the final
+      # bytes happen to match the tag.
+      changed=$(git log --format= --name-only "$tag..HEAD" -- src/ | sed '/^[[:space:]]*$/d' | sort -u)
+      [ -n "$changed" ] || exit 0
+      unreleased=$(awk '/^## [[]Unreleased[]]/{f=1; next} f && /^## /{exit} f{print}' CHANGELOG.md)
+      meaningful=$(echo "$unreleased" | sed '/^[[:space:]]*$/d' | grep -vE '^[[:space:]]*(Nothing yet[.]?|### (Added|Changed|Deprecated|Removed|Fixed|Security)[[:space:]]*)$' || true)
+      [ -n "$meaningful" ] || { echo "hk: src/ changed since $tag, but CHANGELOG.md's Unreleased block is empty or still says Nothing yet. Add the human why; this gate checks presence, not prose correctness (V6)." >&2; exit 1; }
+      """
+  }
   // WHAT THE TARBALL SHIPS, checked rather than described. Publishing does
   // not upload the repo: it uploads a `.crate` whose file set is DERIVED --
   // git-tracked, minus `exclude`. That is a SECOND file set, and until now
