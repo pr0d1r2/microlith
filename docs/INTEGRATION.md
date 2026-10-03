@@ -14,12 +14,12 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 35 steps
+              one definition, 36 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   32 steps           all: 35 steps      all: 35 steps
+   32 steps           all: 36 steps      all: 36 steps
    (fast + 1 local)
 ```
 
@@ -50,14 +50,14 @@ is no second copy to forget.
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 35 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 36 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 35 steps -- same definition)
+  pull request ---> ci.yml    (all, 36 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -125,7 +125,7 @@ The local `no-commit-to-branch` hook changes no outcome — it moves that refusa
 earlier, to before you have built a commit you then have to move. The server
 rule is the one that defends the branch, because V23 makes every hook here skip
 outside the dev shell. Requiring a PR does not add a check either — CI runs the
-same 35 steps your pre-push hook just ran — it adds a *reader*. The gate
+same 36 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
