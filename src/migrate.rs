@@ -688,9 +688,9 @@ V1: **a rule.**
     /// An unknown letter has no canonical word and is not migrate's business.
     #[test]
     fn an_extension_section_is_untouched() {
-        let text = "## \u{a7}D DECISIONS\nprose.\n";
+        let text = "## \u{a7}E DECISIONS\nprose.\n";
         assert_eq!(migrate(text).unwrap_or_default(), text);
-        assert_eq!(plan("## \u{a7}D DECISIONS"), None);
+        assert_eq!(plan("## \u{a7}E DECISIONS"), None);
     }
 
     /// A file with no trailing newline keeps not having one.

@@ -43,16 +43,31 @@ section may be absent, but is never reordered.
 | # | section | defined by |
 |---|---------|------------|
 | 1 | `## §G GOAL` | cavekit `FORMAT.md` |
-| 2 | `## §F FEDERATION` | **this document** |
-| 3 | `## §N NAV` | **this document** |
-| 4 | `## §C CONSTRAINTS` | cavekit `FORMAT.md` |
-| 5 | `## §I INTERFACES` | cavekit `FORMAT.md` |
-| 6 | `## §R RESEARCH` | cavekit `FORMAT.md` |
-| 7 | `## §V INVARIANTS` | cavekit `FORMAT.md` |
-| 8 | `## §T TASKS` | cavekit `FORMAT.md` |
-| 9 | `## §B BUGS` | cavekit `FORMAT.md` |
+| 2 | `## §D DESCRIPTION` | **this document** |
+| 3 | `## §F FEDERATION` | **this document** |
+| 4 | `## §N NAV` | **this document** |
+| 5 | `## §C CONSTRAINTS` | cavekit `FORMAT.md` |
+| 6 | `## §I INTERFACES` | cavekit `FORMAT.md` |
+| 7 | `## §R RESEARCH` | cavekit `FORMAT.md` |
+| 8 | `## §V INVARIANTS` | cavekit `FORMAT.md` |
+| 9 | `## §T TASKS` | cavekit `FORMAT.md` |
+| 10 | `## §B BUGS` | cavekit `FORMAT.md` |
 
 ## THE SECTIONS
+
+### `## §D DESCRIPTION`
+
+The header must carry **`description`** -- matched as a stem, case-insensitively, with qualifiers free to follow. `## §D DESCRIPTION`, `## §D Description` and `## §D — Description` all name it.
+
+A cold-reader description of what this project IS: its identity, scope, and the kind of work or system a reader should expect to find here. This is not the GOAL -- `§G` says what the code must DO -- but the project-level context that lets a reader understand the rest of the spec before following its constraints and interfaces.
+
+```
+## §D DESCRIPTION
+## §D DESCRIPTION
+A CPU-only Rust library and CLI for reading and enforcing cavekit SPEC files.
+```
+
+*Measured:* 73 of 256 distinct specs, across 6 projects, carry `§D`; all 73 are headed `— description`. No spec spells `§D` as another concept, so the corpus records 0 collisions. The denominator is the corrected distinct-spec/project population from B27·B28.
 
 ### `## §F FEDERATION`
 
