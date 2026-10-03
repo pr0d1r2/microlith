@@ -244,9 +244,13 @@ local fast = new Mapping<String, Step> {
       # bytes happen to match the tag.
       changed=$(git log --format= --name-only "$tag..HEAD" -- src/ | sed '/^[[:space:]]*$/d' | sort -u)
       [ -n "$changed" ] || exit 0
-      unreleased=$(awk '/^## [[]Unreleased[]]/{f=1; next} f && /^## /{exit} f{print}' CHANGELOG.md)
-      meaningful=$(echo "$unreleased" | sed '/^[[:space:]]*$/d' | grep -vE '^[[:space:]]*(Nothing yet[.]?|### (Added|Changed|Deprecated|Removed|Fixed|Security)[[:space:]]*)$' || true)
-      [ -n "$meaningful" ] || { echo "hk: src/ changed since $tag, but CHANGELOG.md's Unreleased block is empty or still says Nothing yet. Add the human why; this gate checks presence, not prose correctness (V6)." >&2; exit 1; }
+      # Everything NEWER than $tag's own section: Unreleased, and on a release
+      # commit the section it was just dated into (B46). Reading Unreleased
+      # alone refused every release commit, whose entries have moved under
+      # the new version while the tag does not exist yet.
+      since=$(awk -v stop="## [${tag#v}]" '/^## [[]Unreleased[]]/{f=1; next} f && index($0, stop) == 1 {exit} f{print}' CHANGELOG.md)
+      meaningful=$(echo "$since" | sed '/^[[:space:]]*$/d' | grep -vE '^[[:space:]]*(Nothing yet[.]?|## .*|### (Added|Changed|Deprecated|Removed|Fixed|Security)[[:space:]]*)$' || true)
+      [ -n "$meaningful" ] || { echo "hk: src/ changed since $tag, but CHANGELOG.md has no entry above $tag's section -- Unreleased is empty or still says Nothing yet. Add the human why; this gate checks presence, not prose correctness (V6)." >&2; exit 1; }
       """
   }
   // WHAT THE TARBALL SHIPS, checked rather than described. Publishing does
