@@ -173,11 +173,26 @@ pub fn unescape(cell: &str) -> String {
 /// and the other written by hand at each call site, which is how the two
 /// readings in `unescape` above survived: nothing ever asked them to agree.
 ///
-/// `\` first, then `|` -- the other order escapes the backslashes it just
-/// wrote and doubles every one of them.
+/// The SHORTEST form (B44): a `\` is doubled only where [`unescape`] would
+/// otherwise spend it -- before `\`, before `|` (which is written `\|`) or
+/// at the end of the cell, where it would escape the boundary after it.
+/// Anywhere else it is literal and stays single, so `x \& y` and `C:\path`
+/// come back as their author wrote them rather than with a second
+/// backslash that decodes to the same cell.
 #[must_use]
 pub fn escape(cell: &str) -> String {
-    cell.replace('\\', "\\\\").replace('|', "\\|")
+    let mut out = String::with_capacity(cell.len());
+    let mut chars = cell.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '|' => out.push_str("\\|"),
+            '\\' if chars.peek().is_none_or(|n| matches!(n, '\\' | '|')) => {
+                out.push_str("\\\\");
+            }
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 /// `30a` -> `(30, "a")`. An empty or non-numeric lead fails the parse, which
@@ -367,6 +382,25 @@ mod tests {
         assert_eq!(got.len(), CELLS.len(), "{got:?}");
         for (want, cell) in CELLS.iter().zip(got) {
             assert_eq!(&unescape(cell), want, "{cell:?}");
+        }
+    }
+
+    /// B44: the round trip above holds for an encoder that doubles every
+    /// backslash too, so it cannot tell the two apart. What does: a cell an
+    /// author already wrote in the shortest form survives decode then
+    /// encode BYTE FOR BYTE -- `\&` and `C:\path` keep their one backslash,
+    /// while a backslash before `\`, before `|` or at the end stays doubled.
+    #[test]
+    fn a_shortest_form_cell_is_written_back_unchanged() {
+        for written in [
+            "x \\& y",
+            "C:\\path notes",
+            "trailing\\\\",
+            "a\\\\\\|b",
+            "a\\\\\\b",
+            "the `Mechanical`\\|`Judgment` taxonomy",
+        ] {
+            assert_eq!(escape(&unescape(written)), written, "{written:?}");
         }
     }
 }
