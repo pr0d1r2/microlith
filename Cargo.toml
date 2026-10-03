@@ -1,3 +1,6 @@
+[workspace]
+members = ["dev"]
+
 # Self-specified, not workspace-inherited: microlith is born standalone, so
 # it carries its own package metadata and lints from commit one (V20 --
 # a consumer depends on a registry crate, never a path that dangles).
