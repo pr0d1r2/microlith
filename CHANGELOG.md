@@ -70,6 +70,13 @@ pipeline gets proven before a permanent number is spent.
   printed it. A row now counts only when its id cell is `M` followed by
   digits. Found by running this build over 871 specs in `../`: one file was
   affected, and its output changed only by losing the phantom.
+- **`escape` writes a cell the way its author did** (B44). It doubled
+  every backslash, so `x \& y` came back as `x \\& y`. Both decode to the
+  same cell, but a consumer copying a cell from one row into another wrote
+  a spelling the source never had (pr0d1r2/sherd#98). A backslash is now
+  doubled only before `\`, before `|`, or at the end of the cell, where
+  `unescape` would otherwise spend it. Any string `escape` wrote before
+  still decodes to the same cell.
 
 ## [0.7.3] — 2026-09-20
 
