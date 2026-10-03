@@ -38,6 +38,12 @@ struct Extension {
 
 const EXTENSIONS: &[Extension] = &[
     Extension {
+        letter: 'D',
+        holds: "A cold-reader description of what this project IS: its identity, scope, and the kind of work or system a reader should expect to find here. This is not the GOAL -- `§G` says what the code must DO -- but the project-level context that lets a reader understand the rest of the spec before following its constraints and interfaces.",
+        example: "## §D DESCRIPTION\nA CPU-only Rust library and CLI for reading and enforcing cavekit SPEC files.",
+        measured: "73 of 256 distinct specs, across 6 projects, carry `§D`; all 73 are headed `— description`. No spec spells `§D` as another concept, so the corpus records 0 collisions. The denominator is the corrected distinct-spec/project population from B27·B28.",
+    },
+    Extension {
         letter: 'F',
         holds: "The edges this directory DECLARES. A spec federated over a \
                 directory tree is one file per directory, so each one names \
@@ -388,7 +394,7 @@ mod tests {
     /// today -- and a letter promoted upstream must change it here.
     #[test]
     fn the_extensions_are_the_letters_upstream_lacks() {
-        assert_eq!(extension_letters(), vec!['F', 'N']);
+        assert_eq!(extension_letters(), vec!['D', 'F', 'N']);
     }
 
     /// The same bidirectional guard on the OTHER registry: a marker the

@@ -23,7 +23,8 @@ use crate::violation::{Fix, Violation};
 /// what the checker matches on now that labels vary across the fleet, and
 /// digging it out by character offset would make the position of a word in
 /// prose load-bearing.
-pub const KINDS: [char; 9] = ['G', 'F', 'N', 'C', 'I', 'R', 'V', 'T', 'B'];
+pub const KINDS: [char; 10] =
+    ['G', 'D', 'F', 'N', 'C', 'I', 'R', 'V', 'T', 'B'];
 
 /// The letters the VENDORED `FORMAT.md` defines, at the revision
 /// `.format-upstream` pins.
@@ -47,8 +48,9 @@ pub const UPSTREAM_KINDS: [char; 7] = ['G', 'C', 'I', 'R', 'V', 'T', 'B'];
 ///
 /// `\u{a7}` is the section sign, written as an escape so this source stays
 /// ASCII -- the runtime string is identical either way.
-pub const SECTIONS: [&str; 9] = [
+pub const SECTIONS: [&str; 10] = [
     "## \u{a7}G GOAL",
+    "## \u{a7}D DESCRIPTION",
     // V39's pair, and they rank HERE rather than at the end: the edges a
     // directory declares are STRUCTURE, so a reader meets them before the
     // constraints that are written in their terms. Optional like every other
@@ -76,8 +78,9 @@ pub const SECTIONS: [&str; 9] = [
 /// the whole word rather than a stem, and deliberately: `federated` is an
 /// adjective a dozen sections could wear, while the noun names this one
 /// thing. V39 fixes both words, so widening either is a spec edit.
-pub const CANONICAL_WORDS: [(char, &str); 9] = [
+pub const CANONICAL_WORDS: [(char, &str); 10] = [
     ('G', "goal"),
+    ('D', "description"),
     ('F', "federation"),
     ('N', "nav"),
     ('C', "constraint"),
@@ -1499,7 +1502,7 @@ mod tests {
     /// business -- same tolerance V11 grants it.
     #[test]
     fn v27_ignores_an_extension_section() {
-        let text = format!("{}\n## \u{a7}D DECISIONS\nprose.\n", real());
+        let text = format!("{}\n## \u{a7}E DECISIONS\nprose.\n", real());
         assert_eq!(labels_canonical(&text), Vec::<Violation>::new());
     }
 
@@ -1566,14 +1569,14 @@ mod tests {
         assert!(rows_sorted(unsorted).iter().any(|v| v.rule == "V14"), "V14");
     }
 
-    /// Extension sections are real and in fleet use -- §D, §E, §O, §P, §X.
+    /// Extension sections are real and in fleet use -- §E, §O, §P, §X.
     /// Only the KNOWN letters are ordered against each other; an unknown one
     /// between them is not the checker's business.
     #[test]
     fn v11_tolerates_an_unknown_section_letter() {
         let with_ext = real().replace(
             "## \u{a7}T TASKS",
-            "## \u{a7}D DECISIONS\n\nsome prose.\n\n## \u{a7}T TASKS",
+            "## \u{a7}E DECISIONS\n\nsome prose.\n\n## \u{a7}T TASKS",
         );
         assert_eq!(sections_ordered(&with_ext), Vec::<Violation>::new());
     }
