@@ -177,7 +177,13 @@ pub fn declared_at(text: &str, kind: char) -> Vec<(usize, Id)> {
 #[must_use]
 pub fn cited(text: &str) -> Vec<String> {
     outside_backticks(text)
-        .split(|c: char| !c.is_ascii_alphanumeric())
+        .split(|c: char| !c.is_ascii_alphanumeric() && c != '/')
+        .filter(|t| {
+            !t.contains('/')
+                || !t
+                    .rsplit_once('/')
+                    .is_some_and(|(_, id)| is_invariant_ref(id))
+        })
         .filter(|t| is_invariant_ref(t))
         .map(str::to_owned)
         .collect()
@@ -2332,6 +2338,19 @@ mod tests {
     fn a_citation_is_found_next_to_punctuation() {
         let found = cited("cites (V21,V22) and V13. not Vx or V");
         assert_eq!(found, vec!["V21", "V22", "V13"]);
+    }
+
+    /// A slash-qualified id belongs to the named repository, not this one.
+    /// The local id beside it must still be checked, and punctuation after a
+    /// foreign citation must not change that classification.
+    #[test]
+    fn a_foreign_slash_citation_is_not_a_local_citation() {
+        let found = cited("microlith/V14 and `sherd/V9`, xenolith/V21; V99");
+        assert_eq!(found, vec!["V99"]);
+        assert!(citations_resolve(
+            "## \u{a7}V INVARIANTS\nV1: cites microlith/V14 and `sherd/V9`.\n"
+        )
+        .is_empty());
     }
 
     /// V13's boundary, planted from the three shapes that actually fired on
