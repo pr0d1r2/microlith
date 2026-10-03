@@ -178,12 +178,9 @@ pub fn declared_at(text: &str, kind: char) -> Vec<(usize, Id)> {
 pub fn cited(text: &str) -> Vec<String> {
     outside_backticks(text)
         .split(|c: char| !c.is_ascii_alphanumeric() && c != '/')
-        .filter(|t| {
-            !t.contains('/')
-                || !t
-                    .rsplit_once('/')
-                    .is_some_and(|(_, id)| is_invariant_ref(id))
-        })
+        // `microlith/V14` is another repo's; `V104/V105` is two of ours (B45).
+        .filter(|t| !names_a_repo(t))
+        .flat_map(|t| t.split('/'))
         .filter(|t| is_invariant_ref(t))
         .map(str::to_owned)
         .collect()
@@ -216,6 +213,16 @@ pub fn cited_at(text: &str) -> Vec<(usize, String)> {
 #[must_use]
 pub fn outside_backticks(text: &str) -> String {
     text.split('`').step_by(2).collect::<Vec<_>>().join(" ")
+}
+
+/// Does a slash token name ANOTHER repository? Its first segment is a repo
+/// name, and repo names here are lowercase (`microlith`, `sherd`, `itok`).
+/// Anything else before the slash -- an id (`V104/V105`, `C5a/V2`), an
+/// acronym (`EMA/V203`), or nothing at all once a backticked span is cut
+/// out (`` `nix:V15`/V20 ``) -- leaves a list of OUR ids (B45).
+fn names_a_repo(token: &str) -> bool {
+    token.contains('/')
+        && token.chars().next().is_some_and(|c| c.is_ascii_lowercase())
 }
 
 fn is_invariant_ref(token: &str) -> bool {
@@ -2351,6 +2358,25 @@ mod tests {
             "## \u{a7}V INVARIANTS\nV1: cites microlith/V14 and `sherd/V9`.\n"
         )
         .is_empty());
+    }
+
+    /// B45: a slash LIST of local ids is local. #69 dropped any token whose
+    /// last segment is an id, so `V104/V105` vanished whole and a dangling
+    /// `V104` went unreported. Foreign means the FIRST segment names a repo.
+    #[test]
+    fn a_slash_list_of_local_ids_is_local() {
+        assert_eq!(cited("Mirrors the V104/V105 split"), vec!["V104", "V105"]);
+        assert_eq!(cited("(sibling V25/V28/V30)"), vec!["V25", "V28", "V30"]);
+        assert_eq!(cited("lives here (C2/V17)"), vec!["V17"]);
+        assert_eq!(
+            cited("C5a/V2, EMA/V203 and `nix:V15`/V20"),
+            vec!["V2", "V203", "V20"]
+        );
+        assert_eq!(cited("microlith/V14/V15 and V9"), vec!["V9"]);
+        assert!(
+            !citations_resolve("## \u{a7}V INVARIANTS\nV1: mirrors V104/V1.\n")
+                .is_empty()
+        );
     }
 
     /// V13's boundary, planted from the three shapes that actually fired on

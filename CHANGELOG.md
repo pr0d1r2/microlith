@@ -77,6 +77,12 @@ pipeline gets proven before a permanent number is spent.
   doubled only before `\`, before `|`, or at the end of the cell, where
   `unescape` would otherwise spend it. Any string `escape` wrote before
   still decodes to the same cell.
+- **A slash list of local ids is checked again** (B45). An unreleased change
+  taught `check` to skip another repository's ids (`microlith/V14`), but
+  it also skipped local lists such as `V104/V105`, so a dangling id inside
+  one went unreported. A slash token is now foreign only when it starts
+  with a lowercase repo name. Over 1,099 specs on disk, `check`, `derive`
+  and `anchors` print exactly what `0.7.3` printed.
 
 ## [0.7.3] — 2026-09-20
 
