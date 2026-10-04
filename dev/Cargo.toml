@@ -1,0 +1,44 @@
+# This repository's own tooling: the README badge generator the gate runs.
+# NEVER shipped -- `publish = false` keeps it off crates.io and
+# `release = false` keeps cargo-release from tagging it, so it reaches the
+# dev shell and hk, never a consumer's PATH. A workspace member is outside
+# the root package's tarball by construction, so no `exclude` is needed.
+[package]
+name = "microlith-dev"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+
+[package.metadata.release]
+release = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "microlith-dev"
+path = "src/main.rs"
+
+[dependencies]
+
+# The root package's limits, restated rather than inherited: the root is
+# self-specified (V20), so there is no [workspace.lints] to point at.
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+arithmetic_side_effects = "deny"
+too_many_lines = "deny"
+cognitive_complexity = "deny"
+excessive_nesting = "deny"
+fn_params_excessive_bools = "deny"
+struct_excessive_bools = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"
