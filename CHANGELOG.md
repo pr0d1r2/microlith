@@ -40,6 +40,26 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.7.4] — 2026-10-03
+
+A patch by `0.7.1`'s test, *"a consumer gets it by `cargo update` and loses
+nothing"*: one additive key, one encoder that now writes what an author
+wrote, and one checker fix that restores findings an unreleased change had
+hidden.
+
+MEASURED with two builds, `0.7.3` and this one, over **1,099 `SPEC.md`
+files on disk**, running `check`, `derive`, `anchors` and `tasks --format
+json` on each. `check`, `derive` and `anchors` print byte-identical output
+on every file. `tasks --format json` differs on every file by exactly the
+new `milestones` key: with that key removed, all 1,099 match. Exit codes
+are identical for every verb on every file.
+
+That comparison is also how B45 was found. The first candidate for this
+release lost 22 `check` findings in 15 files, every one an id inside a
+slash list such as `V104/V105`, and it was fixed before the tag.
+
 ### Added
 
 - **`mth tasks --format json` names each milestone's ship version** (V53,
@@ -83,6 +103,11 @@ pipeline gets proven before a permanent number is spent.
   one went unreported. A slash token is now foreign only when it starts
   with a lowercase repo name. Over 1,099 specs on disk, `check`, `derive`
   and `anchors` print exactly what `0.7.3` printed.
+- **The changelog gate accepts a release commit** (B46). Contributor-facing:
+  the `changelog-unreleased` step read only the Unreleased block, so it
+  refused the commit that dates those entries under a new version. It now
+  reads every section above the last tag's. Nothing about the crate
+  changes.
 
 ## [0.7.3] — 2026-09-20
 
