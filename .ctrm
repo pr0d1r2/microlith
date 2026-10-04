@@ -1,0 +1,53 @@
+# Drafted by `ctrm init` from the tracked files. Review it before you
+# commit it: every grant is a decision. A pattern with no `/` matches a
+# file name at any depth; the last matching line wins; a path no line
+# matches gets `ascii`. `ctrm explain <path>` says which line decides.
+
+# 79 text files read, 0 skipped (binary or not UTF-8).
+# Pure ASCII, no line needed: *.lock (2) *.nix (1) .coverage (1)
+#   .crate-files (1) .envrc (1) .gitignore (1) LICENSE (1)
+
+# *.md, files: 32.
+# caveman for U+00A7 U+00B7 U+00D7 U+2192 U+21D2 U+2200 U+2203 U+2208
+#   U+2209 U+2234 U+2235 U+2260 U+2261 U+2264 U+2265 U+2287 U+22A5
+# `ctrm fix` rewrites, no grant needed: U+2014 U+2026
+# Typography is intentional in prose: em dashes and ellipses are used as
+# punctuation throughout the documentation and the vendored format.
+*.md ascii+caveman+typography
+
+# *.pkl, files: 2.
+# box for U+2500 U+2502 U+2514 U+251C
+# caveman for U+00A7 U+2192 U+22A5
+# `ctrm fix` rewrites, no grant needed: U+2019
+# Typography is intentional in comments; the apostrophe is ordinary prose.
+*.pkl ascii+box+caveman+typography
+
+# *.rs, files: 25.
+# caveman for U+00A7 U+00B7 U+2234 U+22A5
+# `ctrm fix` rewrites, no grant needed: U+2014
+# Typography is intentional in source comments and diagnostic prose.
+*.rs ascii+caveman+typography
+
+# *.toml, files: 6.
+# caveman for U+00A7
+*.toml ascii+caveman
+
+# *.yml, files: 3.
+# caveman for U+00B7
+*.yml ascii+caveman
+
+# .context-limits, files: 1.
+# caveman for U+00A7
+.context-limits ascii+caveman
+
+# .format-upstream, files: 1.
+# caveman for U+00A7
+.format-upstream ascii+caveman
+
+# .spec-records, files: 1.
+# caveman for U+00A7 U+22A5
+.spec-records ascii+caveman
+
+# AGENTS.md is repository guidance and uses the same intentional prose
+# punctuation as the other Markdown documents.
+AGENTS.md ascii+caveman+typography
