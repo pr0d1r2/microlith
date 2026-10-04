@@ -145,6 +145,11 @@
               ./src
               ./Cargo.toml
               ./Cargo.lock
+              # Cargo loads EVERY workspace member manifest before it builds
+              # anything, so the unpublished `dev/` crate must exist here even
+              # though only the root package is built (V54).
+              ./dev/Cargo.toml
+              ./dev/src
             ];
           };
           cargoLock.lockFile = ./Cargo.lock;
