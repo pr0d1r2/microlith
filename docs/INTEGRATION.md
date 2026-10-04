@@ -109,6 +109,13 @@ hook you are tempted to bypass is worse than no hook.
 to prove the package builds reproducibly from the tracked lock alone. It is
 already wired to fire on `pull_request` as well as on pushes to `main`.
 
+The reviewed `.ctrm` is checked manually with `ctrm check` while
+characterminator is not yet a gate step. The dev shell pins its toolchain and
+all gate binaries through the flake; adding a gate before characterminator has
+a pinned flake input would make CI fetch an unreviewed tool version. The
+decision is to adopt the reviewed map now and add the gate when that pin is
+available, rather than weaken the repository's reproducibility guarantee.
+
 **Changes reach `main` through pull requests, and this is enforced.** GitHub
 refuses a direct push to `main`: a pull request is required, all three `gate`
 matrix jobs are required status checks, the branch must be up to date, force
