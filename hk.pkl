@@ -29,16 +29,20 @@ env {
 /// build directory", which READS AS A HANG. Chaining makes the
 /// serialization explicit and leaves hk free to run the non-cargo checks
 /// concurrently.
+///
+/// `--all` / `--workspace` on fmt, clippy and test: with a root package, cargo
+/// acts on THAT package alone, so the unpublished `dev/` member would be
+/// built by `readme-badges` and never linted or tested by anything.
 local fast = new Mapping<String, Step> {
   ["fmt"] {
     glob = List("**/*.rs")
-    check = "cargo fmt --check"
-    fix = "cargo fmt"
+    check = "cargo fmt --all --check"
+    fix = "cargo fmt --all"
   }
   ["clippy"] {
     glob = List("**/*.rs")
     depends = List("fmt")
-    check = "cargo clippy --all-targets -- -D warnings"
+    check = "cargo clippy --workspace --all-targets -- -D warnings"
   }
   // nextest runs each test in its OWN process. That isolation is worth an
   // extra tool: it makes a race between concurrently running tests much
@@ -49,11 +53,12 @@ local fast = new Mapping<String, Step> {
   // SPEC.md. Four spec commits landed that way before `hk check --all`,
   // run by hand, caught a slack breach the pre-commit hook never looked
   // for. A step's glob must name every input its tests read, not just the
-  // language it is written in.
+  // language it is written in. `hk.pkl` is one: microlith-dev ties its
+  // input list to the `readme-badges` glob below.
   ["test"] {
-    glob = List("**/*.rs", "SPEC.md", ".spec-records")
+    glob = List("**/*.rs", "SPEC.md", ".spec-records", "hk.pkl")
     depends = List("clippy")
-    check = "cargo nextest run"
+    check = "cargo nextest run --workspace"
   }
   // THE CEILING GETS A RUNNER. `.context-limits` has named a token budget
   // for SPEC.md since it was written and nothing here enforced it: the file
@@ -478,9 +483,11 @@ local fast = new Mapping<String, Step> {
   // formatter that rewrites on commit would fight the comments.
   // README's badge block is GENERATED, like the `mth docs` block above it.
   // Eleven numbers -- edition, MSRV, dependency count, coverage floor,
-  // coverage, and one badge per OS the flake builds -- each read from the
+  // coverage, and one badge per CI runner -- each read from the
   // file that owns it. Hand-maintaining them is eleven chances to be wrong,
-  // and the coverage one already went stale once within hours.
+  // and the coverage one already went stale once within hours. The
+  // generator is `dev/` (`microlith-dev`, V54): one renderer for check and
+  // fix, every parser a tested pure function.
   //
   // CHEAP ON PURPOSE, so it can live in `fast` and run on every commit: the
   // expensive input (coverage) is read from `.coverage`, which the `coverage`
@@ -490,8 +497,8 @@ local fast = new Mapping<String, Step> {
   ["readme-badges"] {
     glob = List("README.md", ".coverage", "Cargo.toml", "flake.nix", "flake.lock", "hk.pkl", ".github/workflows/ci.yml", "dev/**")
     depends = List("coverage")
-    check = "cargo run --manifest-path dev/Cargo.toml -- readme --check"
-    fix = "cargo run --manifest-path dev/Cargo.toml -- readme"
+    check = "cargo run -q --manifest-path dev/Cargo.toml -- readme --check {{files}}"
+    fix = "cargo run -q --manifest-path dev/Cargo.toml -- readme {{files}}"
   }
   ["nixfmt"] {
     glob = List("**/*.nix")
@@ -627,11 +634,13 @@ local all = (fast) {
       mv target/.coverage.new .coverage
       """
   }
+  // UNSCOPED twin of `readme-badges`: no paths handed in, so every input is
+  // compared. Pre-push and CI see the whole tree, whatever a commit touched.
   ["readme-badges-all"] {
     glob = List("**/*")
     depends = List("coverage")
-    check = "cargo run --manifest-path dev/Cargo.toml -- readme --check"
-    fix = "cargo run --manifest-path dev/Cargo.toml -- readme"
+    check = "cargo run -q --manifest-path dev/Cargo.toml -- readme --check"
+    fix = "cargo run -q --manifest-path dev/Cargo.toml -- readme"
   }
 }
 

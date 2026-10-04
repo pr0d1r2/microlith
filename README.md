@@ -22,6 +22,7 @@
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![nixpkgs 26.05](https://img.shields.io/badge/nixpkgs-26.05-5277C3?logo=nixos&logoColor=white)](flake.lock)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)](flake.nix)
+[![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)](flake.nix)
 [![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)](flake.nix)
 [![arm macos](https://img.shields.io/badge/macos-5277C3?logo=arm&logoColor=white)](flake.nix)
 

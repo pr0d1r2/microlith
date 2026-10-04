@@ -1,11 +1,9 @@
 fn main() {
-    std::process::exit(
-        microlith_dev::run(
-            &std::env::args().skip(1).collect::<Vec<_>>(),
-            std::path::Path::new("."),
-            &[],
-            &mut std::io::stderr(),
-        )
-        .into(),
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let code = microlith_dev::run(
+        &args,
+        std::path::Path::new("."),
+        &mut std::io::stderr(),
     );
+    std::process::exit(code.into());
 }
