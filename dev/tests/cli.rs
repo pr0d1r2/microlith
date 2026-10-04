@@ -87,6 +87,16 @@ fn fix_rewrites_then_check_is_clean() -> Result<(), String> {
 }
 
 #[test]
+fn badge_rendering_truncates_a_stale_two_decimal_cache() -> Result<(), String> {
+    let root = fixture("truncate")?;
+    std::fs::write(root.join(".coverage"), "# cache\nkey abc\nlines 99.45\n")
+        .map_err(|e| e.to_string())?;
+    assert_eq!(run(&root, &["readme"])?.0, 0);
+    assert!(readme(&root)?.contains("[![coverage 99.4%]"));
+    Ok(())
+}
+
+#[test]
 fn a_scoped_run_skips_when_no_input_changed() -> Result<(), String> {
     let root = fixture("scoped")?;
     assert_eq!(run(&root, &["readme", "--check", "SPEC.md"])?.0, 0);

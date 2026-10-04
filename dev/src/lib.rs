@@ -291,8 +291,28 @@ fn coverage(cache: &str) -> Result<String, String> {
     cache
         .lines()
         .find_map(|line| line.strip_prefix("lines "))
-        .map(|value| value.trim().to_string())
+        .map(|value| truncate_coverage(value.trim()))
+        .transpose()?
         .ok_or(".coverage has no `lines` value -- run `hk fix --all` to measure it".into())
+}
+
+/// Keep the badge at the same one-decimal precision as the coverage cache.
+/// Truncation is deliberate: rounding can straddle the platform-dependent
+/// tenth, while truncation never overstates the measured coverage.
+fn truncate_coverage(value: &str) -> Result<String, String> {
+    let (whole, fraction) = value
+        .split_once('.')
+        .ok_or(format!("invalid coverage value `{value}`"))?;
+    if whole.is_empty()
+        || !whole.chars().all(|c| c.is_ascii_digit())
+        || !fraction.chars().all(|c| c.is_ascii_digit())
+    {
+        return Err(format!("invalid coverage value `{value}`"));
+    }
+    Ok(format!(
+        "{whole}.{}",
+        fraction.chars().next().unwrap_or('0')
+    ))
 }
 
 /// The README with its badge block replaced. Exactly one marker pair, in
