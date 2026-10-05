@@ -218,21 +218,11 @@ local fast = new Mapping<String, Step> {
   // PROSE is not checked and could not be: whether a paragraph still
   // describes what a step does is a judgement, and V6 keeps judgement out of
   // mechanical checks. This catches the half that is countable.
+  // The count itself is microlith-dev's `gate_steps`, the same function the
+  // README badge reads, so the two cannot disagree.
   ["integration-doc"] {
-    glob = List("hk.pkl", "docs/INTEGRATION.md")
-    check = """
-      fast=$(awk '/^local fast/,/^}/' hk.pkl | grep -cE '^  [[]["]')
-      extra=$(awk '/^local all/,/^}/' hk.pkl | grep -cE '^  [[]["]')
-      pcx=$(awk '/^local precommit/,/^}/' hk.pkl | grep -cE '^  [[]["]')
-      all=$((fast + extra))
-      pc=$((fast + pcx))
-      stated=$(grep -oE '[0-9]+ steps?' docs/INTEGRATION.md | grep -oE '^[0-9]+' | sort -u)
-      [ -n "$stated" ] || { echo "hk: docs/INTEGRATION.md states no step count at all. It is the document that explains the gate; a count that vanished is not the same as a count that is right." >&2; exit 1; }
-      bad=$(echo "$stated" | grep -vE "^($fast|$pc|$all)$" || true)
-      [ -z "$bad" ] || { echo "hk: docs/INTEGRATION.md claims $(echo $bad)steps; hk.pkl defines $fast fast, $pc pre-commit and $all all. The doc describes the gate, so it goes stale every time the gate grows -- fix the numbers, and check whether the new steps are described at all." >&2; exit 1; }
-      echo "$stated" | grep -qx "$all" || { echo "hk: docs/INTEGRATION.md never states the all-set count ($all). Stating only the commit-side number hides drift in the half that gates a push." >&2; exit 1; }
-      echo "$stated" | grep -qxE "$fast|$pc" || { echo "hk: docs/INTEGRATION.md never states the commit-side count ($fast fast, or $pc with the pre-commit-only guard). Stating only the all count hides drift in the half you meet on every commit." >&2; exit 1; }
-      """
+    glob = List("hk.pkl", "docs/INTEGRATION.md", "dev/**")
+    check = "cargo run -q --manifest-path dev/Cargo.toml -- integration-doc"
   }
   // A changelog entry is HUMAN narrative, not a generated registry (V33),
   // so this checks only the mechanical half: whether user-visible code

@@ -17,7 +17,7 @@ const FILES: [(&str, &str); 6] = [
     ),
     (
         "hk.pkl",
-        "cargo llvm-cov nextest --fail-under-lines 98 --summary-only\n",
+        "local fast = new Mapping<String, Step> {\n  [\"fmt\"] {\n  }\n}\nlocal all = (fast) {\n}\n# cargo llvm-cov nextest --fail-under-lines 98 --summary-only\n",
     ),
     (
         "flake.lock",

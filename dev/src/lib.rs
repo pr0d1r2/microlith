@@ -9,8 +9,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 /// One line, answered on `--help` and on a usage error.
-pub const USAGE: &str =
-    "usage: microlith-dev readme [--check] [<changed path>...]";
+pub const USAGE: &str = "usage: microlith-dev readme [--check] [<changed path>...]\n       microlith-dev integration-doc";
 
 /// Every file the badge block is read from, plus the README it lands in and
 /// this crate itself. `hk.pkl`'s `readme-badges` glob must name exactly
@@ -161,6 +160,93 @@ fn skip_string(chars: &mut std::str::CharIndices<'_>) -> Option<()> {
     None
 }
 
+/// Steps in the `local <name>` block of `hk.pkl`: the `  ["step"] {` lines
+/// between its header and the first closing `}` at column 0. Scoped to the
+/// block, never the file, so `hooks { ["check"] ... }` -- a name that is both
+/// a hook and a step -- is not counted as a step.
+pub fn block_steps(pkl: &str, name: &str) -> Result<usize, String> {
+    let header = format!("local {name} ");
+    let mut lines = pkl.lines().skip_while(|l| !l.starts_with(&header));
+    lines
+        .next()
+        .ok_or(format!("hk.pkl has no `local {name}` block"))?;
+    Ok(lines
+        .take_while(|line| !line.starts_with('}'))
+        .filter(|line| line.starts_with("  [\""))
+        .count())
+}
+
+/// `(fast, all)` step counts, the ONE count behind both the README badge and
+/// the `integration-doc` check. `all` extends `fast`, so it is the sum.
+pub fn gate_steps(pkl: &str) -> Result<(usize, usize), String> {
+    let fast = block_steps(pkl, "fast")?;
+    let all = fast.saturating_add(block_steps(pkl, "all")?);
+    Ok((fast, all))
+}
+
+/// Check every `N step(s)` in `docs/INTEGRATION.md` against the gate. Each
+/// stated count must be the fast, pre-commit or all count; the all count and
+/// a commit-side count must both appear.
+pub fn integration_doc(pkl: &str, doc: &str) -> Result<(), String> {
+    let (fast, all) = gate_steps(pkl)?;
+    let pc = fast.saturating_add(block_steps(pkl, "precommit")?);
+    let stated = stated_counts(doc);
+    if stated.is_empty() {
+        return Err("docs/INTEGRATION.md states no step count at all. It is the document that explains the gate; a count that vanished is not the same as a count that is right.".into());
+    }
+    unknown_counts(&stated, [fast, pc, all])?;
+    missing_counts(&stated, [fast, pc, all])
+}
+
+/// Something stated that is no real count.
+fn unknown_counts(stated: &[usize], real: [usize; 3]) -> Result<(), String> {
+    let [fast, pc, all] = real;
+    let bad: Vec<String> = stated
+        .iter()
+        .filter(|n| !real.contains(n))
+        .map(ToString::to_string)
+        .collect();
+    if bad.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "docs/INTEGRATION.md claims {} steps; hk.pkl defines {fast} fast, {pc} pre-commit and {all} all. The doc describes the gate, so it goes stale every time the gate grows -- fix the numbers, and check whether the new steps are described at all.",
+        bad.join(", ")
+    ))
+}
+
+/// Both halves of the gate must be stated, so drift cannot hide in one.
+fn missing_counts(stated: &[usize], real: [usize; 3]) -> Result<(), String> {
+    let [fast, pc, all] = real;
+    if !stated.contains(&all) {
+        return Err(format!(
+            "docs/INTEGRATION.md never states the all-set count ({all}). Stating only the commit-side number hides drift in the half that gates a push."
+        ));
+    }
+    if !stated.contains(&fast) && !stated.contains(&pc) {
+        return Err(format!(
+            "docs/INTEGRATION.md never states the commit-side count ({fast} fast, or {pc} with the pre-commit-only guard). Stating only the all count hides drift in the half you meet on every commit."
+        ));
+    }
+    Ok(())
+}
+
+/// Distinct numbers written as `N step` or `N steps`.
+fn stated_counts(doc: &str) -> Vec<usize> {
+    let mut out = Vec::new();
+    let words: Vec<&str> = doc.split(|c: char| !c.is_alphanumeric()).collect();
+    for pair in words.windows(2) {
+        if let [num, word] = pair
+            && matches!(*word, "step" | "steps")
+            && let Ok(n) = num.parse::<usize>()
+            && !out.contains(&n)
+        {
+            out.push(n);
+        }
+    }
+    out
+}
+
 /// One badge per CI RUNNER, from `ci.yml`'s `os:` matrix -- never from the
 /// flake's `systems`, which can name a system no runner builds. A runner
 /// this table does not know is an error, never a guess. x86_64 Linux is
@@ -213,27 +299,35 @@ fn listed<'a>(
         .collect()
 }
 
+type Values = Vec<(&'static str, String)>;
+
 /// How `render_badges` reads a file, so a test can hand it strings.
 pub type Read<'a> = &'a dyn Fn(&str) -> Result<String, String>;
 
 /// The badge block, from the files that own each number. One renderer
 /// serves both `--check` and the rewrite.
 pub fn render_badges(read: Read<'_>) -> Result<String, String> {
+    Ok(badge_values(read)?
+        .iter()
+        .fold(TEMPLATE.to_string(), |s, (k, v)| s.replace(k, v)))
+}
+
+fn badge_values(read: Read<'_>) -> Result<Values, String> {
     let cargo = read("Cargo.toml")?;
     let hk = read("hk.pkl")?;
     let ci = read(".github/workflows/ci.yml")?;
-    let values = [
+    let (fast, all) = gate_steps(&hk)?;
+    Ok(vec![
         ("{edition}", field(&cargo, "edition")?),
         ("{msrv}", field(&cargo, "rust-version")?),
         ("{deps}", dependency_count(&cargo).to_string()),
         ("{floor}", floor(&hk)?),
+        ("{fast}", fast.to_string()),
+        ("{all}", all.to_string()),
         ("{cov}", coverage(&read(".coverage")?)?),
         ("{chan}", nixpkgs_channel(&read("flake.lock")?)?),
         ("{platforms}", platform_badges(&ci)?),
-    ];
-    Ok(values
-        .iter()
-        .fold(TEMPLATE.to_string(), |s, (k, v)| s.replace(k, v)))
+    ])
 }
 
 const TEMPLATE: &str = "\
@@ -245,7 +339,7 @@ const TEMPLATE: &str = "\
 [![MSRV {msrv}](https://img.shields.io/badge/MSRV-{msrv}-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![dependencies {deps}](https://img.shields.io/badge/dependencies-{deps}-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
-[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
+[![gate hk, {fast} fast / {all} all steps](https://img.shields.io/badge/gate-hk%20{fast}%20%2F%20{all}-6E4AFF)](hk.pkl)
 [![coverage {cov}%](https://img.shields.io/badge/coverage-{cov}%25-brightgreen)](hk.pkl)
 [![floor {floor}%](https://img.shields.io/badge/floor-%E2%89%A5{floor}%25-brightgreen)](hk.pkl)
 
@@ -358,8 +452,10 @@ pub fn in_scope(paths: &[&str]) -> bool {
 /// Exit 0 clean or rewritten, 1 stale or unreadable, 2 usage.
 pub fn run(args: &[String], root: &Path, err: &mut dyn std::io::Write) -> u8 {
     let mut args = args.iter().map(String::as_str);
-    if args.next() != Some("readme") {
-        return usage(err, 2);
+    match args.next() {
+        Some("readme") => {}
+        Some("integration-doc") => return doc(root, err),
+        _ => return usage(err, 2),
     }
     let (flags, paths): (Vec<&str>, Vec<&str>) =
         args.partition(|a| a.starts_with("--"));
@@ -369,6 +465,22 @@ pub fn run(args: &[String], root: &Path, err: &mut dyn std::io::Write) -> u8 {
         [] | ["--check"] => readme(root, !flags.is_empty(), err),
         _ => usage(err, 2),
     }
+}
+
+fn doc(root: &Path, err: &mut dyn std::io::Write) -> u8 {
+    let read = |name: &str| {
+        std::fs::read_to_string(root.join(name))
+            .map_err(|e| format!("{name}: {e}"))
+    };
+    let outcome = read("hk.pkl")
+        .and_then(|pkl| integration_doc(&pkl, &read("docs/INTEGRATION.md")?));
+    outcome.map_or_else(
+        |e| {
+            _ = writeln!(err, "hk: {e}");
+            1
+        },
+        |()| 0,
+    )
 }
 
 fn usage(err: &mut dyn std::io::Write, code: u8) -> u8 {
