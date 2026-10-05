@@ -146,6 +146,63 @@ fn hk_glob_is_the_input_list() {
     assert!(hk.contains("[\"readme-badges-all\"]"));
 }
 
+/// `check` is a hook AND a step; only the `local` blocks count.
+const PKL: &str = "local fast = new Mapping<String, Step> {\n  [\"fmt\"] {\n  }\n  [\"check\"] {\n  }\n}\nlocal all = (fast) {\n  [\"coverage\"] {\n  }\n}\nlocal precommit = (fast) {\n  [\"guard\"] {\n  }\n  [\"guard2\"] {\n  }\n}\nhooks {\n  [\"check\"] {\n  }\n  [\"fix\"] {\n  }\n  [\"pre-push\"] {\n  }\n}\n";
+
+#[test]
+fn a_name_that_is_hook_and_step_counts_once() {
+    assert_eq!(gate_steps(PKL), Ok((2, 3)));
+    assert_eq!(block_steps(PKL, "precommit"), Ok(2));
+}
+
+#[test]
+fn a_missing_block_is_an_error() {
+    assert!(gate_steps("hooks {\n}\n").is_err_and(|e| e.contains("fast")));
+}
+
+#[test]
+fn doc_must_state_real_counts() {
+    assert_eq!(integration_doc(PKL, "2 steps fast, 3 steps all"), Ok(()));
+    assert_eq!(integration_doc(PKL, "4 steps, 3 step all"), Ok(()));
+}
+
+#[test]
+fn doc_rejects_wrong_or_missing_counts() {
+    assert!(
+        integration_doc(PKL, "2 steps and 9 steps and 3 steps")
+            .is_err_and(|e| e.contains("claims 9"))
+    );
+    assert!(
+        integration_doc(PKL, "no counts")
+            .is_err_and(|e| e.contains("no step count"))
+    );
+    assert!(
+        integration_doc(PKL, "2 steps").is_err_and(|e| e.contains("all-set"))
+    );
+    assert!(
+        integration_doc(PKL, "3 steps")
+            .is_err_and(|e| e.contains("commit-side"))
+    );
+}
+
+#[test]
+fn badge_uses_the_same_counts() {
+    let read = |name: &str| -> Result<String, String> {
+        Ok(match name {
+            "Cargo.toml" => {
+                "edition = \"2024\"\nrust-version = \"1.95\"\n".into()
+            }
+            "hk.pkl" => format!("{PKL}fail-under-lines 98\n"),
+            ".coverage" => "lines 97.5\n".into(),
+            "flake.lock" => r#"{"nodes":{"np":{"original":{"ref":"nixos-26.05"}},"root":{"inputs":{"nixpkgs":"np"}}}}"#.into(),
+            _ => "matrix:\n  os: [macos-latest]\n".into(),
+        })
+    };
+    assert!(
+        render_badges(&read).is_ok_and(|b| b.contains("gate-hk%202%20%2F%203"))
+    );
+}
+
 #[test]
 fn usage_is_exit_two_and_help_is_zero() {
     let root = Path::new("/nonexistent");
@@ -159,6 +216,21 @@ fn usage_is_exit_two_and_help_is_zero() {
     assert_eq!(call(&["readme", "--help"]), 0);
     assert_eq!(call(&["readme", "--check", "SPEC.md"]), 0);
     assert_eq!(call(&["readme", "--check"]), 1);
+}
+
+/// `integration-doc` reads fixed paths: an argument is a mistake to report,
+/// never one to ignore by running the check anyway.
+#[test]
+fn integration_doc_refuses_arguments() {
+    let root = Path::new("/nonexistent");
+    let call = |args: &[&str]| {
+        let args: Vec<String> = args.iter().map(|a| (*a).to_string()).collect();
+        run(&args, root, &mut Vec::new())
+    };
+    assert_eq!(call(&["integration-doc", "--help"]), 0);
+    assert_eq!(call(&["integration-doc", "--bogus"]), 2);
+    assert_eq!(call(&["integration-doc", "docs/INTEGRATION.md"]), 2);
+    assert_eq!(call(&["integration-doc"]), 1);
 }
 
 /// V54: the dev crate never ships. Either flag alone leaves a path out --

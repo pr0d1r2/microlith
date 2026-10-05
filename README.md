@@ -15,7 +15,7 @@
 [![MSRV 1.95](https://img.shields.io/badge/MSRV-1.95-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
-[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
+[![gate hk, 31 fast / 36 all steps](https://img.shields.io/badge/gate-hk%2031%20%2F%2036-6E4AFF)](hk.pkl)
 [![coverage 99.4%](https://img.shields.io/badge/coverage-99.4%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 

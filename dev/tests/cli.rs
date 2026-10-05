@@ -17,7 +17,7 @@ const FILES: [(&str, &str); 6] = [
     ),
     (
         "hk.pkl",
-        "cargo llvm-cov nextest --fail-under-lines 98 --summary-only\n",
+        "local fast = new Mapping<String, Step> {\n  [\"fmt\"] {\n  }\n}\nlocal all = (fast) {\n}\nlocal precommit = (fast) {\n}\n# cargo llvm-cov nextest --fail-under-lines 98 --summary-only\n",
     ),
     (
         "flake.lock",
@@ -119,5 +119,48 @@ fn usage_exits_two() -> Result<(), String> {
     let root = fixture("usage")?;
     assert_eq!(run(&root, &[])?.0, 2);
     assert_eq!(run(&root, &["readme", "--write"])?.0, 2);
+    Ok(())
+}
+
+fn write_doc(root: &Path, text: &str) -> Result<(), String> {
+    let doc = root.join("docs/INTEGRATION.md");
+    std::fs::create_dir_all(doc.parent().ok_or("no parent")?)
+        .map_err(|e| e.to_string())?;
+    std::fs::write(doc, text).map_err(|e| e.to_string())
+}
+
+#[test]
+fn integration_doc_passes_on_the_real_counts() -> Result<(), String> {
+    let root = fixture("doc-ok")?;
+    write_doc(&root, "pre-commit (1 step), pre-push (all, 1 step)\n")?;
+    assert_eq!(run(&root, &["integration-doc"])?, (0, String::new()));
+    Ok(())
+}
+
+#[test]
+fn integration_doc_names_a_stale_count() -> Result<(), String> {
+    let root = fixture("doc-stale")?;
+    write_doc(&root, "pre-commit (1 step), pre-push (all, 7 steps)\n")?;
+    let (code, stderr) = run(&root, &["integration-doc"])?;
+    assert_eq!(code, 1);
+    assert!(stderr.contains("claims 7 steps"), "{stderr}");
+    Ok(())
+}
+
+#[test]
+fn integration_doc_names_a_missing_input() -> Result<(), String> {
+    let root = fixture("doc-missing")?;
+    let (code, stderr) = run(&root, &["integration-doc"])?;
+    assert_eq!(code, 1);
+    assert!(stderr.contains("docs/INTEGRATION.md"), "{stderr}");
+    Ok(())
+}
+
+#[test]
+fn integration_doc_takes_no_arguments() -> Result<(), String> {
+    let root = fixture("doc-usage")?;
+    write_doc(&root, "1 step, 1 step\n")?;
+    assert_eq!(run(&root, &["integration-doc", "--bogus"])?.0, 2);
+    assert_eq!(run(&root, &["integration-doc", "--help"])?.0, 0);
     Ok(())
 }
