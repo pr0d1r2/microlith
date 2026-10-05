@@ -14,4 +14,4 @@
 # no measurement is needed. If it does not, the cache is stale and pre-push
 # says so rather than trusting it.
 key 5b2618842410f2a660ec2cff6f363af0e79f3c2c
-lines 99.45
+lines 99.4

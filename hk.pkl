@@ -623,12 +623,23 @@ local all = (fast) {
       cat target/coverage.txt
       measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
       cached=$(awk '/^lines /{print $2}' .coverage)
-      [ "$measured" = "$cached" ] || { echo "hk: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to update the cache and the badge, then amend." >&2; exit 1; }
+      band=$(awk -v measured="$measured" -v cached="$cached" 'BEGIN {
+        if (measured < cached) exit 1
+        if (measured > cached + 0.5) exit 2
+      }'); band_status=$?
+      if [ "$band_status" -eq 1 ]; then
+        echo "hk: the coverage badge overstates the measured coverage: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to lower the claim." >&2
+        exit 1
+      elif [ "$band_status" -eq 2 ]; then
+        echo "hk: the coverage badge is stale: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to raise the claim." >&2
+        exit 1
+      fi
       """
     fix = """
       mkdir -p target
       cargo llvm-cov nextest --fail-under-lines 98 --summary-only > target/coverage.txt || { cat target/coverage.txt >&2; exit 1; }
       measured=$(awk '/^TOTAL/{gsub("%","",$10); print $10}' target/coverage.txt)
+      measured=$(awk -v m="$measured" 'BEGIN { printf "%.1f", int(m * 10) / 10 }')
       key=$(git ls-files -s -- '*.rs' SPEC.md .spec-records | git hash-object --stdin)
       awk -v k="$key" -v m="$measured" '/^key /{print "key " k; next} /^lines /{print "lines " m; next} {print}' .coverage > target/.coverage.new
       mv target/.coverage.new .coverage

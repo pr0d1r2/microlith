@@ -14,6 +14,13 @@ fn deps_are_zero_for_an_empty_table() {
     );
 }
 
+#[test]
+fn coverage_badges_truncate_at_one_decimal() {
+    assert_eq!(truncate_coverage("98.06"), Ok("98.0".to_string()));
+    assert_eq!(truncate_coverage("99.45"), Ok("99.4".to_string()));
+    assert!(truncate_coverage("99").is_err());
+}
+
 /// The decoy sits FIRST, as a prefix-named node with its own `nixpkgs` input
 /// and a channel of its own. A first-match read badges 1.01.
 const DECOY_LOCK: &str = r#"{
