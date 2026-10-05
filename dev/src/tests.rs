@@ -241,3 +241,65 @@ fn this_crate_never_ships() {
     assert!(manifest.contains("\npublish = false\n"));
     assert!(manifest.contains("[package.metadata.release]\nrelease = false\n"));
 }
+
+// Recorded `cargo tree -e normal --prefix none -f '{p}|{l}'` output.
+const TREE_EMPTY: &str = "microlith v0.7.4 (/work/microlith)|MIT\n";
+const TREE_ONE: &str = "microlith v0.7.4 (/work/microlith)|MIT\nserde v1.0.200|MIT OR Apache-2.0\nserde_derive v1.0.200 (proc-macro)|MIT OR Apache-2.0\nserde v1.0.200 (*)|MIT OR Apache-2.0\n";
+const NOTICES_ZERO: &str =
+    "# N\n\nmicrolith has **zero runtime dependencies**. x\n";
+
+#[test]
+fn notices_accept_zero_for_an_empty_closure() {
+    assert_eq!(
+        notices::render(NOTICES_ZERO, TREE_EMPTY).as_deref(),
+        Ok(NOTICES_ZERO)
+    );
+}
+
+#[test]
+fn notices_reject_an_added_dependency() {
+    let e = notices::render(NOTICES_ZERO, TREE_ONE)
+        .err()
+        .unwrap_or_default();
+    assert!(e.contains("claims 0") && e.contains("measures 2"), "{e}");
+}
+
+#[test]
+fn notices_reject_a_vanished_claim() {
+    assert!(notices::render("# N\n", TREE_EMPTY).is_err());
+}
+
+#[test]
+fn notices_parse_numeric_claims() {
+    assert_eq!(notices::stated("has 2 runtime dependencies"), Some(2));
+    assert_eq!(notices::stated("has 1 runtime dependency"), Some(1));
+    assert_eq!(notices::stated("no claim"), None);
+}
+
+#[test]
+fn notices_render_a_table_between_markers() {
+    let doc = "has 2 runtime dependencies\n<!-- BEGIN crates -->\nold\n<!-- END crates -->\ntail\n";
+    let out = notices::render(doc, TREE_ONE).unwrap_or_default();
+    assert!(
+        out.contains("| serde | 1.0.200 | MIT OR Apache-2.0 |\n"),
+        "{out}"
+    );
+    assert!(out.contains("| serde_derive | 1.0.200 |"), "{out}");
+    assert!(!out.contains("old") && out.ends_with("tail\n"));
+    assert!(notices::render("has 2 runtime dependencies\n", TREE_ONE).is_err());
+}
+
+#[test]
+fn notices_run_checks_and_rewrites() {
+    let dir = std::env::temp_dir()
+        .join(format!("notices-unit-{}", std::process::id()));
+    _ = std::fs::create_dir_all(dir.join("docs"));
+    let file = dir.join("docs/THIRD-PARTY-NOTICES.md");
+    let doc = "has 1 runtime dependency\n<!-- BEGIN crates -->\n<!-- END crates -->\n";
+    _ = std::fs::write(&file, doc);
+    let tree = || Ok("m v1 (/x)|MIT\nfoo v1.0.0|MIT\n".to_string());
+    assert!(notices::run(&dir, true, &tree).is_err());
+    assert!(notices::run(&dir, false, &tree).is_ok());
+    assert!(notices::run(&dir, true, &tree).is_ok());
+    assert!(notices::run(&dir, true, &|| Err("boom".into())).is_err());
+}

@@ -14,12 +14,12 @@ none of them redefines anything:
 
 ```text
                         hk.pkl
-              one definition, 36 steps
+              one definition, 37 steps
                           |
         +-----------------+-----------------+
         |                 |                 |
    pre-commit         pre-push           ci.yml
-   32 steps           all: 36 steps      all: 36 steps
+   33 steps           all: 37 steps      all: 37 steps
    (fast + 1 local)
 ```
 
@@ -43,21 +43,21 @@ is no second copy to forget.
   edit
     |
     v
-  git commit ---> pre-commit  (32 steps)       ---fails---> fix, retry
+  git commit ---> pre-commit  (33 steps)       ---fails---> fix, retry
     |                                                           |
     | passes                                                    |
     v                                                           |
   commit lands <------------------------------------------------+
     |
     v
-  git push   ---> pre-push    (all, 36 steps)  ---fails---> fix, retry
+  git push   ---> pre-push    (all, 37 steps)  ---fails---> fix, retry
     |
     | passes
     v
   branch pushed
     |
     v
-  pull request ---> ci.yml    (all, 36 steps -- same definition)
+  pull request ---> ci.yml    (all, 37 steps -- same definition)
     |                          + nix build .#default
     | green, and reviewed
     v
@@ -132,7 +132,7 @@ The local `no-commit-to-branch` hook changes no outcome — it moves that refusa
 earlier, to before you have built a commit you then have to move. The server
 rule is the one that defends the branch, because V23 makes every hook here skip
 outside the dev shell. Requiring a PR does not add a check either — CI runs the
-same 36 steps your pre-push hook just ran — it adds a *reader*. The gate
+same 37 steps your pre-push hook just ran — it adds a *reader*. The gate
 catches what is mechanically wrong; a reviewer catches what is merely a bad
 idea, and those are different failures.
 
@@ -143,7 +143,7 @@ above. Which **files** they see is separate:
 
 | stage | steps | files examined |
 |---|---|---|
-| `pre-commit` | 31 | **staged files only** (hk's default) |
+| `pre-commit` | 32 | **staged files only** (hk's default) |
 | `pre-push` | `all` — 34 | **everything in the push**, computed from the ref range git hands the hook: `Fetching files between refs/remotes/<remote>/main and HEAD` |
 | CI | `all` — 34 | **every file in the repo** (`hk check --all`) |
 
@@ -218,7 +218,7 @@ serialization explicit and leaves hk free to run everything else concurrently:
     no-large-files        no-case-conflict    no-broken-symlinks
     actionlint            zizmor              typos
     links                 taplo               nixfmt
-    deny                  package             integration-doc
+    deny                  package             integration-doc   notices
     format-upstream       readme-badges
 ```
 
