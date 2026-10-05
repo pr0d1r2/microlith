@@ -40,7 +40,9 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- V13 now also resolves `C<n>`, `T<n>` and `I.<label>` citations in a `§T` row's cites column (#67). `C99` and `I.nope` no longer pass when nothing declares them.
 
 ## [0.7.4] — 2026-10-03
 

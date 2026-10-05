@@ -509,7 +509,143 @@ pub fn citations_resolve(text: &str) -> Vec<Violation> {
         seen.push(cite.clone());
         out.push(unresolved(&lines, (line, &cite), &nodes));
     }
+    out.extend(other_cites_resolve(text, &nodes));
     out
+}
+
+/// The `C<n>`, `T<n>` and `I.<label>` citations in a `\u{a7}T` row's cites
+/// column that name nothing declared (V13).
+///
+/// SCOPED to the cites column: in prose `C1` and `T1` are as often a word or
+/// another repo's id as a citation, while the column is a list of references
+/// by construction. `C` ids are declared as `C1:` bullets, `T` ids as rows,
+/// and an `I.` label is the KIND of an `\u{a7}I` entry (`- cmd: ...`).
+fn other_cites_resolve(text: &str, nodes: &[String]) -> Vec<Violation> {
+    let known = Known::of(text);
+    let mut seen: Vec<String> = Vec::new();
+    task_cites(text)
+        .into_iter()
+        .flat_map(|(line, cell)| {
+            cite_tokens(&cell).into_iter().map(move |t| (line, t))
+        })
+        .filter(|(_, t)| known.dangles(t))
+        .filter(|(_, t)| first_seen(&mut seen, t))
+        .map(|(line, t)| dangling(&t, false, nodes).at(line))
+        .collect()
+}
+
+/// True the first time a token is offered, so one typo is one finding.
+fn first_seen(seen: &mut Vec<String>, tok: &str) -> bool {
+    let new = !seen.iter().any(|s| s == tok);
+    if new {
+        seen.push(tok.to_owned());
+    }
+    new
+}
+
+/// What the spec DECLARES that a cites cell can point at besides a `V`.
+struct Known {
+    constraints: Vec<String>,
+    tasks: Vec<String>,
+    kinds: Vec<String>,
+}
+
+impl Known {
+    fn of(text: &str) -> Self {
+        Self {
+            constraints: lines_in(text, 'C')
+                .into_iter()
+                .filter_map(entry_head)
+                .filter(|h| is_ref(h, 'C'))
+                .map(str::to_owned)
+                .collect(),
+            tasks: declared(text, 'T').iter().map(Id::label).collect(),
+            kinds: lines_in(text, 'I')
+                .into_iter()
+                .filter_map(entry_head)
+                .filter(|h| h.chars().all(is_kind_char))
+                .map(str::to_owned)
+                .collect(),
+        }
+    }
+
+    /// Is this token a `C`, `T` or `I.` citation that resolves to nothing?
+    /// Any other token is not this rule's business.
+    fn dangles(&self, tok: &str) -> bool {
+        if let Some(label) = tok.strip_prefix("I.") {
+            return !self.kinds.iter().any(|k| k == label);
+        }
+        let pool = if is_ref(tok, 'C') {
+            &self.constraints
+        } else if is_ref(tok, 'T') {
+            &self.tasks
+        } else {
+            return false;
+        };
+        !pool.iter().any(|d| d == tok)
+    }
+}
+
+fn is_kind_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_' || c == '-'
+}
+
+/// The cites cell of every `\u{a7}T` row, with its 1-based line.
+fn task_cites(text: &str) -> Vec<(usize, String)> {
+    let mut section = ' ';
+    let mut out = Vec::new();
+    for (i, line) in text.lines().enumerate() {
+        section = section_of(line).unwrap_or(section);
+        if let Some(cell) = cites_cell(line).filter(|_| section == 'T') {
+            out.push((i.saturating_add(1), cell));
+        }
+    }
+    out
+}
+
+fn cites_cell(line: &str) -> Option<String> {
+    at_line_start(line).filter(|id| id.kind == 'T')?;
+    let cells = crate::id::cells(line.trim_end());
+    cells.get(3).map(|c| (*c).to_owned())
+}
+
+/// The reference-shaped tokens of a cell, outside backticks.
+fn cite_tokens(cell: &str) -> Vec<String> {
+    outside_backticks(cell)
+        .split(|c: char| !c.is_ascii_alphanumeric() && c != '.')
+        .map(str::to_owned)
+        .collect()
+}
+
+/// `C8b`, `T12`: the section letter, digits, then an optional lowercase suffix.
+fn is_ref(token: &str, kind: char) -> bool {
+    let rest = token.strip_prefix(kind).unwrap_or("");
+    let digits = rest.chars().take_while(char::is_ascii_digit).count();
+    digits > 0 && rest.chars().skip(digits).all(|c| c.is_ascii_lowercase())
+}
+
+/// The lines under the section whose letter is `kind`, headers excluded.
+fn lines_in(text: &str, kind: char) -> Vec<&str> {
+    let mut section = ' ';
+    let mut out = Vec::new();
+    for line in text.lines() {
+        match section_of(line) {
+            Some(k) => section = k,
+            None if section == kind => out.push(line),
+            None => {}
+        }
+    }
+    out
+}
+
+/// The word before the first colon of an entry, past one bullet marker:
+/// `C1` in `- C1: text`, `cmd` in `- cmd: text`.
+fn entry_head(line: &str) -> Option<&str> {
+    let body = ["- ", "* ", "+ "]
+        .iter()
+        .find_map(|m| line.strip_prefix(m))
+        .unwrap_or(line);
+    body.split_once(':').map(|(head, _)| head.trim())
 }
 
 /// One dangling citation, with the two facts that choose its repair: does
@@ -1953,6 +2089,32 @@ mod tests {
             "{:?}",
             citations_resolve(&dangling)
         );
+    }
+
+    const CITES: &str = "## \u{a7}C CONSTRAINTS\n- C1: c\n- C8b: d\n\n\
+        ## \u{a7}I INTERFACES\n- cmd: `x`\n\n\
+        ## \u{a7}V INVARIANTS\nV1: v\n\n## \u{a7}T TASKS\n\
+        id|status|task|cites\n";
+
+    /// V13, planted: `C`, `T` and `I.` cites that name nothing.
+    #[test]
+    fn v13_rejects_dangling_c_t_and_i_cites() {
+        let text = format!("{CITES}T1|.|t|V1,C99,I.nope,T7\n");
+        let got = citations_resolve(&text);
+        for want in ["C99", "I.nope", "T7"] {
+            assert!(
+                got.iter().any(|v| v.msg.contains(want)),
+                "{want}: {got:?}"
+            );
+        }
+        assert_eq!(got.len(), 3, "{got:?}");
+    }
+
+    /// V13's companion: every real shape resolves, suffixed ids included.
+    #[test]
+    fn v13_accepts_real_c_t_and_i_cites() {
+        let text = format!("{CITES}T1|.|t|V1,C1,C8b,I.cmd\nT2|.|t|T1,`C99`\n");
+        assert_eq!(citations_resolve(&text), Vec::<Violation>::new());
     }
 
     /// Everything a finding OFFERS, joined -- the message plus its ranked
