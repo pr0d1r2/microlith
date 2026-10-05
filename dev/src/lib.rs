@@ -5,11 +5,13 @@
 //! never a consumer's PATH. Every reader below is a pure function over
 //! `&str`; only `run` touches the filesystem.
 
+pub mod notices;
+
 use std::fmt::Write as _;
 use std::path::Path;
 
 /// One line, answered on `--help` and on a usage error.
-pub const USAGE: &str = "usage: microlith-dev readme [--check] [<changed path>...]\n       microlith-dev integration-doc";
+pub const USAGE: &str = "usage: microlith-dev readme [--check] [<changed path>...]\n       microlith-dev integration-doc\n       microlith-dev notices [--check]";
 
 /// Every file the badge block is read from, plus the README it lands in and
 /// this crate itself. `hk.pkl`'s `readme-badges` glob must name exactly
@@ -455,6 +457,7 @@ pub fn run(args: &[String], root: &Path, err: &mut dyn std::io::Write) -> u8 {
     match args.next() {
         Some("readme") => {}
         Some("integration-doc") => return integration(args, root, err),
+        Some("notices") => return notices_verb(args, root, err),
         _ => return usage(err, 2),
     }
     let (flags, paths): (Vec<&str>, Vec<&str>) =
@@ -479,6 +482,27 @@ fn integration<'a>(
         ["--help"] => usage(err, 0),
         _ => usage(err, 2),
     }
+}
+
+/// `notices` measures the closure with the real `cargo tree`.
+fn notices_verb<'a>(
+    args: impl Iterator<Item = &'a str>,
+    root: &Path,
+    err: &mut dyn std::io::Write,
+) -> u8 {
+    let check = match args.collect::<Vec<_>>().as_slice() {
+        [] => false,
+        ["--check"] => true,
+        ["--help"] => return usage(err, 0),
+        _ => return usage(err, 2),
+    };
+    notices::run(root, check, &|| notices::cargo_tree(root)).map_or_else(
+        |e| {
+            _ = writeln!(err, "hk: {e}");
+            1
+        },
+        |()| 0,
+    )
 }
 
 fn doc(root: &Path, err: &mut dyn std::io::Write) -> u8 {

@@ -164,3 +164,18 @@ fn integration_doc_takes_no_arguments() -> Result<(), String> {
     assert_eq!(run(&root, &["integration-doc", "--help"])?.0, 0);
     Ok(())
 }
+
+#[test]
+fn notices_check_passes_on_the_real_tree() -> Result<(), String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    assert_eq!(run(&root, &["notices", "--check"])?, (0, String::new()));
+    Ok(())
+}
+
+#[test]
+fn notices_takes_only_check_and_help() -> Result<(), String> {
+    let root = fixture("notices-usage")?;
+    assert_eq!(run(&root, &["notices", "--bogus"])?.0, 2);
+    assert_eq!(run(&root, &["notices", "--help"])?.0, 0);
+    Ok(())
+}

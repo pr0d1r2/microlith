@@ -225,6 +225,17 @@ local fast = new Mapping<String, Step> {
     glob = List("hk.pkl", "docs/INTEGRATION.md", "dev/**")
     check = "cargo run -q --manifest-path dev/Cargo.toml -- integration-doc"
   }
+  // THIRD-PARTY-NOTICES.md opens by claiming zero runtime dependencies, and
+  // the first `[dependencies]` entry would have left it wrong with the gate
+  // green. The count is read from `cargo tree -e normal` (the measured
+  // closure, not the manifest), and the sentence is parsed from the prose.
+  // Once a dependency lands the verb renders the closure table between the
+  // `crates` markers; `hk fix` regenerates it.
+  ["notices"] {
+    glob = List("Cargo.toml", "Cargo.lock", "docs/THIRD-PARTY-NOTICES.md", "dev/**")
+    check = "cargo run -q --manifest-path dev/Cargo.toml -- notices --check"
+    fix = "cargo run -q --manifest-path dev/Cargo.toml -- notices"
+  }
   // A changelog entry is HUMAN narrative, not a generated registry (V33),
   // so this checks only the mechanical half: whether user-visible code
   // shipped since the last version tag while Unreleased stayed a placeholder.
