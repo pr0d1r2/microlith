@@ -218,6 +218,21 @@ fn usage_is_exit_two_and_help_is_zero() {
     assert_eq!(call(&["readme", "--check"]), 1);
 }
 
+/// `integration-doc` reads fixed paths: an argument is a mistake to report,
+/// never one to ignore by running the check anyway.
+#[test]
+fn integration_doc_refuses_arguments() {
+    let root = Path::new("/nonexistent");
+    let call = |args: &[&str]| {
+        let args: Vec<String> = args.iter().map(|a| (*a).to_string()).collect();
+        run(&args, root, &mut Vec::new())
+    };
+    assert_eq!(call(&["integration-doc", "--help"]), 0);
+    assert_eq!(call(&["integration-doc", "--bogus"]), 2);
+    assert_eq!(call(&["integration-doc", "docs/INTEGRATION.md"]), 2);
+    assert_eq!(call(&["integration-doc"]), 1);
+}
+
 /// V54: the dev crate never ships. Either flag alone leaves a path out --
 /// `publish` guards crates.io, `release` guards cargo-release's tag.
 #[test]

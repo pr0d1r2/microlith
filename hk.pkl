@@ -213,11 +213,12 @@ local fast = new Mapping<String, Step> {
   // needs a runner, that is the defect on the letterhead.
   //
   // WHAT IS CHECKED is only the arithmetic, deliberately. Every `N steps` in
-  // the doc must equal the fast or the all count, and both must appear, so a
-  // doc that quietly dropped its numbers cannot pass by saying nothing. The
-  // PROSE is not checked and could not be: whether a paragraph still
-  // describes what a step does is a judgement, and V6 keeps judgement out of
-  // mechanical checks. This catches the half that is countable.
+  // the doc must equal the fast, pre-commit or all count, and the all count
+  // and a commit-side one must both appear, so a doc that quietly dropped
+  // its numbers cannot pass by saying nothing. The PROSE is not checked and
+  // could not be: whether a paragraph still describes what a step does is a
+  // judgement, and V6 keeps judgement out of mechanical checks. This catches
+  // the half that is countable.
   // The count itself is microlith-dev's `gate_steps`, the same function the
   // README badge reads, so the two cannot disagree.
   ["integration-doc"] {

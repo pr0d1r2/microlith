@@ -454,7 +454,7 @@ pub fn run(args: &[String], root: &Path, err: &mut dyn std::io::Write) -> u8 {
     let mut args = args.iter().map(String::as_str);
     match args.next() {
         Some("readme") => {}
-        Some("integration-doc") => return doc(root, err),
+        Some("integration-doc") => return integration(args, root, err),
         _ => return usage(err, 2),
     }
     let (flags, paths): (Vec<&str>, Vec<&str>) =
@@ -463,6 +463,20 @@ pub fn run(args: &[String], root: &Path, err: &mut dyn std::io::Write) -> u8 {
         ["--help"] => usage(err, 0),
         [] | ["--check"] if !in_scope(&paths) => 0,
         [] | ["--check"] => readme(root, !flags.is_empty(), err),
+        _ => usage(err, 2),
+    }
+}
+
+/// `integration-doc` reads fixed paths and takes no arguments: anything but
+/// `--help` is a usage error, never silently ignored.
+fn integration<'a>(
+    args: impl Iterator<Item = &'a str>,
+    root: &Path,
+    err: &mut dyn std::io::Write,
+) -> u8 {
+    match args.collect::<Vec<_>>().as_slice() {
+        [] => doc(root, err),
+        ["--help"] => usage(err, 0),
         _ => usage(err, 2),
     }
 }
