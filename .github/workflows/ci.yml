@@ -48,6 +48,7 @@ concurrency:
 
 jobs:
   gate:
+    name: gate
     runs-on: ${{ matrix.os }}
     strategy:
       # Every platform reports, so one failure does not hide another that
