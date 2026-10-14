@@ -1,6 +1,6 @@
 # Third-party notices
 
-microlith has **zero runtime dependencies**. This file exists for one vendored
+microlith has **12 runtime dependencies**. This file exists for one vendored
 file, plus the trademark acknowledgements a public project should make.
 
 ## FORMAT.md — vendored from cavekit
@@ -17,6 +17,23 @@ local patch.
 
 What microlith *enforces* lives in its own [`SPEC.md`](../SPEC.md) under §V and is
 a superset of the vendored document. The format is an input, not the identity.
+
+<!-- BEGIN crates -->
+| Crate | Version | License |
+| --- | --- | --- |
+| anstyle | 1.0.14 | MIT OR Apache-2.0 |
+| clap | 4.6.7 | MIT OR Apache-2.0 |
+| clap_builder | 4.6.7 | MIT OR Apache-2.0 |
+| clap_derive | 4.6.7 | MIT OR Apache-2.0 |
+| clap_lex | 1.1.1 | MIT OR Apache-2.0 |
+| heck | 0.5.0 | MIT OR Apache-2.0 |
+| proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
+| proc-macro2 | 1.0.107 | MIT OR Apache-2.0 (*) |
+| quote | 1.0.47 | MIT OR Apache-2.0 |
+| quote | 1.0.47 | MIT OR Apache-2.0 (*) |
+| syn | 3.0.9 | MIT OR Apache-2.0 |
+| unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+<!-- END crates -->
 
 ### MIT License — cavekit
 

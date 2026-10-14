@@ -13,10 +13,10 @@
 [![docs.rs](https://docs.rs/microlith/badge.svg)](https://docs.rs/microlith)
 [![edition 2024](https://img.shields.io/badge/edition-2024-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV 1.95](https://img.shields.io/badge/MSRV-1.95-000000?logo=rust&logoColor=white)](Cargo.toml)
-[![dependencies 0](https://img.shields.io/badge/dependencies-0-brightgreen)](Cargo.toml)
+[![dependencies 1](https://img.shields.io/badge/dependencies-1-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk, 32 fast / 37 all steps](https://img.shields.io/badge/gate-hk%2032%20%2F%2037-6E4AFF)](hk.pkl)
-[![coverage 99.4%](https://img.shields.io/badge/coverage-99.4%25-brightgreen)](hk.pkl)
+[![coverage 99.3%](https://img.shields.io/badge/coverage-99.3%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)

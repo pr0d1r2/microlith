@@ -35,7 +35,7 @@ pub(crate) mod violation;
 
 // The types a public signature mentions must themselves be public.
 pub use check::Record;
-pub use cli::{DEFAULT_PATH, run};
+pub use cli::{DEFAULT_PATH, command, run};
 pub use violation::{Direction, Fix, Violation};
 
 // ONE ENTRY POINT PER VERB. `run` is the whole CLI; these are its parts, so
