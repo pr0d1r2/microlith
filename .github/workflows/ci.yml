@@ -13,9 +13,8 @@
 #   * build caching (nix store + cargo target)
 #   * release automation and publish            -- T8
 #
-# The matrix covers every system flake.nix declares, one runner each, so
-# `nix build .#default` proves each of them rather than one standing in
-# for the rest.
+# The matrix covers the runners understood by microlith-dev's README badge
+# generator; `nix build .#default` still proves the package on each runner.
 #
 # NOT copied from the consumer's workflow, deliberately: `fetch-depth: 0`.
 # That exists there because its tests read `HEAD~n`; nothing here does, so
@@ -55,14 +54,13 @@ jobs:
       # is specific to the other OS -- the same argument as --no-fail-fast
       # one level up.
       fail-fast: false
-      # One runner per system flake.nix declares, so the platform claim in
+      # One runner per supported badge platform, so the platform claim in
       # the README is gated rather than asserted:
       #   ubuntu-latest    x86_64-linux
       #   ubuntu-24.04-arm aarch64-linux
       #   macos-latest     aarch64-darwin
-      #   macos-15-intel   x86_64-darwin
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     steps:
       # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
       # the action can move `v4` to different code, and every workflow that
