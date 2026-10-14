@@ -15,7 +15,7 @@ and rewrites them on every entry, so the hook you have is always the one
 definition rather than restating it — so a laptop and a runner cannot
 disagree about what passes. `all` is literally `fast` plus two steps.
 Worth knowing while reading a green local run: CI now runs, and is
-REQUIRED. All three matrix jobs are branch-protection status checks on
+REQUIRED. All four matrix jobs are branch-protection status checks on
 `main` and admins are not exempt, so nothing reaches `main` except through a
 pull request those jobs passed.
 
