@@ -41,7 +41,7 @@ edition = "2024"
 # is exactly how a floor drifts upward without anyone deciding.
 rust-version = "1.95"
 license = "MIT"
-description = "mechanical operations on caveman SPEC.md: lossless minify, structural check, derived reports. CPU only, zero deps"
+description = "mechanical operations on caveman SPEC.md: lossless minify, structural check, derived reports"
 readme = "README.md"
 # `cargo package` warns without one of these, and the warning is right: the
 # crates.io page and docs.rs both link back through it, so a crate without
@@ -134,9 +134,17 @@ must-package = [
 name = "mth"
 path = "src/main.rs"
 
-# Zero dependencies. Every operation here is CPU-derivable (V6), so a dep
-# would buy nothing and cost every consumer a transitive edge.
+# The CLI parser is deliberately the only runtime dependency. The library
+# remains usable without invoking the binary, while the binary gets clap's
+# consistent diagnostics and derive API.
 [dependencies]
+clap = { version = "4.5", default-features = false, features = [
+  "std",
+  "derive",
+  "help",
+  "usage",
+  "error-context",
+] }
 
 [lints.clippy]
 unwrap_used = "deny"

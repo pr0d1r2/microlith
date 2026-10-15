@@ -6,20 +6,28 @@
 # and it would be a poor look in the crate built because a format had two
 # implementations that disagreed.
 
-# THE ZERO-DEPENDENCY GUARANTEE, MECHANICALLY.
+# THE DEPENDENCY ALLOWLIST, MECHANICALLY.
 #
-# "Zero dependencies" is claimed in README.md, Cargo.toml and AGENTS.md and
-# was enforced NOWHERE: adding one would have re-rendered the badge from 0
-# to 1 with the gate still green. An allowlist naming only this crate turns
-# that claim into a runner (V17) -- anything else in the tree is rejected by
+# The CLI now has a deliberate clap dependency. This allowlist turns that
+# decision into a runner (V17): anything else in the tree is rejected by
 # name, with the chain that pulled it in.
 #
-# This is the check that makes the others nearly vacuous, and that is the
-# point: the honest way to back "there is nothing to scan" is to enforce the
-# nothing. Taking a first dependency should be a DECISION that turns the
-# gate red, not something noticed later.
+# Keeping the transitive set explicit means taking another dependency is a
+# decision that turns the gate red, not something noticed later.
 [bans]
-allow = [{ crate = "microlith" }]
+allow = [
+  { crate = "microlith" },
+  { crate = "anstyle" },
+  { crate = "clap" },
+  { crate = "clap_builder" },
+  { crate = "clap_derive" },
+  { crate = "clap_lex" },
+  { crate = "heck" },
+  { crate = "proc-macro2" },
+  { crate = "quote" },
+  { crate = "syn" },
+  { crate = "unicode-ident" },
+]
 # A dep appearing twice at different versions is a merge waiting to happen.
 multiple-versions = "deny"
 # `*` in a version requirement means "whatever ships today".
@@ -37,7 +45,7 @@ wildcards = "deny"
 # downstream of us, forever. Making that a deliberate edit at the moment a
 # dependency actually arrives is the whole value of the file.
 [licenses]
-allow = ["MIT"]
+allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
 # Below this, a licence is "probably fine" rather than known to be. That is
 # not a standard this repo applies to anything else.
 confidence-threshold = 0.93

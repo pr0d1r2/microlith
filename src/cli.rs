@@ -9,6 +9,61 @@ use crate::check::{Record, parse_records};
 use crate::render;
 use crate::violation::Violation;
 use crate::{Output, check_spec, format_spec};
+use clap::{CommandFactory, Parser, Subcommand};
+
+/// The command-line grammar. The command implementations intentionally still
+/// receive argv-shaped data: that keeps the public `run` API and its exact
+/// output contract independent of clap, while this type owns recognition of
+/// the executable's command boundary and standard help/version handling.
+#[derive(Debug, Parser)]
+#[command(
+    name = "mth",
+    bin_name = "mth",
+    version,
+    disable_help_subcommand = true
+)]
+struct Arguments {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    Fmt {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Check {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Derive {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Anchors {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Tasks {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Bugs {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Migrate {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Archive {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Docs,
+    Extensions,
+}
 
 /// Everything the `mth` command does, as one call.
 ///
@@ -16,10 +71,72 @@ use crate::{Output, check_spec, format_spec};
 /// stdout, stderr and the exit code the CLI would have used, so a caller
 /// gets the same verdict without spawning a process.
 pub fn run(args: &[String]) -> Output {
+    if let Some(result) = clap_verdict(args) {
+        return result;
+    }
     match args.split_first() {
         None => Output::usage(usage()),
         Some((verb, rest)) => dispatch(verb, rest),
     }
+}
+
+fn clap_verdict(args: &[String]) -> Option<Output> {
+    if is_version(args) {
+        return Some(version());
+    }
+    if !known_command(args) || asks_for_help(args) {
+        return None;
+    }
+    clap_error(args)
+}
+
+fn is_version(args: &[String]) -> bool {
+    args.len() == 1
+        && matches!(args.first().map(String::as_str), Some("--version" | "-V"))
+}
+
+fn known_command(args: &[String]) -> bool {
+    args.first().is_some_and(|arg| {
+        matches!(
+            arg.as_str(),
+            "fmt"
+                | "check"
+                | "derive"
+                | "anchors"
+                | "tasks"
+                | "bugs"
+                | "migrate"
+                | "archive"
+                | "docs"
+                | "extensions"
+        )
+    })
+}
+
+fn asks_for_help(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h"))
+}
+
+fn clap_error(args: &[String]) -> Option<Output> {
+    let parsed = Arguments::try_parse_from(
+        std::iter::once("mth".to_owned()).chain(args.iter().cloned()),
+    );
+    parsed.err().map(|error| {
+        if error.use_stderr() {
+            Output::usage(error.to_string())
+        } else {
+            Output::ok(error.to_string())
+        }
+    })
+}
+
+/// Return the clap command model for shell-completion and man-page tools.
+/// Keeping this public makes those artifacts consumers of the same grammar,
+/// rather than a second hand-maintained list of verbs.
+#[must_use]
+pub fn command() -> clap::Command {
+    Arguments::command()
 }
 
 fn dispatch(verb: &str, rest: &[String]) -> Output {
@@ -598,6 +715,14 @@ mod tests {
     fn help_and_version_succeed() {
         assert_eq!(run(&args(&["--help"])).code, 0);
         assert!(run(&args(&["--version"])).out.contains("microlith"));
+    }
+
+    #[test]
+    fn clap_command_exposes_every_cli_verb_for_generators() {
+        let rendered = command().render_help().to_string();
+        for verb in ["fmt", "check", "tasks", "bugs", "docs", "extensions"] {
+            assert!(rendered.contains(verb), "missing {verb} in {rendered}");
+        }
     }
 
     /// Every verb §I names is now built, so there is no unbuilt-verb arm
