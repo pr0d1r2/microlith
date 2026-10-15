@@ -893,7 +893,7 @@ mod tests {
         let folded = std::fs::read_to_string(&path).unwrap_or_default();
         let sink = dir.join(crate::archive::ARCHIVE);
         let stored = std::fs::read_to_string(&sink).unwrap_or_default();
-        assert!(folded.contains("T1|x|ARCHIVED to"), "{folded}");
+        assert!(folded.contains("T1|x|A|V1"), "{folded}");
         assert!(folded.contains("|V1\n"), "cites stayed: {folded}");
         assert!(stored.contains("T1|x|the long text|V1"), "{stored}");
         let _ = std::fs::remove_dir_all(&dir);
