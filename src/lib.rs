@@ -350,7 +350,7 @@ mod tests {
         let said = archive_report(spec, &[]);
         assert!(said.contains("1 row would move"), "{said}");
         let (folded, stored) = archive_spec(spec, "", &[]).unwrap_or_default();
-        assert!(folded.contains("T1|x|ARCHIVED to"), "{folded}");
+        assert!(folded.contains("T1|x|A|V1"), "{folded}");
         assert!(stored.contains("T1|x|the text|V1"), "{stored}");
         assert!(stored.starts_with("# SPEC ARCHIVE"), "{stored}");
         assert_eq!(ARCHIVE, "SPEC-ARCHIVE.md", "the name the stub writes");

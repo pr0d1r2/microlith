@@ -105,11 +105,11 @@ fn our_own_spec_leaves_migrate_nothing_it_cannot_place() {
 #[test]
 fn every_stub_in_our_own_spec_points_at_text_the_archive_holds() {
     let stored = at_root(ARCHIVE);
-    let stubs = spec().lines().filter(|l| l.contains("ARCHIVED to")).count();
+    let stubs = spec().lines().filter(|l| is_stub(l)).count();
     assert!(stubs > 0, "nothing has ever been archived");
     for id in spec()
         .lines()
-        .filter(|l| l.contains("ARCHIVED to"))
+        .filter(|l| is_stub(l))
         .filter_map(|l| l.split('|').next().map(str::to_owned))
     {
         assert!(
@@ -117,6 +117,12 @@ fn every_stub_in_our_own_spec_points_at_text_the_archive_holds() {
             "{id} is not in {ARCHIVE}"
         );
     }
+}
+
+fn is_stub(line: &str) -> bool {
+    line.split('|').nth(2).is_some_and(|cell| {
+        cell.trim() == "A" || cell.trim() == "ARCHIVED to SPEC-ARCHIVE.md"
+    })
 }
 
 /// V5/V9: and no line is over the cap.

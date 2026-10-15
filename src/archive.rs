@@ -31,12 +31,17 @@ use crate::id::{Id, at_line_start, cells};
 /// too, and the stub can name it without knowing a directory layout.
 pub const ARCHIVE: &str = "SPEC-ARCHIVE.md";
 
-/// What a stub's text cell says, in full.
+/// What a newly written stub's text cell says.
 ///
 /// A CONSTANT because it is read as well as written: a row already carrying
 /// it has been archived, which is what makes a second run a no-op instead of
 /// a second move.
-pub const MOVED: &str = "ARCHIVED to SPEC-ARCHIVE.md";
+pub const MOVED: &str = "A";
+
+/// The marker written by releases before the compact form.
+///
+/// It remains readable so archiving an older spec is still idempotent.
+const LEGACY_MOVED: &str = "ARCHIVED to SPEC-ARCHIVE.md";
 
 /// The header the archive file opens with.
 ///
@@ -107,7 +112,7 @@ fn movable(line: &str, records: &[Record]) -> Option<Move> {
     if f.len() != 4 || f.get(1)?.trim() != "x" {
         return None;
     }
-    if f.get(2)?.trim() == MOVED || holds_a_record(&id, records) {
+    if is_archived_marker(f.get(2)?.trim()) || holds_a_record(&id, records) {
         return None;
     }
     Some(Move {
@@ -115,6 +120,10 @@ fn movable(line: &str, records: &[Record]) -> Option<Move> {
         row: line.trim_end().to_owned(),
         stub: format!("{}|x|{MOVED}|{}", id.label(), f.get(3)?),
     })
+}
+
+fn is_archived_marker(text: &str) -> bool {
+    text == MOVED || text == LEGACY_MOVED
 }
 
 /// Whether a V16 record is named on this id.
@@ -322,6 +331,19 @@ T3|x|the third thing|-
             "{arch}"
         );
         assert!(arch.contains("T3|x|the third thing|-"), "{arch}");
+    }
+
+    /// The compact marker is the normal output, while the old marker remains
+    /// an archived row rather than becoming eligible for a second move.
+    #[test]
+    fn compact_marker_is_written_and_legacy_marker_is_read() {
+        let compact = archive(SPEC, "", &records(&[])).unwrap_or_default().0;
+        assert!(compact.contains("T1|x|A|V1,V2"), "{compact}");
+        let legacy = SPEC.replace(
+            "T1|x|the first thing, at length",
+            "T1|x|ARCHIVED to SPEC-ARCHIVE.md",
+        );
+        assert!(moves(&legacy, &records(&[])).iter().all(|m| m.id != "T1"));
     }
 
     /// A row that is not FINISHED is not history, so it is left whole.

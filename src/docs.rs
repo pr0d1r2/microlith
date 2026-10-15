@@ -39,7 +39,7 @@ const COMMANDS: &[Command] = &[
     Command {
         name: "archive",
         synopsis: "archive [--check] [--records <file>] [--verbose] [<path>]",
-        blurb: "Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place. The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.",
+        blurb: "Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place, using compact marker `A` in the text cell (the legacy long marker remains readable). The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.",
     },
     Command {
         name: "derive",
