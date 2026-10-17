@@ -260,7 +260,7 @@ pub fn platforms(ci: &str) -> Result<Vec<&'static str>, String> {
             "ubuntu-latest" => out.extend(["intel linux", "amd linux"]),
             "ubuntu-24.04-arm" => out.push("arm linux"),
             "macos-latest" => out.push("arm macos"),
-            "macos-13" => out.push("intel macos"),
+            "macos-14" => out.push("intel macos"),
             other => {
                 return Err(format!(
                     "ci.yml: unknown runner `{other}` -- add its badge to microlith-dev's `platforms`"

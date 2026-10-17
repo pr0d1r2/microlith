@@ -74,7 +74,7 @@ fn channel_refuses_what_it_cannot_read() {
 
 #[test]
 fn platforms_come_from_the_ci_matrix() {
-    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest', macos-13]\n";
+    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest', macos-14]\n";
     let block = "matrix:\n  os:\n    - macos-latest\n    - \"ubuntu-24.04-arm\"\nsteps:\n  - run: x\n";
     assert_eq!(
         platforms(flow),
