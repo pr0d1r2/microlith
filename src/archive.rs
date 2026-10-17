@@ -56,7 +56,7 @@ const LEGACY_MOVED: &str = "ARCHIVED to SPEC-ARCHIVE.md";
 pub const HEADER: &str = "\
 # SPEC ARCHIVE
 
-Task rows moved out of `SPEC.md` by `mth archive`. An id is never reused
+Task and fixed bug rows moved out of `SPEC.md` by `mth archive`. An id is never reused
 (`V12`), so a citation to an archived row still resolves -- here.
 
 This is a SINK, not a spec. The citations inside these rows point into
@@ -107,18 +107,42 @@ pub fn moves(spec: &str, records: &[Record]) -> Vec<Move> {
 /// than live work · it has not already been archived, which is what makes a
 /// second run a no-op · and no V16 record is named on it.
 fn movable(line: &str, records: &[Record]) -> Option<Move> {
-    let id = at_line_start(line).filter(|i| i.kind == 'T')?;
+    let id = at_line_start(line).filter(|i| i.kind == 'T' || i.kind == 'B')?;
     let f = cells(line.trim_end());
-    if f.len() != 4 || f.get(1)?.trim() != "x" {
+    if f.len() != 4 || holds_a_record(&id, records) {
         return None;
     }
-    if is_archived_marker(f.get(2)?.trim()) || holds_a_record(&id, records) {
+    match id.kind {
+        'T' => movable_task(line, &id, &f),
+        'B' => movable_bug(line, &id, &f),
+        _ => None,
+    }
+}
+
+fn movable_task(line: &str, id: &Id, f: &[&str]) -> Option<Move> {
+    if f.get(1)?.trim() != "x" || is_archived_marker(f.get(2)?.trim()) {
         return None;
     }
     Some(Move {
         id: id.label(),
         row: line.trim_end().to_owned(),
         stub: format!("{}|x|{MOVED}|{}", id.label(), f.get(3)?),
+    })
+}
+
+fn movable_bug(line: &str, id: &Id, f: &[&str]) -> Option<Move> {
+    let fix = f.get(3)?.trim();
+    if fix.is_empty()
+        || fix == "-"
+        || is_archived_marker(f.get(2)?.trim())
+        || is_archived_marker(fix)
+    {
+        return None;
+    }
+    Some(Move {
+        id: id.label(),
+        row: line.trim_end().to_owned(),
+        stub: format!("{}|{}|{MOVED}|{MOVED}", id.label(), f.get(1)?),
     })
 }
 
@@ -180,19 +204,44 @@ fn stubbed(spec: &str, moving: &[Move]) -> String {
 /// in between, puts a lower id after a higher one and the file the tool
 /// produced would fail the tool's own sort rule.
 fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
-    let mut rows: Vec<String> = archive
-        .lines()
-        .filter(|l| at_line_start(l).is_some_and(|i| i.kind == 'T'))
-        .map(str::to_owned)
-        .collect();
+    let mut tasks = archived_rows(archive, 'T');
+    let mut bugs = archived_rows(archive, 'B');
+    add_moves(&mut tasks, &mut bugs, moving)?;
+    tasks.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
+    bugs.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
+    let bug_section = if bugs.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
+    };
+    Ok(format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section))
+}
+
+fn add_moves(
+    tasks: &mut Vec<String>,
+    bugs: &mut Vec<String>,
+    moving: &[Move],
+) -> Result<(), String> {
     for m in moving {
+        let rows = if m.id.starts_with('T') {
+            &mut *tasks
+        } else {
+            &mut *bugs
+        };
         if rows.iter().any(|r| label_of(r) == m.id) {
             return Err(format!("{} is already archived", m.id));
         }
         rows.push(m.row.clone());
     }
-    rows.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
-    Ok(format!("{HEADER}\n{}\n", rows.join("\n")))
+    Ok(())
+}
+
+fn archived_rows(archive: &str, kind: char) -> Vec<String> {
+    archive
+        .lines()
+        .filter(|l| at_line_start(l).is_some_and(|i| i.kind == kind))
+        .map(str::to_owned)
+        .collect()
 }
 
 fn label_of(row: &str) -> String {
@@ -234,6 +283,9 @@ fn proven(
 /// cell verbatim rather than re-escaping it -- an encode over an already
 /// encoded cell is the doubling B36 recorded, one layer out.
 fn carries_its_cites(m: &Move) -> bool {
+    if m.id.starts_with('B') {
+        return true;
+    }
     cells(&m.stub).get(3) == cells(&m.row).get(3)
 }
 
@@ -352,6 +404,18 @@ T3|x|the third thing|-
         let (spec, arch) = archive(SPEC, "", &records(&[])).unwrap_or_default();
         assert!(spec.contains("T2|.|not done yet|V3"), "{spec}");
         assert!(!arch.contains("not done yet"), "{arch}");
+    }
+
+    #[test]
+    fn a_fixed_bug_moves_to_the_bug_section_and_leaves_a_stub() {
+        let spec = "## §B BUGS\nid|date|cause|fix\nB2|2026-01-02|a cause|V40\nB3|2026-01-03|open cause|-\n";
+        let (folded, arch) =
+            archive(spec, "", &records(&[])).unwrap_or_default();
+        assert!(folded.contains("B2|2026-01-02|A|A"), "{folded}");
+        assert!(folded.contains("B3|2026-01-03|open cause|-"), "{folded}");
+        assert!(arch.contains("## §B BUGS\nid|date|cause|fix"), "{arch}");
+        assert!(arch.contains("B2|2026-01-02|a cause|V40"), "{arch}");
+        assert!(!arch.contains("B3|2026-01-03"), "{arch}");
     }
 
     /// PLANTED (V16): a row carrying a closed-option record never moves.
