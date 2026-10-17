@@ -131,11 +131,15 @@ fn movable_task(line: &str, id: &Id, f: &[&str]) -> Option<Move> {
 }
 
 fn movable_bug(line: &str, id: &Id, f: &[&str]) -> Option<Move> {
+    let cause = f.get(2)?.trim();
     let fix = f.get(3)?.trim();
+    // `cause` and `fix` are prose cells, so either one may legitimately
+    // contain `A`. The marker identifies a stub only as the pair this
+    // module writes; checking either cell alone would silently skip a
+    // real fixed bug whose fix happens to be the one-letter word.
     if fix.is_empty()
         || fix == "-"
-        || is_archived_marker(f.get(2)?.trim())
-        || is_archived_marker(fix)
+        || (is_archived_marker(cause) && is_archived_marker(fix))
     {
         return None;
     }
@@ -416,6 +420,15 @@ T3|x|the third thing|-
         assert!(arch.contains("## §B BUGS\nid|date|cause|fix"), "{arch}");
         assert!(arch.contains("B2|2026-01-02|a cause|V40"), "{arch}");
         assert!(!arch.contains("B3|2026-01-03"), "{arch}");
+    }
+
+    #[test]
+    fn a_bug_whose_fix_is_the_marker_word_is_still_moved() {
+        let spec = "## §B BUGS\nid|date|cause|fix\nB2|2026-01-02|a cause|A\n";
+        let (folded, arch) =
+            archive(spec, "", &records(&[])).unwrap_or_default();
+        assert!(folded.contains("B2|2026-01-02|A|A"), "{folded}");
+        assert!(arch.contains("B2|2026-01-02|a cause|A"), "{arch}");
     }
 
     /// PLANTED (V16): a row carrying a closed-option record never moves.
