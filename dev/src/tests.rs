@@ -84,6 +84,21 @@ fn platforms_come_from_the_ci_matrix() {
 }
 
 #[test]
+fn flake_declares_the_intel_macos_package_system() {
+    let flake = include_str!("../../flake.nix");
+    let systems = flake
+        .split("systems = [")
+        .nth(1)
+        .and_then(|rest| rest.split_once("];"))
+        .map(|(systems, _)| systems);
+    assert!(
+        systems.is_some_and(|systems| systems.contains("\"x86_64-darwin\""))
+    );
+    assert!(flake.contains("packages = forAll"));
+    assert!(flake.contains("default = microlithPkg pkgs"));
+}
+
+#[test]
 fn an_unknown_runner_is_an_error_not_a_guess() {
     assert!(
         platforms("matrix:\n  os: [windows-latest]\n")
