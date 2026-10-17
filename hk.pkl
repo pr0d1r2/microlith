@@ -703,6 +703,7 @@ hooks {
   }
   ["fix"] {
     fix = true
+    stage = true
     steps = fast
   }
   // `hk run refresh` -- the FULL set in fix mode. `fix` above runs only the
@@ -710,6 +711,7 @@ hooks {
   // behind .coverage and the README badge) has no other way to be written.
   ["refresh"] {
     fix = true
+    stage = true
     steps = all
   }
 }
