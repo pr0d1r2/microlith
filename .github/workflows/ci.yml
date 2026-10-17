@@ -60,8 +60,9 @@ jobs:
       #   ubuntu-latest    x86_64-linux
       #   ubuntu-24.04-arm aarch64-linux
       #   macos-latest     aarch64-darwin
+      #   macos-13         x86_64-darwin
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13]
     steps:
       # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
       # the action can move `v4` to different code, and every workflow that
