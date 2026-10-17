@@ -630,10 +630,10 @@ local all = (fast) {
         if (measured > cached + 0.5) exit 2
       }'); band_status=$?
       if [ "$band_status" -eq 1 ]; then
-        echo "hk: the coverage badge overstates the measured coverage: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to lower the claim." >&2
+        echo "hk: the coverage badge overstates the measured coverage: .coverage says $cached%, measured $measured%. Run \\`hk run refresh\\` to lower the claim." >&2
         exit 1
       elif [ "$band_status" -eq 2 ]; then
-        echo "hk: the coverage badge is stale: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to raise the claim." >&2
+        echo "hk: the coverage badge is stale: .coverage says $cached%, measured $measured%. Run \\`hk run refresh\\` to raise the claim." >&2
         exit 1
       fi
       """
