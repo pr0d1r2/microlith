@@ -293,7 +293,7 @@ local fast = new Mapping<String, Step> {
   // lives OUT here for the same class of reason: `//` inside the script
   // block is a PATH, not a comment, and cost one gate run at exit 126.
   //
-  // NO BACKSLASHES IN ANY SCRIPT HERE. Pkl passes `\\` through to the shell
+  // NO BACKSLASHES IN ANY SCRIPT HERE. Pkl passes `\\\` through to the shell
   // as two characters, so `grep -E '\\["'` matches a literal backslash and
   // finds NOTHING -- a pattern that silently counts 0 rather than erroring.
   // Where a bracket must be matched, `[[]` does it with no escape at all,
@@ -630,10 +630,10 @@ local all = (fast) {
         if (measured > cached + 0.5) exit 2
       }'); band_status=$?
       if [ "$band_status" -eq 1 ]; then
-        echo "hk: the coverage badge overstates the measured coverage: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to lower the claim." >&2
+        echo "hk: the coverage badge overstates the measured coverage: .coverage says $cached%, measured $measured%. Run \\`hk run refresh\\` to lower the claim." >&2
         exit 1
       elif [ "$band_status" -eq 2 ]; then
-        echo "hk: the coverage badge is stale: .coverage says $cached%, measured $measured%. Run \`hk run refresh\` to raise the claim." >&2
+        echo "hk: the coverage badge is stale: .coverage says $cached%, measured $measured%. Run \\`hk run refresh\\` to raise the claim." >&2
         exit 1
       fi
       """
@@ -680,14 +680,14 @@ local precommit = (fast) {
 }
 
 hooks {
-  /// Fast set only: a hook you are tempted to bypass is worse than no hook.
-  /// `stash = "git"` is correctness, not speed -- without it a partially
-  /// staged file (`git add -p`) is checked as it looks in the worktree,
-  /// giving a verdict about code you are not committing.
-  ///
-  /// Installed by `flake.nix`'s shellHook, BY HAND rather than by
-  /// `hk install`, so a shell without hk SKIPS loudly instead of making
-  /// every git command fail (V23).
+  // Fast set only: a hook you are tempted to bypass is worse than no hook.
+  // `stash = "git"` is correctness, not speed -- without it a partially
+  // staged file (`git add -p`) is checked as it looks in the worktree,
+  // giving a verdict about code you are not committing.
+  //
+  // Installed by `flake.nix`'s shellHook, BY HAND rather than by
+  // `hk install`, so a shell without hk SKIPS loudly instead of making
+  // every git command fail (V23).
   ["pre-commit"] {
     fix = true
     stash = "git"
@@ -696,8 +696,8 @@ hooks {
   ["pre-push"] {
     steps = all
   }
-  /// What `hk check` runs -- the CI entry point. Flat and complete: CI has
-  /// no fail-fast-cheapest-first gradient to optimize for.
+  // What `hk check` runs -- the CI entry point. Flat and complete: CI has
+  // no fail-fast-cheapest-first gradient to optimize for.
   ["check"] {
     steps = all
   }
@@ -705,9 +705,9 @@ hooks {
     fix = true
     steps = fast
   }
-  /// `hk run refresh` -- the FULL set in fix mode. `fix` above runs only the
-  /// cheap steps, so the one expensive generator (the coverage measurement
-  /// behind .coverage and the README badge) has no other way to be written.
+  // `hk run refresh` -- the FULL set in fix mode. `fix` above runs only the
+  // cheap steps, so the one expensive generator (the coverage measurement
+  // behind .coverage and the README badge) has no other way to be written.
   ["refresh"] {
     fix = true
     steps = all
