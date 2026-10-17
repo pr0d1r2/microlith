@@ -74,11 +74,17 @@ fn channel_refuses_what_it_cannot_read() {
 
 #[test]
 fn platforms_come_from_the_ci_matrix() {
-    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest']\n";
+    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest', macos-13]\n";
     let block = "matrix:\n  os:\n    - macos-latest\n    - \"ubuntu-24.04-arm\"\nsteps:\n  - run: x\n";
     assert_eq!(
         platforms(flow),
-        Ok(vec!["intel linux", "amd linux", "arm linux", "arm macos"])
+        Ok(vec![
+            "intel linux",
+            "amd linux",
+            "arm linux",
+            "arm macos",
+            "intel macos",
+        ])
     );
     assert_eq!(platforms(block), Ok(vec!["arm macos", "arm linux"]));
 }
