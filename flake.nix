@@ -109,8 +109,9 @@
           # PRESENT TENSE, earned. This said "CI WILL gate" while ci.yml had
           # run zero times, and promised the change the moment it had -- so
           # here it is: run 30763172352, green on ubuntu-latest,
-          # ubuntu-24.04-arm and macos-latest, the first execution ever. It
-          # is also now REQUIRED: all three jobs are branch-protection status
+          # ubuntu-24.04-arm and macos-latest, the first execution ever. The
+          # matrix now also includes macos-14 for x86_64-darwin. It is also
+          # now REQUIRED: all four jobs are branch-protection status
           # checks on main, enforced for admins, so nothing merges without
           # them (B19).
           command -v hk >/dev/null 2>&1 || {
