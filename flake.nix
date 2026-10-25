@@ -124,8 +124,8 @@
       # The reproducible build. Possible because the flake sits at the root
       # and `Cargo.lock` is tracked -- flakes copy git-TRACKED files into
       # the store, and the build sandbox has no network, so the lock is what
-      # lets nix vendor crates offline. microlith has zero dependencies, so
-      # there is nothing to vendor today; the lock still matters, because
+      # lets nix vendor crates offline. The lock matters because clap and its
+      # transitive dependencies must be available without network access, and
       # the guarantee should not depend on staying dependency-free.
       microlithPkg =
         pkgs:

@@ -157,7 +157,7 @@ written somewhere else in this repo is still **true**.
 
 | step | the claim it enforces | where the claim lives |
 |---|---|---|
-| `deny` | zero dependencies | `README.md`, `Cargo.toml`, `AGENTS.md` |
+| `deny` | the dependency policy is recorded and enforced | `README.md`, `Cargo.toml`, `AGENTS.md` |
 | `package` | the `.crate` ships the files the test suite reads, and its file set has not moved | `Cargo.toml`'s `must-package`, `.crate-files` |
 | `semver` | the version number means what V30 says it means | `SPEC.md` §V.30, §V.34 |
 | `readme-badges` | the coverage percentage, MSRV, edition and platform list | `README.md` badges |

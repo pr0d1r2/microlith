@@ -11,7 +11,8 @@
 //! output that always appears is output nobody reads, which is how a real
 //! failure hides in noise everyone learned to scroll past.
 //!
-//! The encoder is hand-written because this crate has zero dependencies and
+//! The encoder is hand-written to keep the output contract explicit; the crate
+//! otherwise uses clap only for CLI argument recognition, not rendering, and
 //! keeps them (§C). That is a real constraint rather than a preference, so
 //! the escaping is tested rather than trusted: a message containing a quote
 //! would otherwise emit JSON that no parser accepts.

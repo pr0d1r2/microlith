@@ -24,7 +24,8 @@ to earlier minors — see [`CHANGELOG.md`](../CHANGELOG.md) for what each rung m
 Worth stating plainly, because it is unusually small and that changes what is
 worth reporting:
 
-- **Zero runtime dependencies.** No transitive supply chain to compromise.
+- **A small runtime dependency surface.** The CLI uses clap; its transitive
+  dependencies are listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 - **No network.** Nothing is fetched, resolved or phoned home at any point.
 - **No `unsafe`.** `unsafe_code = "forbid"` in `Cargo.toml`, so it cannot be
   reintroduced locally — memory-safety bugs are not representable here.
