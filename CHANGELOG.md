@@ -44,11 +44,11 @@ Nothing yet.
 
 ## [0.7.5] — 2026-10-25
 
-A patch by `0.7.1`'s test: nothing a consumer relies on is removed, and the
-one stricter rule is the kind `0.7.2` shipped as a patch -- a check that
-catches what it used to wave through. The reason for cutting it now is the
-flake: `v0.7.4` does not list `x86_64-darwin`, so a consumer pinning the tag
-builds microlith from source on an Intel Mac.
+This release adds an `x86_64-darwin` package to the flake. `v0.7.4` does not
+list that system, so a consumer pinning the tag builds microlith from source
+on an Intel Mac. It is a patch release because nothing a consumer relies on
+is removed. The one stricter rule is a check that now catches what it used
+to wave through, the same kind of change `0.7.2` shipped as a patch.
 
 ### Added
 
