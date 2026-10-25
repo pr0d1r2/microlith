@@ -5,11 +5,6 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-- Replaced `mth`'s argument recognition with clap's derive-based command
-  model. The model is also exposed for completion and man-page generators.
-
 ## Version ladder
 
 A minor version here is a level of **guarantee**, not a feature count. Each rung
@@ -45,9 +40,32 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.7.5] — 2026-10-25
+
+A patch by `0.7.1`'s test: nothing a consumer relies on is removed, and the
+one stricter rule is the kind `0.7.2` shipped as a patch -- a check that
+catches what it used to wave through. The reason for cutting it now is the
+flake: `v0.7.4` does not list `x86_64-darwin`, so a consumer pinning the tag
+builds microlith from source on an Intel Mac.
+
+### Added
+
+- **The flake lists `x86_64-darwin`** in `systems`, so a consumer pinning
+  this tag on an Intel Mac gets `packages.x86_64-darwin.default` instead of
+  no package for that system.
+- **`microlith::command()`** exposes `mth`'s clap command model, for
+  completion and man-page generators.
+
 ### Changed
 
-- V13 now also resolves `C<n>`, `T<n>` and `I.<label>` citations in a `§T` row's cites column (#67). `C99` and `I.nope` no longer pass when nothing declares them.
+- `mth` recognises its arguments with clap's derive-based command model
+  (#101). clap is now the crate's only runtime dependency, where `0.7.4`
+  had none.
+- V13 now also resolves `C<n>`, `T<n>` and `I.<label>` citations in a `§T`
+  row's cites column (#67). `C99` and `I.nope` no longer pass when nothing
+  declares them.
 
 ## [0.7.4] — 2026-10-03
 
@@ -720,7 +738,9 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.5
+[0.7.4]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.4
 [0.7.3]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.3
 [0.6.1]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.1
 [0.6.0]: https://github.com/pr0d1r2/microlith/releases/tag/v0.6.0
