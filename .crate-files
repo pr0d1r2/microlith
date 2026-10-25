@@ -1,4 +1,5 @@
 .cargo_vcs_info.json
+.coderabbit.yaml
 .context-limits
 .coverage
 .spec-records
