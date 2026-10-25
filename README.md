@@ -243,7 +243,7 @@ That is the whole public surface: about twenty items, no public modules. The par
 
 - **Lossless, provably.** Normalizing all whitespace in the input and the output must yield identical strings -- asserted *before* any write. A formatter that can drop a fact is one nobody may run unattended.
 - **Idempotent.** `fmt(fmt(x)) == fmt(x)`, tested, because a formatter that changes its mind cannot be a `--check` gate.
-- **Deterministic.** No inference, no network, and **zero dependencies**. Every operation is a pure function of the text.
+- **Deterministic.** No inference or network. Every operation is a pure function of the text; the CLI uses clap for argument recognition.
 - **Self-guarding.** microlith's own `SPEC.md` is the first file it formats, caps and checks, using the binary being built. A rule this crate cannot pass is a rule it cannot ship.
 - **Every guard is proven by a planted violation**, never by reading it, plus a companion proving it accepts every real shape -- so no check can pass by rejecting everything.
 
@@ -279,4 +279,4 @@ The spec changes first, then the code -- [`CONTRIBUTING.md`](docs/CONTRIBUTING.m
 
 [MIT](LICENSE).
 
-[`FORMAT.md`](FORMAT.md) is vendored from [cavekit](https://github.com/JuliusBrussee/cavekit) and carries its own MIT licence, reproduced in [`THIRD-PARTY-NOTICES.md`](docs/THIRD-PARTY-NOTICES.md) along with trademark acknowledgements. There are no runtime dependencies, so that file is the whole of the third-party surface.
+[`FORMAT.md`](FORMAT.md) is vendored from [cavekit](https://github.com/JuliusBrussee/cavekit) and carries its own MIT licence, reproduced in [`THIRD-PARTY-NOTICES.md`](docs/THIRD-PARTY-NOTICES.md) along with trademark acknowledgements. The CLI has clap and its transitive runtime dependencies; the full third-party surface is recorded in that file.
