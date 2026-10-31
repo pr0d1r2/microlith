@@ -179,6 +179,14 @@ bugs [--format human|json] [--verbose] [<path>]
 
 Every bug record's id, date, cause and fix, in id order -- the same enumeration `tasks` gives `§T`, for the section beside it. These rows were already parsed: `check` validates their ids and citations and `derive` counts them, so this adds no reading, only a way to ask for one a consumer would otherwise re-implement. `§B` is not `§T` with different words -- the second cell is a DATE and there is no status column, and the fix cell is carried as written because the corpus holds prose there as often as a rule id. `--format json` is the machine rendering, always emitted, and `unread` counts rows that are there in a dialect this build cannot read -- so a spec that has recorded no bug and one whose records this build cannot read are never spelled the same way. `--verbose` prints each cause in full, not a 60-char gist.
 
+### `invariants`
+
+```text
+invariants [--active|--superseded] [--format human|json] [<path>]
+```
+
+Every `§V` id with its state -- `active` or `superseded` -- and, when superseded, the winners its `[superseded by ...]` mark names, in id order. The `§V` sibling of `tasks` and `bugs`, reading the mark with the same function `check` gates on (V41) rather than a second one. `--active` and `--superseded` partition the ids and cannot be combined (exit 2). `--format json` is the machine rendering, always emitted, and `unread` counts declarations that are there in a dialect this build cannot read, so a bordered-table spec reports the dialect instead of an empty list. `--verbose` prints each statement in full, not a 60-char gist.
+
 ### `anchors`
 
 ```text

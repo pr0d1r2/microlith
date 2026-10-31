@@ -945,14 +945,14 @@ pub fn retired(text: &str) -> Vec<String> {
 
 /// One retirement: where it is written, which rule it retires, and which
 /// rules it names as the replacement.
-type Retirement = (usize, String, Vec<String>);
+pub(crate) type Retirement = (usize, String, Vec<String>);
 
 /// Each marked line as `(line, the id it declares, the ids it names)`.
 ///
 /// Only a `\u{a7}V` DECLARATION can be superseded: the mark says a rule is no
 /// longer in force, and a task or a bug row is not a rule. A marker anywhere
 /// else is ordinary prose this says nothing about.
-fn supersessions(text: &str) -> Vec<Retirement> {
+pub(crate) fn supersessions(text: &str) -> Vec<Retirement> {
     text.lines()
         .enumerate()
         .filter_map(|(i, line)| {
