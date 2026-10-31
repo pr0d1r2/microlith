@@ -40,7 +40,15 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `mth invariants [--active|--superseded] [--format human|json] [--verbose]
+  [<path>]` lists every `§V` id with its state (`active` or `superseded`) and,
+  for a superseded rule, the winners its `[superseded by ...]` mark names. It
+  reads the mark with the function V41 gates on rather than a second parser,
+  so a consumer no longer re-parses the spec to learn which rules are retired.
+  `--active` and `--superseded` partition the ids; a bordered-table spec
+  reports the dialect (`unread`) instead of an empty list, as `tasks` does.
 
 ## [0.7.5] — 2026-10-25
 

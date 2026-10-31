@@ -33,6 +33,7 @@ src/docs.rs
 src/extensions.rs
 src/format.rs
 src/id.rs
+src/invariants.rs
 src/lib.rs
 src/main.rs
 src/migrate.rs
