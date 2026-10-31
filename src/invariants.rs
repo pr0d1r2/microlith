@@ -122,13 +122,25 @@ pub(crate) fn report(text: &str, filter: Filter, full: bool) -> String {
         all.iter().filter(|v| filter.keeps(v)).collect();
     let unread = unread(text);
     if rows.is_empty() {
-        return crate::rows::none_read("invariants", 'V', unread);
+        return empty_report(&all, filter, unread);
     }
     let mut out = head(&rows, unread);
     for v in rows {
         out.push_str(&line(v, full));
     }
     out
+}
+
+fn empty_report(all: &[Invariant], filter: Filter, unread: usize) -> String {
+    if !all.is_empty() {
+        let state = match filter {
+            Filter::Active => "active",
+            Filter::Superseded => "superseded",
+            Filter::All => unreachable!(),
+        };
+        return format!("invariants: none -- no {state} rules match\n");
+    }
+    crate::rows::none_read("invariants", 'V', unread)
 }
 
 /// The count line: how many rules, split by state, and how many were there
@@ -294,6 +306,12 @@ V2a: **suffixed.** a rider.
             report(empty, Filter::All, false)
                 .starts_with("invariants: none --")
         );
+    }
+
+    #[test]
+    fn an_empty_filter_is_not_an_empty_section() {
+        let out = report("V1: kept.\n", Filter::Superseded, false);
+        assert_eq!(out, "invariants: none -- no superseded rules match\n");
     }
 
     #[test]
