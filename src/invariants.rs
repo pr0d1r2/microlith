@@ -65,12 +65,12 @@ impl Invariant {
 pub(crate) fn invariants(text: &str) -> Vec<Invariant> {
     let marks = crate::check::supersessions(text);
     let mut found: Vec<(crate::id::Id, Invariant)> = Vec::new();
-    for line in text.lines() {
+    for (index, line) in text.lines().enumerate() {
         let Some(id) = at_line_start(line).filter(|i| i.kind == 'V') else {
             continue;
         };
         if found.iter().all(|(_, v)| v.id != id.label()) {
-            let inv = declared(line, &id, &marks);
+            let inv = declared(line, index.saturating_add(1), &id, &marks);
             found.push((id, inv));
         }
     }
@@ -81,13 +81,14 @@ pub(crate) fn invariants(text: &str) -> Vec<Invariant> {
 /// One declaration line, with the winners V41's reading gives it.
 fn declared(
     line: &str,
+    line_no: usize,
     id: &crate::id::Id,
     marks: &[crate::check::Retirement],
 ) -> Invariant {
     let label = id.label();
     let winners = marks
         .iter()
-        .find(|(_, mid, _)| *mid == label)
+        .find(|(at, mid, _)| *at == line_no && *mid == label)
         .map(|(_, _, w)| w.clone());
     let body = line.split_once(':').map_or("", |(_, rest)| rest.trim());
     Invariant {
@@ -210,6 +211,22 @@ V2a: **suffixed.** a rider.
         assert_eq!(
             ids(SPEC, Filter::Active).first().map(String::as_str),
             Some("V1")
+        );
+    }
+
+    /// A marked pipe row with the same id does not retire the declaration.
+    #[test]
+    fn marks_match_their_declaration_line() {
+        let t = "V1: kept.\nV1|x|old|[superseded by V2]\nV2: replacement.\n";
+        let got = invariants(t);
+        assert_eq!(
+            got.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
+            ["V1", "V2"]
+        );
+        assert!(
+            got.iter()
+                .find(|v| v.id == "V1")
+                .is_some_and(|v| v.winners.is_none())
         );
     }
 
