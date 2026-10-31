@@ -53,6 +53,10 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    Invariants {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     Migrate {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
@@ -96,21 +100,8 @@ fn is_version(args: &[String]) -> bool {
 }
 
 fn known_command(args: &[String]) -> bool {
-    args.first().is_some_and(|arg| {
-        matches!(
-            arg.as_str(),
-            "fmt"
-                | "check"
-                | "derive"
-                | "anchors"
-                | "tasks"
-                | "bugs"
-                | "migrate"
-                | "archive"
-                | "docs"
-                | "extensions"
-        )
-    })
+    args.first()
+        .is_some_and(|arg| crate::docs::names().contains(&arg.as_str()))
 }
 
 fn asks_for_help(args: &[String]) -> bool {
@@ -148,6 +139,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "derive" | "anchors" => one_path(verb, rest, |r| reporting(verb, r)),
         "tasks" => one_path(verb, rest, tasks),
         "bugs" => one_path(verb, rest, bugs),
+        "invariants" => one_path(verb, rest, invariants),
         "migrate" => one_path(verb, rest, migrate),
         "archive" => one_path(verb, rest, archive),
         "docs" => asked(verb, rest, docs_reference),
@@ -608,6 +600,54 @@ fn bugs(rest: &[String]) -> Output {
     enumerated(rest, crate::bugs::report, crate::bugs::json)
 }
 
+/// `invariants [--active|--superseded] [--format human|json] <path>`:
+/// enumerate `§V` with each rule's state, exit 0.
+///
+/// The two filters are a partition, so asking for both is a contradiction
+/// and is refused at exit 2 rather than answered with one of them.
+fn invariants(rest: &[String]) -> Output {
+    match state_filter(rest) {
+        Err(refused) => refused,
+        Ok(filter) => enumerated_with(rest, |path, text, as_json, full| {
+            if as_json {
+                crate::invariants_json(path, text, filter)
+            } else {
+                crate::invariants_report(text, filter, full)
+            }
+        }),
+    }
+}
+
+/// Which states were asked for. Both flags together contradict.
+fn state_filter(rest: &[String]) -> Result<&'static str, Output> {
+    let has = |f: &str| rest.iter().any(|a| a == f);
+    match (has("--active"), has("--superseded")) {
+        (true, true) => Err(Output::usage(
+            "mth: --active and --superseded are exclusive\n".to_owned(),
+        )),
+        (true, false) => Ok("active"),
+        (false, true) => Ok("superseded"),
+        (false, false) => Ok("all"),
+    }
+}
+
+/// `enumerated`'s path and rendering handling, for a verb that renders
+/// through one closure of `(path, text, as_json, verbose)`.
+fn enumerated_with(
+    rest: &[String],
+    render: impl Fn(&str, &str, bool, bool) -> String,
+) -> Output {
+    let path = target(rest);
+    let as_json = match wants_json(rest) {
+        Err(e) => return Output::usage(e),
+        Ok(j) => j,
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
+    };
+    Output::ok(render(&path, &text, as_json, verbose(rest)))
+}
+
 /// The ENUMERATING verbs, which differ only in WHICH section they read.
 ///
 /// One function for both, as `reporting` is for `derive` and `anchors`
@@ -720,7 +760,15 @@ mod tests {
     #[test]
     fn clap_command_exposes_every_cli_verb_for_generators() {
         let rendered = command().render_help().to_string();
-        for verb in ["fmt", "check", "tasks", "bugs", "docs", "extensions"] {
+        for verb in [
+            "fmt",
+            "check",
+            "tasks",
+            "bugs",
+            "invariants",
+            "docs",
+            "extensions",
+        ] {
             assert!(rendered.contains(verb), "missing {verb} in {rendered}");
         }
     }
@@ -1247,6 +1295,67 @@ mod tests {
         assert_eq!(json.code, 0, "{}", json.err);
         assert!(json.out.contains("\"id\":\"T1\""), "{}", json.out);
         assert!(json.out.contains("\"status\":\"x\""), "{}", json.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A spec with one live and one retired rule, on disk.
+    fn retired_pair(name: &str) -> String {
+        write_temp(
+            name,
+            "## \u{a7}V INVARIANTS\nV1: **a.** live.\n\
+             V2: **b.** [superseded by V1]\n",
+        )
+    }
+
+    /// `invariants` through the real argv path: the filters partition.
+    #[test]
+    fn invariants_filters_partition_the_ids() {
+        let path = retired_pair("invsverb");
+        let act = run(&args(&[
+            "invariants",
+            "--active",
+            "--format",
+            "json",
+            &path,
+        ]));
+        assert_eq!(act.code, 0, "{}", act.err);
+        assert!(
+            act.out.contains("\"id\":\"V1\"") && !act.out.contains("\"V2\"")
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The other half of the partition: `--superseded` names the winners.
+    #[test]
+    fn invariants_superseded_names_the_winners() {
+        let path = retired_pair("invssup");
+        let sup = run(&args(&["invariants", "--superseded", &path]));
+        assert!(
+            sup.out.contains("invariant V2: superseded by V1"),
+            "{}",
+            sup.out
+        );
+        assert!(!sup.out.contains("invariant V1"), "{}", sup.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Both filters together contradict, and exit 2 rather than pick one.
+    #[test]
+    fn invariants_refuses_both_filters() {
+        let path = retired_pair("invsboth");
+        let both =
+            run(&args(&["invariants", "--active", "--superseded", &path]));
+        assert_eq!(both.code, 2, "{}", both.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A bordered-dialect §V is reported as one, not as an empty list.
+    #[test]
+    fn invariants_reports_a_dialect_not_an_empty_list() {
+        let text = "## \u{a7}V INVARIANTS\n\n| V1 | a rule |\n";
+        let path = write_temp("invsdialect", text);
+        let o = run(&args(&["invariants", &path]));
+        assert!(o.out.starts_with("invariants: none READ"), "{}", o.out);
         let _ = std::fs::remove_file(&path);
     }
 

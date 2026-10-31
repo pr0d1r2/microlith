@@ -27,6 +27,7 @@ pub(crate) mod docs;
 pub(crate) mod extensions;
 pub(crate) mod format;
 pub(crate) mod id;
+pub(crate) mod invariants;
 pub(crate) mod migrate;
 pub(crate) mod render;
 pub(crate) mod rows;
@@ -185,6 +186,24 @@ pub fn bugs_report_verbose(text: &str) -> String {
 /// cannot read.
 pub fn bugs_json(file: &str, text: &str) -> String {
     bugs::json(file, text)
+}
+
+/// `mth invariants`: every `§V` id with its state, in V14 order.
+///
+/// `state` is `active` or `superseded`; a superseded rule also carries the
+/// winners its `[superseded by ...]` mark names, read by the same function
+/// V41 uses (V7). `filter` is `"active"`, `"superseded"` or anything else
+/// for both.
+pub fn invariants_report(text: &str, filter: &str, verbose: bool) -> String {
+    invariants::report(text, invariants::Filter::of(filter), verbose)
+}
+
+/// The same enumeration as JSON -- the rendering a consumer parses.
+///
+/// `"invariants":[]` is always emitted, and `unread` counts declarations
+/// written in a dialect this build cannot read.
+pub fn invariants_json(file: &str, text: &str, filter: &str) -> String {
+    invariants::json(file, text, invariants::Filter::of(filter))
 }
 
 /// `mth anchors`: the section address of every item beside the id it
