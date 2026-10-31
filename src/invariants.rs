@@ -66,7 +66,9 @@ pub(crate) fn invariants(text: &str) -> Vec<Invariant> {
     let marks = crate::check::supersessions(text);
     let mut found: Vec<(crate::id::Id, Invariant)> = Vec::new();
     for (index, line) in text.lines().enumerate() {
-        let Some(id) = at_line_start(line).filter(|i| i.kind == 'V') else {
+        let Some(id) = at_line_start(line)
+            .filter(|i| i.kind == 'V' && i.terminator != '|')
+        else {
             continue;
         };
         if found.iter().all(|(_, v)| v.id != id.label()) {
@@ -90,12 +92,23 @@ fn declared(
         .iter()
         .find(|(at, mid, _)| *at == line_no && *mid == label)
         .map(|(_, _, w)| w.clone());
-    let body = line.split_once(':').map_or("", |(_, rest)| rest.trim());
+    let body = declaration_text(line, &label);
     Invariant {
         id: label,
         text: body.to_owned(),
         winners,
     }
+}
+
+fn declaration_text<'a>(line: &'a str, label: &str) -> &'a str {
+    line.split_once(':').map_or_else(
+        || {
+            line.strip_prefix("- ")
+                .and_then(|line| line.strip_prefix(label))
+                .map_or("", str::trim)
+        },
+        |(_, rest)| rest.trim(),
+    )
 }
 
 fn unread(text: &str) -> usize {
@@ -227,6 +240,20 @@ V2a: **suffixed.** a rider.
             got.iter()
                 .find(|v| v.id == "V1")
                 .is_some_and(|v| v.winners.is_none())
+        );
+    }
+
+    #[test]
+    fn pipe_rows_are_not_invariant_declarations() {
+        let t = "V1|x|a row|V2\n- V2 a bullet declaration\n";
+        let got = invariants(t);
+        assert_eq!(
+            got.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
+            ["V2"]
+        );
+        assert_eq!(
+            got.first().map(|v| v.text.as_str()),
+            Some("a bullet declaration")
         );
     }
 
