@@ -42,6 +42,9 @@ pipeline gets proven before a permanent number is spent.
 
 ### Added
 
+- `mth tasks` now accepts repeatable `--status` filters and `--next`, which
+  selects the first started task or, if none is started, the first todo task.
+
 - `mth invariants [--active|--superseded] [--format human|json] [--verbose]
   [<path>]` lists every `§V` id with its state (`active` or `superseded`) and,
   for a superseded rule, the winners its `[superseded by ...]` mark names. It

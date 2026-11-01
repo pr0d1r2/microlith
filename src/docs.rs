@@ -48,8 +48,8 @@ const COMMANDS: &[Command] = &[
     },
     Command {
         name: "tasks",
-        synopsis: "tasks [--format human|json] [--verbose] [<path>]",
-        blurb: "Every task row's id, status, text, citations and the milestone claiming it, in id order -- a suffixed id rides its base, so `T7a` follows `T7` and belongs to whichever milestone claims 7. Report-only, and it ENUMERATES rather than SELECTS: which rows are pending is mechanical, which one to work next is judgement and stays with the caller. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one, and `unread` counts rows that are there in a dialect this build cannot read. A row's `milestone` is null both when the spec declares none and when the declared ones left it out; `declares_milestones` beside the array says which, and `milestones` lists each declared one with the version its scope says it ships as (null when it names none), the rows it claims and how many are not yet done. `--verbose` prints each task in full, not a 60-char gist.",
+        synopsis: "tasks [--status <.|~|x>]... [--next] [--format human|json] [<path>]",
+        blurb: "Every task row's id, status, text, citations and the milestone claiming it, in id order -- a suffixed id rides its base, so `T7a` follows `T7` and belongs to whichever milestone claims 7. `--status` keeps matching rows and can repeat. `--next` prints only the first `~` row, or the first `.` row when no work is started, and prints nothing when no open row exists. Report-only. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one, and `unread` counts rows that are there in a dialect this build cannot read. A row's `milestone` is null both when the spec declares none and when the declared ones left it out; `declares_milestones` beside the array says which, and `milestones` lists each declared one with the version its scope says it ships as (null when it names none), the rows it claims and how many are not yet done. `--verbose` prints each task in full, not a 60-char gist.",
     },
     Command {
         name: "bugs",
@@ -156,7 +156,11 @@ pub(crate) fn names() -> Vec<&'static str> {
 
 /// One command in the terse rendering: synopsis, wrapped prose, blank line.
 fn terse(c: &Command) -> String {
-    format!("  {}\n{}\n", c.synopsis, wrap(c.blurb, INDENT, WIDTH))
+    format!(
+        "{}{}\n",
+        wrap(c.synopsis, "  ", WIDTH),
+        wrap(c.blurb, INDENT, WIDTH)
+    )
 }
 
 /// The markdown command reference (`mth docs`), frozen into README.
