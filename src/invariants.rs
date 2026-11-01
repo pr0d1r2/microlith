@@ -138,7 +138,10 @@ fn empty_report(all: &[Invariant], filter: Filter, unread: usize) -> String {
             Filter::Superseded => "superseded",
             Filter::All => unreachable!(),
         };
-        return format!("invariants: none -- no {state} rules match\n");
+        return format!(
+            "invariants: none -- no readable {state} rules match{}\n",
+            crate::rows::also(unread)
+        );
     }
     crate::rows::none_read("invariants", 'V', unread)
 }
@@ -311,7 +314,22 @@ V2a: **suffixed.** a rider.
     #[test]
     fn an_empty_filter_is_not_an_empty_section() {
         let out = report("V1: kept.\n", Filter::Superseded, false);
-        assert_eq!(out, "invariants: none -- no superseded rules match\n");
+        assert_eq!(
+            out,
+            "invariants: none -- no readable superseded rules match\n"
+        );
+    }
+
+    #[test]
+    fn an_empty_filter_reports_unread_mixed_dialect_rows() {
+        let mixed =
+            "## §V INVARIANTS\n\nV1: active.\n| V2 | unread superseded |\n";
+        let out = report(mixed, Filter::Superseded, false);
+        assert_eq!(
+            out,
+            "invariants: none -- no readable superseded rules match; 1 more \
+             unread, in a dialect (`mth migrate`)\n"
+        );
     }
 
     #[test]
