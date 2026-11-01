@@ -30,6 +30,7 @@ src/check.rs
 src/cli.rs
 src/derive.rs
 src/docs.rs
+src/edit.rs
 src/extensions.rs
 src/format.rs
 src/id.rs
