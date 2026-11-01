@@ -185,7 +185,7 @@ Every bug record's id, date, cause and fix, in id order -- the same enumeration 
 invariants [--active|--superseded] [--format human|json] [<path>]
 ```
 
-Every `§V` id with its state -- `active` or `superseded` -- and, when superseded, the winners its `[superseded by ...]` mark names, in id order. The `§V` sibling of `tasks` and `bugs`, reading the mark with the same function `check` gates on (V41) rather than a second one. `--active` and `--superseded` partition the ids and cannot be combined (exit 2). `--format json` is the machine rendering, always emitted, and `unread` counts declarations that are there in a dialect this build cannot read, so a bordered-table spec reports the dialect instead of an empty list. `--verbose` prints each statement in full, not a 60-char gist.
+Every `§V` id with its state -- `active` or `superseded` -- and, when superseded, the winners its `[superseded by ...]` mark names, in id order. The `§V` sibling of `tasks` and `bugs`: the ids are the ones `check` declares and the mark is read by the function it gates on (V41), never a second reading. `--active` and `--superseded` partition the ids and cannot be combined (exit 2). `--format json` is the machine rendering, always emitted: each object carries `id`, `state` and `superseded_by`, and `unread` counts declarations that are there in a dialect this build cannot read, so a bordered-table spec reports the dialect instead of an empty list. `--verbose` prints each statement in full, not a 60-char gist.
 
 ### `anchors`
 

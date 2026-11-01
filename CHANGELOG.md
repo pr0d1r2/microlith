@@ -49,6 +49,8 @@ pipeline gets proven before a permanent number is spent.
   so a consumer no longer re-parses the spec to learn which rules are retired.
   `--active` and `--superseded` partition the ids; a bordered-table spec
   reports the dialect (`unread`) instead of an empty list, as `tasks` does.
+  The library entry points are `invariants_report` and `invariants_json`,
+  taking an `InvariantFilter`.
 
 ## [0.7.5] — 2026-10-25
 

@@ -37,6 +37,7 @@ pub(crate) mod violation;
 // The types a public signature mentions must themselves be public.
 pub use check::Record;
 pub use cli::{DEFAULT_PATH, command, run};
+pub use invariants::Filter as InvariantFilter;
 pub use violation::{Direction, Fix, Violation};
 
 // ONE ENTRY POINT PER VERB. `run` is the whole CLI; these are its parts, so
@@ -192,18 +193,26 @@ pub fn bugs_json(file: &str, text: &str) -> String {
 ///
 /// `state` is `active` or `superseded`; a superseded rule also carries the
 /// winners its `[superseded by ...]` mark names, read by the same function
-/// V41 uses (V7). `filter` is `"active"`, `"superseded"` or anything else
-/// for both.
-pub fn invariants_report(text: &str, filter: &str, verbose: bool) -> String {
-    invariants::report(text, invariants::Filter::of(filter), verbose)
+/// V41 uses (V7). `verbose` prints each statement in full, not a 60-char
+/// gist.
+pub fn invariants_report(
+    text: &str,
+    filter: InvariantFilter,
+    verbose: bool,
+) -> String {
+    invariants::report(text, filter, verbose)
 }
 
 /// The same enumeration as JSON -- the rendering a consumer parses.
 ///
 /// `"invariants":[]` is always emitted, and `unread` counts declarations
 /// written in a dialect this build cannot read.
-pub fn invariants_json(file: &str, text: &str, filter: &str) -> String {
-    invariants::json(file, text, invariants::Filter::of(filter))
+pub fn invariants_json(
+    file: &str,
+    text: &str,
+    filter: InvariantFilter,
+) -> String {
+    invariants::json(file, text, filter)
 }
 
 /// `mth anchors`: the section address of every item beside the id it
@@ -449,6 +458,18 @@ mod tests {
         assert!(bugs_json("SPEC.md", &spec).contains("\"id\":\"B1\""));
         assert!(bugs_json("SPEC.md", &spec).contains("\"file\":\"SPEC.md\""));
         assert!(bugs_report_verbose(&spec).len() >= bugs_report(&spec).len());
+    }
+
+    /// The same for `§V`, with the filter a caller names as a type: no
+    /// spelling of it can fall back to the rules nobody asked for.
+    #[test]
+    fn the_invariant_enumeration_is_reachable_in_one_call() {
+        let spec = "V1: live.\nV2: old. [superseded by V1]\n";
+        let live = invariants_report(spec, InvariantFilter::Active, false);
+        assert!(live.contains("invariant V1: active"), "{live}");
+        assert!(!live.contains("V2"), "{live}");
+        let dead = invariants_json("f", spec, InvariantFilter::Superseded);
+        assert!(dead.contains("\"superseded_by\":[\"V1\"]"), "{dead}");
     }
 
     #[test]
