@@ -442,4 +442,40 @@ B2|2026-08-02|a cause|V1
         assert!(add(&spec, "V", &s(&["see V88"]), "d").is_err());
         assert!(amend(&spec, "V1", "fine").is_ok());
     }
+
+    /// Each kind names its own cells when the count is wrong.
+    #[test]
+    fn a_wrong_cell_count_names_the_kind_it_was_for() {
+        assert!(
+            refusal(add(SPEC, "B", &s(&["one"]), "d"))
+                .contains("<cause> <fix>")
+        );
+        assert!(
+            refusal(add(SPEC, "T", &s(&["one"]), "d"))
+                .contains("<task> <cites>")
+        );
+    }
+
+    /// An id declared twice cannot be amended: which row would it mean?
+    #[test]
+    fn amend_refuses_a_duplicated_id() {
+        let spec = "V1: a|T1\nV1: b|T1\n";
+        assert!(refusal(amend(spec, "V1", "x")).contains("declared 2 times"));
+    }
+
+    /// A row with too few fields has no third cell to swap.
+    #[test]
+    fn a_three_field_row_cannot_be_amended() {
+        assert!(rewritten("T1|x|y", "T1", "z").is_err());
+    }
+
+    /// An edit that leaves the file needing `fmt` is refused, even when it
+    /// adds no violation the checker can name.
+    #[test]
+    fn an_edit_that_needs_fmt_afterwards_is_refused() {
+        let tidy_spec = format_spec(SPEC).unwrap_or_default();
+        let untidy = tidy_spec.replacen("see V1\n", "see V1\nmore words\n", 1);
+        let e = proven(&tidy_spec, &untidy).err().unwrap_or_default();
+        assert!(e.contains("mth fmt"), "{e}");
+    }
 }
