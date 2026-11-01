@@ -608,56 +608,38 @@ fn bugs(rest: &[String]) -> Output {
 fn invariants(rest: &[String]) -> Output {
     match state_filter(rest) {
         Err(refused) => refused,
-        Ok(filter) => enumerated_with(rest, |path, text, as_json, full| {
-            if as_json {
-                crate::invariants_json(path, text, filter)
-            } else {
-                crate::invariants_report(text, filter, full)
-            }
-        }),
+        Ok(filter) => enumerated(
+            rest,
+            |text, full| crate::invariants::report(text, filter, full),
+            |path, text| crate::invariants::json(path, text, filter),
+        ),
     }
 }
 
 /// Which states were asked for. Both flags together contradict.
-fn state_filter(rest: &[String]) -> Result<&'static str, Output> {
+fn state_filter(rest: &[String]) -> Result<crate::InvariantFilter, Output> {
+    use crate::InvariantFilter::{Active, All, Superseded};
     let has = |f: &str| rest.iter().any(|a| a == f);
     match (has("--active"), has("--superseded")) {
         (true, true) => Err(Output::usage(
             "mth: --active and --superseded are exclusive\n".to_owned(),
         )),
-        (true, false) => Ok("active"),
-        (false, true) => Ok("superseded"),
-        (false, false) => Ok("all"),
+        (true, false) => Ok(Active),
+        (false, true) => Ok(Superseded),
+        (false, false) => Ok(All),
     }
-}
-
-/// `enumerated`'s path and rendering handling, for a verb that renders
-/// through one closure of `(path, text, as_json, verbose)`.
-fn enumerated_with(
-    rest: &[String],
-    render: impl Fn(&str, &str, bool, bool) -> String,
-) -> Output {
-    let path = target(rest);
-    let as_json = match wants_json(rest) {
-        Err(e) => return Output::usage(e),
-        Ok(j) => j,
-    };
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return unreadable(&path);
-    };
-    Output::ok(render(&path, &text, as_json, verbose(rest)))
 }
 
 /// The ENUMERATING verbs, which differ only in WHICH section they read.
 ///
-/// One function for both, as `reporting` is for `derive` and `anchors`
+/// One function for all of them, as `reporting` is for `derive` and `anchors`
 /// (V7): the path, the rendering choice and the unreadable-path answer are
 /// the same question three times, and a second copy is where they would
 /// drift apart.
 fn enumerated(
     rest: &[String],
-    human: fn(&str, bool) -> String,
-    json: fn(&str, &str) -> String,
+    human: impl Fn(&str, bool) -> String,
+    json: impl Fn(&str, &str) -> String,
 ) -> Output {
     let path = target(rest);
     let as_json = match wants_json(rest) {
@@ -1346,6 +1328,18 @@ mod tests {
         let both =
             run(&args(&["invariants", "--active", "--superseded", &path]));
         assert_eq!(both.code, 2, "{}", both.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// `--verbose` reaches the rendering, and every filter keeps it.
+    #[test]
+    fn invariants_verbose_prints_the_whole_statement() {
+        let long = "z".repeat(80);
+        let path = write_temp("invsfull", &format!("V1: {long}\n"));
+        let terse = run(&args(&["invariants", "--active", &path]));
+        assert!(!terse.out.contains(&long), "{}", terse.out);
+        let full = run(&args(&["invariants", "--active", "-v", &path]));
+        assert!(full.out.contains(&long), "{}", full.out);
         let _ = std::fs::remove_file(&path);
     }
 

@@ -1,36 +1,35 @@
 //! §V ENUMERATED for a machine: which rules exist, and which are retired.
 //!
 //! The sibling of `tasks` and `bugs`, for the section whose rows are not
-//! pipe rows but `V<n>: statement` lines. Nothing here reads the mark: a
-//! rule is superseded exactly when `check::supersessions` -- the reading V41
-//! gates on -- says so, and the winners are the ones it names (V7). A second
-//! reading of `[superseded by ...]` would be the drift this crate exists to
-//! end, and the consumer that prompted this verb had one that printed
-//! nothing on `V1: ...` lines.
+//! pipe rows but `V<n>: statement` lines. Nothing here decides what a rule
+//! is: the ids are the ones `check::declared_at` calls declared, so this list
+//! and `check`'s count cannot differ, and a rule is superseded exactly when
+//! `check::supersessions` -- the reading V41 gates on -- says so, with the
+//! winners it names (V7). A second reading of either would be the drift this
+//! crate exists to end, and the consumer that prompted this verb had one that
+//! printed nothing on `V1: ...` lines.
 //!
 //! Order is V14's. Report-only (V10): `--active` and `--superseded`
 //! PARTITION the ids, they do not rank them (V6).
 
-use crate::id::at_line_start;
+use crate::id::Id;
 
 /// Which states a caller asked for.
+///
+/// An enum rather than a string, because `mth` refuses an unknown spelling
+/// and a library caller deserves the same: a typo that fell back to "all"
+/// would hand retired rules to someone who asked for live ones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Filter {
+pub enum Filter {
+    /// Every rule.
     All,
+    /// Only the rules still in force.
     Active,
+    /// Only the rules a `[superseded by ...]` mark retires.
     Superseded,
 }
 
 impl Filter {
-    /// `"active"` / `"superseded"`; anything else asks for both.
-    pub(crate) fn of(name: &str) -> Self {
-        match name {
-            "active" => Self::Active,
-            "superseded" => Self::Superseded,
-            _ => Self::All,
-        }
-    }
-
     fn keeps(self, inv: &Invariant) -> bool {
         match self {
             Self::All => true,
@@ -46,8 +45,8 @@ pub(crate) struct Invariant {
     pub id: String,
     /// The statement after `V<n>:`, trimmed.
     pub text: String,
-    /// `Some(winners)` when retired; the list may be empty only never --
-    /// a mark naming no id is not a mark.
+    /// `Some(winners)` when retired, never empty: a mark naming no id is not
+    /// a mark.
     pub winners: Option<Vec<String>>,
 }
 
@@ -64,15 +63,12 @@ impl Invariant {
 /// Every `§V` declaration in V14 order; the first of a repeated id wins.
 pub(crate) fn invariants(text: &str) -> Vec<Invariant> {
     let marks = crate::check::supersessions(text);
-    let mut found: Vec<(crate::id::Id, Invariant)> = Vec::new();
-    for (index, line) in text.lines().enumerate() {
-        let Some(id) = at_line_start(line)
-            .filter(|i| i.kind == 'V' && i.terminator != '|')
-        else {
-            continue;
-        };
+    let lines: Vec<&str> = text.lines().collect();
+    let mut found: Vec<(Id, Invariant)> = Vec::new();
+    for (at, id) in crate::check::declared_at(text, 'V') {
         if found.iter().all(|(_, v)| v.id != id.label()) {
-            let inv = declared(line, index.saturating_add(1), &id, &marks);
+            let line = lines.get(at.saturating_sub(1)).copied();
+            let inv = declared(line.unwrap_or(""), at, &id, &marks);
             found.push((id, inv));
         }
     }
@@ -84,7 +80,7 @@ pub(crate) fn invariants(text: &str) -> Vec<Invariant> {
 fn declared(
     line: &str,
     line_no: usize,
-    id: &crate::id::Id,
+    id: &Id,
     marks: &[crate::check::Retirement],
 ) -> Invariant {
     let label = id.label();
@@ -92,23 +88,21 @@ fn declared(
         .iter()
         .find(|(at, mid, _)| *at == line_no && *mid == label)
         .map(|(_, _, w)| w.clone());
-    let body = declaration_text(line, &label);
     Invariant {
+        text: statement(line, id).to_owned(),
         id: label,
-        text: body.to_owned(),
         winners,
     }
 }
 
-fn declaration_text<'a>(line: &'a str, label: &str) -> &'a str {
-    line.split_once(':').map_or_else(
-        || {
-            line.strip_prefix("- ")
-                .and_then(|line| line.strip_prefix(label))
-                .map_or("", str::trim)
-        },
-        |(_, rest)| rest.trim(),
-    )
+/// What follows the id and the terminator the grammar found after it.
+///
+/// Not a search for the first `:`, which a bulleted `- V1 a rule: why` only
+/// has inside its statement, and `* V1 a rule` does not have at all.
+fn statement<'a>(line: &'a str, id: &Id) -> &'a str {
+    let opening = format!("{}{}", id.label(), id.terminator);
+    line.split_once(opening.as_str())
+        .map_or("", |(_, rest)| rest.trim())
 }
 
 fn unread(text: &str) -> usize {
@@ -258,18 +252,55 @@ V2a: **suffixed.** a rider.
         );
     }
 
+    /// V7: the list is `check`'s. A pipe row declares its id there, so
+    /// dropping it here would name a winner the list does not carry.
     #[test]
-    fn pipe_rows_are_not_invariant_declarations() {
-        let t = "V1|x|a row|V2\n- V2 a bullet declaration\n";
-        let got = invariants(t);
+    fn the_ids_are_the_ones_check_declares() {
+        let t = "V1: old. [superseded by V2]\nV2|a row|x|y\n";
+        let declared: Vec<String> = crate::check::declared(t, 'V')
+            .iter()
+            .map(Id::label)
+            .collect();
+        assert_eq!(ids(t, Filter::All), declared);
+        assert_eq!(ids(t, Filter::Active), ["V2"]);
+    }
+
+    /// The first declaration answers, and a later one cannot retire it.
+    #[test]
+    fn the_first_of_a_repeated_id_wins() {
+        let got = invariants("V1: first.\nV1: second. [superseded by V2]\n");
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert_eq!(got.first().map(|v| v.text.as_str()), Some("first."));
+        assert!(got.first().is_some_and(|v| v.winners.is_none()));
+    }
+
+    /// V26: every declaration shape gives its whole statement. A search for
+    /// the first `:` cut the `- ` line and blanked the `* ` and `+ ` ones.
+    #[test]
+    fn every_declaration_shape_gives_its_whole_statement() {
+        let t = "- V1 why: because\n* V2 starred\n+ V3 plussed\n\
+                 - V4: colon\nV5: why: because\nV6|a|b|c\n";
+        let got: Vec<String> =
+            invariants(t).into_iter().map(|v| v.text).collect();
         assert_eq!(
-            got.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
-            ["V2"]
+            got,
+            [
+                "why: because",
+                "starred",
+                "plussed",
+                "colon",
+                "why: because",
+                "a|b|c"
+            ]
         );
-        assert_eq!(
-            got.first().map(|v| v.text.as_str()),
-            Some("a bullet declaration")
-        );
+    }
+
+    /// `--verbose` stops truncating, as it does on `tasks` and `bugs`.
+    #[test]
+    fn verbose_prints_the_whole_statement() {
+        let text = format!("V1: {}\n", "z".repeat(80));
+        assert!(report(&text, Filter::All, false).contains("..."), "gist");
+        assert!(!report(&text, Filter::All, true).contains("..."), "whole");
     }
 
     /// The JSON is the contract.
