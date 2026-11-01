@@ -453,6 +453,7 @@ fn check_summary(path: &str, text: &str, records: usize) -> String {
 /// USAGE error, never a silent pass: a gate that quietly stops checking
 /// because a file moved is the failure mode the flag exists to prevent.
 fn records_from(rest: &[String]) -> Result<Vec<Record>, String> {
+    single(rest, "--records")?;
     let Some(path) = flag_value(rest, "--records") else {
         return Ok(Vec::new());
     };
@@ -483,6 +484,7 @@ fn report(path: &str, violations: &[Violation], as_json: bool) -> Output {
 /// error rather than a silent fallback: a caller who asked for json and got
 /// prose would parse it and fail somewhere far away.
 fn wants_json(rest: &[String]) -> Result<bool, String> {
+    single(rest, "--format")?;
     match flag_value(rest, "--format").as_deref() {
         None | Some("human") => Ok(false),
         Some("json") => Ok(true),
@@ -490,6 +492,17 @@ fn wants_json(rest: &[String]) -> Result<bool, String> {
             "mth: unknown --format '{other}' -- expected human or json\n"
         )),
     }
+}
+
+/// A single-value flag given twice is a usage error: only the first would be
+/// read, so the second file's records would silently go unchecked (V16).
+fn single(rest: &[String], name: &str) -> Result<(), String> {
+    if rest.iter().filter(|a| *a == name).count() > 1 {
+        return Err(format!(
+            "mth: {name} given more than once -- pass it once\n"
+        ));
+    }
+    Ok(())
 }
 
 /// The value after `name`, if the flag is present with one.
@@ -943,6 +956,19 @@ mod tests {
         assert_eq!(positional(&rest).map(String::as_str), Some("SPEC.md"));
         assert_eq!(flag_value(&rest, "--records").as_deref(), Some("recs.txt"));
         assert_eq!(flag_value(&args(&["--records"]), "--records"), None);
+    }
+
+    /// A repeated single-value flag is refused, not read first-wins (V16).
+    #[test]
+    fn a_repeated_single_value_flag_is_refused() {
+        let rest =
+            args(&["--records", "a.txt", "--records", "b.txt", "SPEC.md"]);
+        assert!(records_from(&rest).is_err());
+        assert!(
+            wants_json(&args(&["--format", "json", "--format", "human"]))
+                .is_err()
+        );
+        assert!(wants_json(&args(&["--format", "json"])).is_ok());
     }
 
     /// `archive --check` is REPORT-ONLY and exits 0 (V10).
