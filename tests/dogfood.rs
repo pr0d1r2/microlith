@@ -93,6 +93,9 @@ fn our_own_spec_leaves_migrate_nothing_it_cannot_place() {
 
 /// V48: every stub in our own spec points at text the archive really holds.
 ///
+/// A task stub is `T1|x|A|..` and a bug stub `B1|date|A|..`, so the sink is
+/// asked for the ROW by id, whatever its second cell is.
+///
 /// The half of the fold no other test would notice. A stub says the text
 /// moved; if the sink does not hold it, the text went nowhere and the row
 /// that used to carry it now says so in a file nobody will re-read.
@@ -113,7 +116,7 @@ fn every_stub_in_our_own_spec_points_at_text_the_archive_holds() {
         .filter_map(|l| l.split('|').next().map(str::to_owned))
     {
         assert!(
-            stored.contains(&format!("\n{id}|x|")),
+            stored.contains(&format!("\n{id}|")),
             "{id} is not in {ARCHIVE}"
         );
     }

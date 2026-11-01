@@ -887,28 +887,35 @@ mod tests {
     /// work in it is an ordinary spec. A third gate would turn every repo
     /// with a done task red on the day it adopted this.
     ///
-    /// Run WITHOUT `--records` on purpose, which is the state that shows
-    /// what the flag is worth: the five rows carrying a closed-option record
-    /// are offered, because nothing told this run they exist. `--records` is
-    /// opt-in for `check` and opt-in here, and the cost of forgetting it is
-    /// the same cost in both places. T26b is now complete, so it is the one
-    /// ordinary finished row left to archive after the record-held rows are
-    /// excluded.
+    /// Run on a FIXTURE, not on our own SPEC.md: whether that file has
+    /// anything left to fold changes every time it is folded, and a test
+    /// that fails the day the fold works is testing the file, not the verb.
+    /// `--records` is exercised too: the row it names is held back.
     #[test]
     fn archive_check_reports_without_writing_and_exits_zero() {
-        let o = run(&args(&["archive", "--check", "SPEC.md"]));
+        let (dir, path) = a_spec_in_its_own_directory("chk");
+        let o = run(&args(&["archive", "--check", &path]));
         assert_eq!(o.code, 0, "{}", o.err);
-        assert!(o.out.contains("rows would move"), "{}", o.out);
-        let held = run(&args(&[
-            "archive",
-            "--check",
-            "--records",
-            ".spec-records",
-            "SPEC.md",
-        ]));
-        assert_eq!(held.code, 0, "{}", held.err);
-        assert!(held.out.contains("T26b"), "{}", held.out);
-        assert!(std::fs::read_to_string("SPEC.md").is_ok(), "unwritten");
+        assert!(o.out.contains("would move"), "{}", o.out);
+        assert!(o.out.contains("T1"), "{}", o.out);
+        let after = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(after.contains("T1|x|the long text|V1"), "unwritten");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// ...and a row a `--records` baseline names is held back, not moved.
+    #[test]
+    fn archive_check_names_the_rows_a_baseline_holds_back() {
+        let (dir, path) = a_spec_in_its_own_directory("held");
+        let records = dir.join("records").to_string_lossy().into_owned();
+        let _ = std::fs::write(&records, "T1 the long text\n");
+        let two = "# SPEC\n\n## \u{a7}T TASKS\n\nT1|x|the long text|V1\nT2|x|other text|V1\n";
+        let _ = std::fs::write(&path, two);
+        let o =
+            run(&args(&["archive", "--check", "--records", &records, &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("held back"), "{}", o.out);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// The write path, end to end, on a COPY -- and both files or neither.
