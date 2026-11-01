@@ -113,7 +113,7 @@ pub(crate) fn report_filtered(
     if selection.next && rows.is_empty() {
         return String::new();
     }
-    if filtered_empty(text, statuses, selection.next, &rows) {
+    if filtered_empty(statuses, selection.next, &rows) {
         return filtered_none(statuses);
     }
     let mut out = head(&rows, unread(text));
@@ -131,13 +131,8 @@ fn filtered_none(statuses: &[String]) -> String {
     )
 }
 
-fn filtered_empty(
-    text: &str,
-    statuses: &[String],
-    next: bool,
-    rows: &[Task],
-) -> bool {
-    !next && !statuses.is_empty() && rows.is_empty() && !tasks(text).is_empty()
+fn filtered_empty(statuses: &[String], next: bool, rows: &[Task]) -> bool {
+    !next && !statuses.is_empty() && rows.is_empty()
 }
 
 pub(crate) struct Selection {
@@ -577,6 +572,19 @@ T2a|.|a todo task riding T2|-
             },
         );
         assert_eq!(out, "tasks: none match -- no rows with status q\n");
+    }
+
+    #[test]
+    fn a_status_filter_on_an_empty_section_still_reports_no_match() {
+        let out = report_filtered(
+            "## \u{a7}T TASKS\n",
+            &[".".to_owned()],
+            Selection {
+                full: false,
+                next: false,
+            },
+        );
+        assert_eq!(out, "tasks: none match -- no rows with status .\n");
     }
 
     #[test]
