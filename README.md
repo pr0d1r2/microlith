@@ -155,6 +155,22 @@ archive [--check] [--records <file>] [--verbose] [<path>]
 
 Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place, using compact marker `A` in the text cell (the legacy long marker remains readable). The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.
 
+### `add`
+
+```text
+add <V|B|T> <cells...> [--check] [<path>]
+```
+
+Append one row to its section, with the next free id: `add V <text>`, `add B <cause> <fix>` (today's date is filled in), `add T <task> <cites>` (status `.`; `-` for no citations). A pipe in a cell is escaped for you. The result is judged by the same rules as `check` and `fmt` before anything is written: a citation that does not resolve, a newline, a missing section, or any other violation the edit would ADD is refused with exit 1 and the file untouched. A spec that already has findings stays editable. `--check` prints the row it would write and exits 0 without writing; a written row is printed too, so the assigned id is not guessed.
+
+### `amend`
+
+```text
+amend <id> <text> [--check] [<path>]
+```
+
+Replace the text of one `V`, `B` or `T` row and keep everything else: the id, a `V` row's trailing citations, a `T` row's status and citations, a `B` row's date and fix. The text is the statement of a `V` row, the task of a `T` row and the cause of a `B` row. Validated like `add` (nothing new may fail `check` or `fmt`), and a refusal leaves the file untouched. `--check` prints the row it would write and exits 0.
+
 ### `derive`
 
 ```text

@@ -42,6 +42,13 @@ pipeline gets proven before a permanent number is spent.
 
 ### Added
 
+- `mth add <V|B|T> <cells...>` appends a row at the next free id (a gap is
+  never refilled), filling in today's date for `§B`; `mth amend <id> <text>`
+  replaces a row's text and keeps its id and every other cell. Both are
+  judged by the same rules as `check` and `fmt` before anything is written, so
+  a dangling citation or a hard wrap is refused (exit 1, file untouched)
+  instead of found afterwards. `--check` prints the row and writes nothing.
+
 - `mth invariants [--active|--superseded] [--format human|json] [--verbose]
   [<path>]` lists every `§V` id with its state (`active` or `superseded`) and,
   for a superseded rule, the winners its `[superseded by ...]` mark names. It

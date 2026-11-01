@@ -24,6 +24,7 @@ pub(crate) mod check;
 pub(crate) mod cli;
 pub(crate) mod derive;
 pub(crate) mod docs;
+pub(crate) mod edit;
 pub(crate) mod extensions;
 pub(crate) mod format;
 pub(crate) mod id;

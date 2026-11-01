@@ -65,6 +65,14 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    Add {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Amend {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     Docs,
     Extensions,
 }
@@ -144,7 +152,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "archive" => one_path(verb, rest, archive),
         "docs" => asked(verb, rest, docs_reference),
         "extensions" => asked(verb, rest, extensions_reference),
-        other => unknown(other),
+        other => writing_rows(other, rest),
     }
 }
 
@@ -380,6 +388,103 @@ fn fmt_summary(path: &str, text: &str) -> String {
         crate::format::MAX_LINE,
         crate::format::MAX_LINE.saturating_sub(longest)
     )
+}
+
+/// The two verbs that write one row, or the unknown verb they are not.
+fn writing_rows(verb: &str, rest: &[String]) -> Output {
+    match verb {
+        "add" => asked(verb, rest, || add(rest)),
+        "amend" => asked(verb, rest, || amend(rest)),
+        other => unknown(other),
+    }
+}
+
+/// The arguments that are not flags, in order. Unlike [`positionals`] a lone
+/// `-` is kept: it is FORMAT.md's empty cell, and a cell is what these verbs
+/// are given.
+fn operands(rest: &[String]) -> Vec<String> {
+    let flags = ["--check", "--verbose", "-v"];
+    rest.iter()
+        .filter(|a| !flags.contains(&a.as_str()))
+        .cloned()
+        .collect()
+}
+
+/// Where the optional path sits after `fixed` leading operands, and a
+/// refusal when a further one follows it (V46).
+fn path_after(given: &[String], fixed: usize) -> Result<String, Output> {
+    if given.len() > fixed.saturating_add(1) {
+        return Err(Output::usage("mth: one path per run\n".to_owned()));
+    }
+    Ok(given
+        .get(fixed)
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_PATH.to_owned()))
+}
+
+/// `add <section> <cells...> [--check] [<path>]`: append one row.
+///
+/// The FOURTH mutation, and the first that composes text rather than
+/// transforming it. The id, the date and the escaping are the tool's; the
+/// result is judged by `check` and `fmt` before anything is written (V10).
+fn add(rest: &[String]) -> Output {
+    let given = operands(rest);
+    let section = given.first().cloned().unwrap_or_default();
+    let Some(cells) =
+        crate::edit::kind_of(&section).ok().map(crate::edit::arity)
+    else {
+        return Output::usage(format!(
+            "mth: add <V|B|T> <cells...> [<path>] -- bad section '{section}'\n"
+        ));
+    };
+    let rows: Vec<String> = given.iter().skip(1).take(cells).cloned().collect();
+    let path = path_after(&given, cells.saturating_add(1));
+    mutate(rest, path, |text| {
+        crate::edit::add(text, &section, &rows, &crate::edit::today())
+    })
+}
+
+/// `amend <id> <text> [--check] [<path>]`: replace one row's text.
+fn amend(rest: &[String]) -> Output {
+    let given = operands(rest);
+    let (Some(id), Some(new)) = (given.first(), given.get(1)) else {
+        return Output::usage("mth: amend <id> <text> [<path>]\n".to_owned());
+    };
+    let path = path_after(&given, 2);
+    mutate(rest, path, |spec| crate::edit::amend(spec, id, new))
+}
+
+/// The read, the edit and the write -- shared by `add` and `amend`.
+///
+/// A refusal is exit 1 and the file is untouched; `--check` prints the row
+/// that WOULD be written and stops there.
+fn mutate(
+    rest: &[String],
+    path: Result<String, Output>,
+    edit: impl Fn(&str) -> Result<crate::edit::Edited, String>,
+) -> Output {
+    let path = match path {
+        Ok(p) => p,
+        Err(refused) => return refused,
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return unreadable(&path);
+    };
+    match edit(&text) {
+        Err(e) => Output::drift(format!("mth: {path}: {e}\n")),
+        Ok((out, row)) => written(rest, &path, &out, row),
+    }
+}
+
+/// Write the edited spec unless `--check`, and say which row it was.
+fn written(rest: &[String], path: &str, out: &str, row: String) -> Output {
+    if rest.iter().any(|a| a == "--check") {
+        return Output::ok(format!("{row}\n"));
+    }
+    match std::fs::write(path, out) {
+        Err(e) => Output::usage(format!("mth: cannot write {path}: {e}\n")),
+        Ok(()) => Output::ok(format!("{row}\n")),
+    }
 }
 
 /// `check [--records <file>] <path>`. Report-only by construction: it reads
@@ -1646,5 +1751,92 @@ mod tests {
         assert_eq!(loud.code, 0, "{}", loud.err);
         assert!(loud.out.contains("headers canonical"), "{}", loud.out);
         let _ = std::fs::remove_file(&path);
+    }
+}
+
+#[cfg(test)]
+mod edit_tests {
+    use super::*;
+
+    const SPEC: &str = "\
+## \u{a7}V INVARIANTS
+V1: **a rule.** text|T1
+
+## \u{a7}T TASKS
+id|status|task|cites
+T1|x|do it|V1
+
+## \u{a7}B BUGS
+id|date|cause|fix
+B1|2026-08-02|a cause|V1
+";
+
+    fn run_on(name: &str, verb: &[&str]) -> (Output, String) {
+        let path = std::env::temp_dir()
+            .join(format!("microlith-edit-{name}-{}.md", std::process::id()));
+        let _ = std::fs::write(&path, SPEC);
+        let p = path.to_string_lossy().into_owned();
+        let mut argv: Vec<String> =
+            verb.iter().map(|s| (*s).to_owned()).collect();
+        argv.push(p);
+        let o = run(&argv);
+        let after = std::fs::read_to_string(&path).unwrap_or_default();
+        (o, after)
+    }
+
+    #[test]
+    fn add_writes_the_row_and_prints_it() {
+        let (o, after) = run_on("add", &["add", "T", "more", "V1"]);
+        assert_eq!(o.code, 0, "{o:?}");
+        assert_eq!(o.out, "T2|.|more|V1\n");
+        assert!(after.contains("T1|x|do it|V1\nT2|.|more|V1\n"), "{after}");
+    }
+
+    #[test]
+    fn add_check_prints_the_row_and_leaves_the_file_alone() {
+        let (o, after) = run_on("addchk", &["add", "V", "see V1", "--check"]);
+        assert_eq!(o.out, "V2: see V1\n");
+        assert_eq!(after, SPEC);
+    }
+
+    #[test]
+    fn a_refused_add_exits_one_and_changes_nothing() {
+        let (o, after) = run_on("refuse", &["add", "V", "see V99"]);
+        assert_eq!(o.code, 1, "{o:?}");
+        assert!(o.err.contains("V99"), "{}", o.err);
+        assert_eq!(after, SPEC);
+    }
+
+    #[test]
+    fn a_bare_dash_is_a_cell_not_a_flag() {
+        let (o, _) = run_on("dash", &["add", "T", "later", "-"]);
+        assert_eq!(o.out, "T2|.|later|-\n");
+    }
+
+    #[test]
+    fn amend_keeps_the_id_and_the_citations() {
+        let (o, after) = run_on("amend", &["amend", "V1", "**fresh.** text"]);
+        assert_eq!(o.code, 0, "{o:?}");
+        assert!(after.contains("V1: **fresh.** text|T1\n"), "{after}");
+    }
+
+    #[test]
+    fn amend_of_a_missing_id_is_refused() {
+        let (o, after) = run_on("amendbad", &["amend", "V7", "x"]);
+        assert_eq!(o.code, 1, "{o:?}");
+        assert_eq!(after, SPEC);
+    }
+
+    #[test]
+    fn a_wrong_section_or_no_arguments_is_a_usage_error() {
+        assert_eq!(run_on("sect", &["add", "Z", "x"]).0.code, 2);
+        assert_eq!(run_on("noargs", &["add"]).0.code, 2);
+    }
+
+    #[test]
+    fn help_on_the_new_verbs_writes_nothing() {
+        let (o, after) = run_on("help", &["add", "T", "x", "-", "--help"]);
+        assert!(o.out.contains("usage:"), "{o:?}");
+        assert_eq!(after, SPEC);
     }
 }
