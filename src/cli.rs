@@ -513,12 +513,19 @@ fn verbose(rest: &[String]) -> bool {
 
 /// Every argument that is neither a flag nor a flag's value, in order.
 fn positionals(rest: &[String]) -> Vec<&String> {
-    let skip: Vec<String> = ["--records", "--format", "--status"]
-        .iter()
-        .filter_map(|f| flag_value(rest, f))
-        .collect();
+    let mut skip_value = false;
     rest.iter()
-        .filter(|a| !a.starts_with('-') && !skip.contains(a))
+        .filter_map(|arg| {
+            if skip_value {
+                skip_value = false;
+                return (!arg.starts_with('-')).then_some(None).flatten();
+            }
+            if matches!(arg.as_str(), "--records" | "--format" | "--status") {
+                skip_value = true;
+                return None;
+            }
+            (!arg.starts_with('-')).then_some(Some(arg)).flatten()
+        })
         .collect()
 }
 
@@ -914,6 +921,18 @@ mod tests {
             let o = run(&args(&argv));
             assert_eq!(o.code, 0, "{argv:?}: {}{}", o.out, o.err);
         }
+    }
+
+    #[test]
+    fn every_repeated_flag_value_is_not_counted_as_a_path() {
+        let rest = args(&["--status", ".", "--status", "~", "SPEC.md"]);
+        assert_eq!(
+            positionals(&rest)
+                .iter()
+                .map(|path| path.as_str())
+                .collect::<Vec<_>>(),
+            ["SPEC.md"]
+        );
     }
 
     /// The path must survive a flag sitting in front of it, and must not be
