@@ -113,12 +113,31 @@ pub(crate) fn report_filtered(
     if selection.next && rows.is_empty() {
         return String::new();
     }
+    if filtered_empty(text, statuses, selection.next, &rows) {
+        return filtered_none(statuses);
+    }
     let mut out = head(&rows, unread(text));
     for t in &rows {
         let shown = crate::rows::shown(&t.text, selection.full);
         out.push_str(&format!("task {}: {} -- {shown}\n", t.id, t.status));
     }
     out
+}
+
+fn filtered_none(statuses: &[String]) -> String {
+    format!(
+        "tasks: none match -- no rows with status {}\n",
+        statuses.join(", ")
+    )
+}
+
+fn filtered_empty(
+    text: &str,
+    statuses: &[String],
+    next: bool,
+    rows: &[Task],
+) -> bool {
+    !next && !statuses.is_empty() && rows.is_empty() && !tasks(text).is_empty()
 }
 
 pub(crate) struct Selection {
@@ -545,6 +564,19 @@ T2a|.|a todo task riding T2|-
             out.contains("task T2a: . -- a todo task riding T2\n"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn a_status_filter_reports_an_empty_match_not_an_empty_section() {
+        let out = report_filtered(
+            SPEC,
+            &["q".to_owned()],
+            Selection {
+                full: false,
+                next: false,
+            },
+        );
+        assert_eq!(out, "tasks: none match -- no rows with status q\n");
     }
 
     #[test]
