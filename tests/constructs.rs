@@ -20,6 +20,7 @@
 use microlith::parse_records;
 use microlith::{bugs_json, bugs_report};
 use microlith::{check_spec, format_spec};
+use microlith::{invariants_json, invariants_report};
 use microlith::{tasks_json, tasks_report};
 
 /// Every construct FORMAT.md permits, each with a fixture of the same name.
@@ -171,6 +172,24 @@ fn bugs_answers_on_every_construct() {
         let json = bugs_json(name, &fixture(name));
         assert!(json.contains("\"bugs\":["), "{name}: {json}");
         assert_eq!(json.lines().count(), 1, "{name} emitted >1 line");
+    }
+}
+
+/// The same of `§V` (V29), and the filters still partition whatever the
+/// construct holds: no shape may fall between `--active` and `--superseded`.
+#[test]
+fn invariants_answers_on_every_construct() {
+    use microlith::InvariantFilter::{Active, All, Superseded};
+    for name in CONSTRUCTS {
+        let text = fixture(name);
+        let out = invariants_report(&text, All, false);
+        assert!(out.starts_with("invariants: "), "{name} no answer: {out}");
+        let json = invariants_json(name, &text, All);
+        assert!(json.contains("\"invariants\":["), "{name}: {json}");
+        assert_eq!(json.lines().count(), 1, "{name} emitted >1 line");
+        let rows =
+            |f| invariants_json(name, &text, f).matches("\"id\":").count();
+        assert_eq!(rows(All), rows(Active) + rows(Superseded), "{name}");
     }
 }
 

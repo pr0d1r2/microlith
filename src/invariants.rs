@@ -98,10 +98,13 @@ fn declared(
 /// What follows the id and the terminator the grammar found after it.
 ///
 /// Not a search for the first `:`, which a bulleted `- V1 a rule: why` only
-/// has inside its statement, and `* V1 a rule` does not have at all.
+/// has inside its statement, and `* V1 a rule` does not have at all. Nor for
+/// the label: `V01:` is labelled `V1`, so that text is not on the line, or is
+/// a citation further along it. The first `kind` is the id's own, because a
+/// list marker holds none, and the first terminator past it is the grammar's.
 fn statement<'a>(line: &'a str, id: &Id) -> &'a str {
-    let opening = format!("{}{}", id.label(), id.terminator);
-    line.split_once(opening.as_str())
+    line.split_once(id.kind)
+        .and_then(|(_, rest)| rest.split_once(id.terminator))
         .map_or("", |(_, rest)| rest.trim())
 }
 
@@ -127,10 +130,11 @@ pub(crate) fn report(text: &str, filter: Filter, full: bool) -> String {
 
 fn empty_report(all: &[Invariant], filter: Filter, unread: usize) -> String {
     if !all.is_empty() {
-        let state = match filter {
-            Filter::Active => "active",
-            Filter::Superseded => "superseded",
-            Filter::All => unreachable!(),
+        // Rules exist and none was kept, so a narrowing filter is why.
+        let state = if filter == Filter::Active {
+            "active"
+        } else {
+            "superseded"
         };
         return format!(
             "invariants: none -- no readable {state} rules match{}\n",
@@ -295,6 +299,17 @@ V2a: **suffixed.** a rider.
         );
     }
 
+    /// The label normalises `V01` to `V1`; the statement is still the one
+    /// written, not blank and not whatever follows a later `V1:`.
+    #[test]
+    fn a_padded_id_keeps_its_own_statement() {
+        let got: Vec<String> = invariants("V01: alone\nV02: on V2: a cite\n")
+            .into_iter()
+            .map(|v| v.text)
+            .collect();
+        assert_eq!(got, ["alone", "on V2: a cite"]);
+    }
+
     /// `--verbose` stops truncating, as it does on `tasks` and `bugs`.
     #[test]
     fn verbose_prints_the_whole_statement() {
@@ -317,6 +332,16 @@ V2a: **suffixed.** a rider.
         assert!(json("S.md", SPEC, Filter::Active).contains(
             "{\"id\":\"V1\",\"state\":\"active\",\"superseded_by\":[]}"
         ));
+    }
+
+    /// `"invariants":[]` is always emitted: a filter nothing matches is an
+    /// answer, in the same shape as one that matched.
+    #[test]
+    fn json_with_nothing_kept_is_still_the_object() {
+        assert_eq!(
+            json("S.md", "V1: kept.\n", Filter::Superseded),
+            "{\"file\":\"S.md\",\"invariants\":[],\"unread\":0}\n"
+        );
     }
 
     /// Prose mentioning the words is not a mark (B30), and a mark in code
