@@ -513,7 +513,7 @@ fn verbose(rest: &[String]) -> bool {
 
 /// Every argument that is neither a flag nor a flag's value, in order.
 fn positionals(rest: &[String]) -> Vec<&String> {
-    let skip: Vec<String> = ["--records", "--format"]
+    let skip: Vec<String> = ["--records", "--format", "--status"]
         .iter()
         .filter_map(|f| flag_value(rest, f))
         .collect();
@@ -576,7 +576,8 @@ fn unreadable(path: &str) -> Output {
     Output::usage(format!("mth: cannot read {path}\n"))
 }
 
-/// `tasks [--format human|json] <path>`: enumerate `§T`, exit 0.
+/// `tasks [--status <.|~|x>]... [--next] [--format human|json] <path>`:
+/// enumerate `§T`, exit 0.
 ///
 /// Report-only like `derive`, but with a rendering to choose, so it cannot
 /// share `reporting`'s one-function shape. Exit 0 EVEN WITH NO TASKS: a spec
@@ -586,7 +587,51 @@ fn unreadable(path: &str) -> Output {
 /// it is the signal a caller falls back on when this verb is absent
 /// altogether.
 fn tasks(rest: &[String]) -> Output {
-    enumerated(rest, crate::tasks::report, crate::tasks::json)
+    let statuses = match task_statuses(rest) {
+        Err(refused) => return refused,
+        Ok(statuses) => statuses,
+    };
+    let next = rest.iter().any(|arg| arg == "--next");
+    task_render(rest, &statuses, next)
+}
+
+fn task_render(rest: &[String], statuses: &[String], next: bool) -> Output {
+    enumerated(
+        rest,
+        |text, full| {
+            crate::tasks::report_filtered(
+                text,
+                statuses,
+                crate::tasks::Selection { full, next },
+            )
+        },
+        |path, text| crate::tasks::json_filtered(path, text, statuses, next),
+    )
+}
+
+fn task_statuses(rest: &[String]) -> Result<Vec<String>, Output> {
+    let mut statuses = Vec::new();
+    for (index, arg) in rest.iter().enumerate() {
+        if arg != "--status" {
+            continue;
+        }
+        statuses.push(task_status(rest.get(index.saturating_add(1)))?);
+    }
+    Ok(statuses)
+}
+
+fn task_status(status: Option<&String>) -> Result<String, Output> {
+    let Some(status) = status else {
+        return Err(Output::usage(
+            "mth: --status needs one of ., ~ or x\n".to_owned(),
+        ));
+    };
+    if matches!(status.as_str(), "." | "~" | "x") {
+        return Ok(status.clone());
+    }
+    Err(Output::usage(format!(
+        "mth: unknown task status '{status}' -- expected ., ~ or x\n"
+    )))
 }
 
 /// `bugs [--format human|json] <path>`: enumerate `§B`, exit 0.
@@ -1277,6 +1322,50 @@ mod tests {
         assert_eq!(json.code, 0, "{}", json.err);
         assert!(json.out.contains("\"id\":\"T1\""), "{}", json.out);
         assert!(json.out.contains("\"status\":\"x\""), "{}", json.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    fn task_statuses_file(name: &str, rows: &str) -> String {
+        write_temp(
+            name,
+            &format!(
+                "## \u{a7}T TASKS\n| id | scope | tasks | done-when |\n|----|-------|-------|-----------|\n{rows}"
+            ),
+        )
+    }
+
+    #[test]
+    fn tasks_next_prefers_started_work() {
+        let path = task_statuses_file(
+            "tasksnextstarted",
+            "T1|.|todo| -\nT2|~|started| -\nT3|x|done| -\n",
+        );
+        let o = run(&args(&["tasks", "--next", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("task T2: ~"), "{}", o.out);
+        assert!(!o.out.contains("task T1:"), "{}", o.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn tasks_next_picks_the_first_todo_when_nothing_started() {
+        let path = task_statuses_file(
+            "tasksnexttodo",
+            "T2|.|second| -\nT1|.|first| -\n",
+        );
+        let o = run(&args(&["tasks", "--next", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("task T1: ."), "{}", o.out);
+        assert!(!o.out.contains("task T2:"), "{}", o.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn tasks_next_is_silent_when_no_open_rows_exist() {
+        let path = task_statuses_file("tasksnextnone", "T1|x|done| -\n");
+        let o = run(&args(&["tasks", "--next", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.is_empty(), "{}", o.out);
         let _ = std::fs::remove_file(&path);
     }
 

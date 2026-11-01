@@ -101,13 +101,29 @@ pub(crate) fn tally(rows: &[Task]) -> Vec<(&'static str, usize)> {
 /// silence is a GATE's success shape (V10), and here it would be
 /// indistinguishable from a run that failed to reach the file.
 pub(crate) fn report(text: &str, full: bool) -> String {
-    let rows = tasks(text);
+    report_filtered(text, &[], Selection { full, next: false })
+}
+
+pub(crate) fn report_filtered(
+    text: &str,
+    statuses: &[String],
+    selection: Selection,
+) -> String {
+    let rows = selected(text, statuses, selection.next);
+    if selection.next && rows.is_empty() {
+        return String::new();
+    }
     let mut out = head(&rows, unread(text));
     for t in &rows {
-        let shown = crate::rows::shown(&t.text, full);
+        let shown = crate::rows::shown(&t.text, selection.full);
         out.push_str(&format!("task {}: {} -- {shown}\n", t.id, t.status));
     }
     out
+}
+
+pub(crate) struct Selection {
+    pub full: bool,
+    pub next: bool,
 }
 
 /// How many §T rows this build could not read (V49).
@@ -147,7 +163,19 @@ fn head(rows: &[Task], unread: usize) -> String {
 /// empty stream is indistinguishable from a crash, and the consumer's whole
 /// question is whether the backlog is empty or merely unreadable.
 pub(crate) fn json(file: &str, text: &str) -> String {
-    let rows = tasks(text);
+    json_filtered(file, text, &[], false)
+}
+
+pub(crate) fn json_filtered(
+    file: &str,
+    text: &str,
+    statuses: &[String],
+    next: bool,
+) -> String {
+    let rows = selected(text, statuses, next);
+    if next && rows.is_empty() {
+        return String::new();
+    }
     let items: Vec<String> = rows.iter().map(one_json).collect();
     format!(
         "{{\"file\":{},\"tasks\":[{}],\"unread\":{},\
@@ -158,6 +186,24 @@ pub(crate) fn json(file: &str, text: &str) -> String {
         crate::check::uses_milestones(text),
         milestones_json(text, &rows)
     )
+}
+
+fn selected(text: &str, statuses: &[String], next: bool) -> Vec<Task> {
+    let mut rows: Vec<Task> = tasks(text)
+        .into_iter()
+        .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
+        .collect();
+    if next {
+        let index = rows
+            .iter()
+            .position(|task| task.status == "~")
+            .or_else(|| rows.iter().position(|task| task.status == "."));
+        rows = index
+            .and_then(|i| rows.into_iter().nth(i))
+            .into_iter()
+            .collect();
+    }
+    rows
 }
 
 /// Each declared milestone, in FILE order: its id, the version it ships as

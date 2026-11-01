@@ -16,7 +16,7 @@
 [![dependencies 1](https://img.shields.io/badge/dependencies-1-brightgreen)](Cargo.toml)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![gate hk, 32 fast / 37 all steps](https://img.shields.io/badge/gate-hk%2032%20%2F%2037-6E4AFF)](hk.pkl)
-[![coverage 99.3%](https://img.shields.io/badge/coverage-99.3%25-brightgreen)](hk.pkl)
+[![coverage 98.8%](https://img.shields.io/badge/coverage-98.8%25-brightgreen)](hk.pkl)
 [![floor 98%](https://img.shields.io/badge/floor-%E2%89%A598%25-brightgreen)](hk.pkl)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
@@ -166,10 +166,10 @@ Sizes, the citation graph, invariants cited by nothing, and statements said twic
 ### `tasks`
 
 ```text
-tasks [--format human|json] [--verbose] [<path>]
+tasks [--status <.|~|x>]... [--next] [--format human|json] [<path>]
 ```
 
-Every task row's id, status, text, citations and the milestone claiming it, in id order -- a suffixed id rides its base, so `T7a` follows `T7` and belongs to whichever milestone claims 7. Report-only, and it ENUMERATES rather than SELECTS: which rows are pending is mechanical, which one to work next is judgement and stays with the caller. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one, and `unread` counts rows that are there in a dialect this build cannot read. A row's `milestone` is null both when the spec declares none and when the declared ones left it out; `declares_milestones` beside the array says which, and `milestones` lists each declared one with the version its scope says it ships as (null when it names none), the rows it claims and how many are not yet done. `--verbose` prints each task in full, not a 60-char gist.
+Every task row's id, status, text, citations and the milestone claiming it, in id order -- a suffixed id rides its base, so `T7a` follows `T7` and belongs to whichever milestone claims 7. `--status` keeps matching rows and can repeat. `--next` prints only the first `~` row, or the first `.` row when no work is started, and prints nothing when no open row exists. Report-only. `--format json` is the machine rendering, and it is always emitted -- a spec with no tasks returns an empty array, so a caller can tell an empty backlog from an unreadable one, and `unread` counts rows that are there in a dialect this build cannot read. A row's `milestone` is null both when the spec declares none and when the declared ones left it out; `declares_milestones` beside the array says which, and `milestones` lists each declared one with the version its scope says it ships as (null when it names none), the rows it claims and how many are not yet done. `--verbose` prints each task in full, not a 60-char gist.
 
 ### `bugs`
 
