@@ -110,7 +110,7 @@ pub(crate) fn report_filtered(
     selection: Selection,
 ) -> String {
     let rows = selected(text, statuses, selection.next);
-    if selection.next && rows.is_empty() {
+    if selection.next && rows.is_empty() && unread(text) == 0 {
         return String::new();
     }
     if filtered_empty(statuses, selection.next, &rows) {
@@ -187,7 +187,7 @@ pub(crate) fn json_filtered(
     next: bool,
 ) -> String {
     let rows = selected(text, statuses, next);
-    if next && rows.is_empty() {
+    if next && rows.is_empty() && unread(text) == 0 {
         return String::new();
     }
     let items: Vec<String> = rows.iter().map(one_json).collect();
@@ -585,6 +585,23 @@ T2a|.|a todo task riding T2|-
             },
         );
         assert_eq!(out, "tasks: none match -- no rows with status .\n");
+    }
+
+    #[test]
+    fn next_reports_unread_rows_instead_of_silence() {
+        let dialect = "## \u{a7}T TASKS\n\n| T1 | . | unread | - |\n";
+        let human = report_filtered(
+            dialect,
+            &[],
+            Selection {
+                full: false,
+                next: true,
+            },
+        );
+        assert!(human.starts_with("tasks: none READ"), "{human}");
+        assert!(
+            json_filtered("f", dialect, &[], true).contains("\"unread\":1")
+        );
     }
 
     #[test]
