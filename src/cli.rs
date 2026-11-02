@@ -1414,6 +1414,38 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[test]
+    fn tasks_status_filters_are_repeatable_in_human_output() {
+        let path = task_statuses_file(
+            "tasksstatushuman",
+            "T1|.|todo| -\nT2|~|started| -\nT3|x|done| -\n",
+        );
+        let o = run(&args(&["tasks", "--status", ".", "--status", "~", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("task T1: ."), "{}", o.out);
+        assert!(o.out.contains("task T2: ~"), "{}", o.out);
+        assert!(!o.out.contains("task T3:"), "{}", o.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn tasks_status_filter_and_next_are_applied_in_json_output() {
+        let path = task_statuses_file(
+            "tasksstatusjson",
+            "T1|.|todo| -\nT2|~|started| -\nT3|x|done| -\n",
+        );
+        let o = run(&args(&[
+            "tasks", "--status", ".", "--status", "x", "--next", "--format",
+            "json", &path,
+        ]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.contains("\"tasks\":[{"), "{}", o.out);
+        assert!(o.out.contains("\"id\":\"T1\""), "{}", o.out);
+        assert!(!o.out.contains("\"id\":\"T3\""), "{}", o.out);
+        assert!(!o.out.contains("\"id\":\"T2\""), "{}", o.out);
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// A spec with one live and one retired rule, on disk.
     fn retired_pair(name: &str) -> String {
         write_temp(
