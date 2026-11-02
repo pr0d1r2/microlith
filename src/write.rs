@@ -93,7 +93,7 @@ pub fn add_row(
     let next = ids.max().map_or(1, |n| n.saturating_add(1));
     let row = new_row(kind, next, today, &cells);
     let out = insert(text, kind, &row)?;
-    validated(text, &out)?;
+    validated(&out)?;
     Ok((out, row))
 }
 
@@ -132,7 +132,7 @@ pub fn amend_row(text: &str, id: &str, new: &str) -> Written {
     let row = swapped(line, kind, &new).map_err(|e| format!("{id}: {e}"))?;
     line.clone_from(&row);
     let out = rejoin(text, &lines);
-    validated(text, &out)?;
+    validated(&out)?;
     Ok((out, row))
 }
 
@@ -177,30 +177,17 @@ fn insert(text: &str, kind: char, row: &str) -> Result<String, String> {
     Ok(rejoin(text, &lines))
 }
 
-/// The violations `after` has that `before` did not. Line numbers move when
-/// a row is added, so a violation is the same one when rule and message are.
-fn fresh(before: &str, after: &str) -> Vec<String> {
-    let key = |v: crate::Violation| (v.rule, v.msg);
-    let known: Vec<_> = crate::check_spec(before, &[])
+/// Hold the result to `check` and `fmt`: no violation at all, as `check`
+/// would report it, and already in the form `fmt` would leave it.
+fn validated(after: &str) -> Result<(), String> {
+    let found: Vec<String> = crate::check_spec(after, &[])
         .into_iter()
-        .map(key)
+        .map(|v| format!("{}: {}", v.rule, v.msg))
         .collect();
-    crate::check_spec(after, &[])
-        .into_iter()
-        .map(key)
-        .filter(|k| !known.contains(k))
-        .map(|(rule, msg)| format!("{rule}: {msg}"))
-        .collect()
-}
-
-/// Hold the result to `check` and `fmt`: no violation the file did not
-/// already have, and already in the form `fmt` would leave it.
-fn validated(before: &str, after: &str) -> Result<(), String> {
-    let new = fresh(before, after);
-    if !new.is_empty() {
+    if !found.is_empty() {
         return Err(format!(
             "refusing to write -- `check` would report: {}",
-            new.join("; ")
+            found.join("; ")
         ));
     }
     if crate::format_spec(after)? != after {
@@ -323,5 +310,13 @@ mod tests {
         let err = |id, new| amend_row(SPEC, id, new).err().unwrap_or_default();
         assert!(err("T9", "x").contains("no row"));
         assert!(err("V1", "**a.** see V77").contains("V13"));
+    }
+
+    #[test]
+    fn amend_refuses_a_preexisting_violation() {
+        let invalid = SPEC.replace("T1|.|do it|V1", "T1|.|do it|V99");
+        assert_ne!(invalid, SPEC);
+        assert!(amend_row(&invalid, "T1", "changed").is_err());
+        assert!(amend_row(&invalid, "V1", "**a.** x2.").is_err());
     }
 }
