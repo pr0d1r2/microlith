@@ -97,12 +97,52 @@ pub fn add_row(
     Ok((out, row))
 }
 
+/// The byte offset of the last `|` that is neither escaped nor inside
+/// backticks.
+fn pipe_at(s: &str) -> Option<usize> {
+    let (mut found, mut ticks, mut slashes) = (None, 0_usize, 0_usize);
+    for (i, c) in s.char_indices() {
+        if c == '|' && slashes % 2 == 0 && ticks % 2 == 0 {
+            found = Some(i);
+        }
+        ticks = ticks.saturating_add(usize::from(c == '`'));
+        slashes = if c == '\\' {
+            slashes.saturating_add(1)
+        } else {
+            0
+        };
+    }
+    found
+}
+
+/// Whether `s` is a comma-separated list of citation ids, such as `V7,V14`.
+fn cites_only(s: &str) -> bool {
+    !s.is_empty()
+        && s.split(',').all(|item| {
+            let item = item.trim();
+            at_line_start(&format!("{item}:"))
+                .is_some_and(|i| i.label() == item)
+        })
+}
+
+/// A `V` row with its statement swapped, its `|V7,V14` citation tail kept.
+fn swapped_statement(line: &str, new: &str) -> Result<String, String> {
+    let (id, rest) = line.split_once(':').ok_or("malformed row")?;
+    if pipe_at(new).is_some() {
+        return Err("an unescaped `|` would start a citation field".into());
+    }
+    let tail = pipe_at(rest)
+        .map(|at| rest.split_at(at).1)
+        .filter(|t| cites_only(t.trim_start_matches('|')))
+        .unwrap_or_default();
+    Ok(format!("{id}: {new}{tail}"))
+}
+
 /// One line with its text swapped. What "text" is follows the section: the
 /// statement of a `V`, the task of a `T`, the cause of a `B`.
 fn swapped(line: &str, kind: char, new: &str) -> Result<String, String> {
     if kind == 'V' {
-        let (id, _) = line.split_once(':').ok_or("malformed row")?;
-        return Ok(format!("{id}: {new}"));
+        return swapped_statement(line, new);
     }
     let mut parts: Vec<String> =
         cells(line).into_iter().map(str::to_owned).collect();
@@ -303,6 +343,15 @@ mod tests {
         assert_eq!(amend("T1", "changed"), "T1|.|changed|V1");
         assert_eq!(amend("B1", "new"), "B1|2026-01-01|new|V1");
         assert_eq!(amend("V2", "**b2.** y."), "V2: **b2.** y.");
+    }
+
+    #[test]
+    fn amend_keeps_a_v_row_citation_tail_and_refuses_a_bare_pipe() {
+        let spec = SPEC.replace("V2: **b.** y.", "V2: **b.** y.|V1");
+        let (_, row) = amend_row(&spec, "V2", "**b2.** z.").unwrap_or_default();
+        assert_eq!(row, "V2: **b2.** z.|V1");
+        let err = amend_row(&spec, "V2", "a|b").err().unwrap_or_default();
+        assert!(err.contains("unescaped"), "{err}");
     }
 
     #[test]
