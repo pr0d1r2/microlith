@@ -41,6 +41,7 @@ src/render.rs
 src/rows.rs
 src/tasks.rs
 src/violation.rs
+src/write.rs
 tests/SPEC.md
 tests/binary.rs
 tests/constructs.rs
