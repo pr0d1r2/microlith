@@ -33,12 +33,14 @@ pub(crate) mod render;
 pub(crate) mod rows;
 pub(crate) mod tasks;
 pub(crate) mod violation;
+pub(crate) mod write;
 
 // The types a public signature mentions must themselves be public.
 pub use check::Record;
 pub use cli::{DEFAULT_PATH, command, run};
 pub use invariants::Filter as InvariantFilter;
 pub use violation::{Direction, Fix, Violation};
+pub use write::{add_row, amend_row};
 
 // ONE ENTRY POINT PER VERB. `run` is the whole CLI; these are its parts, so
 // a caller can reach any single operation without parsing an argv or reading

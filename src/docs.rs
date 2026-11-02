@@ -42,6 +42,16 @@ const COMMANDS: &[Command] = &[
         blurb: "Move a finished task's TEXT to `SPEC-ARCHIVE.md` and leave a stub row in its place, using compact marker `A` in the text cell (the legacy long marker remains readable). The id, the status and the citations stay, so an id is never reused, a milestone still finds the row it claims, and a citation to an archived row still resolves. A row carrying a closed-option record is held back and named -- compaction must never trade one of those for bytes -- so pass `--records` or those rows move too. The move is proven before either file is written: every row arrived, every id stayed, every citation cell was carried. `--check` reports what would move and exits 0, because a spec with finished work in it is an ordinary spec.",
     },
     Command {
+        name: "add",
+        synopsis: "add [--check] <V|T|B> <cells...> [<path>]",
+        blurb: "Append a row. `V` takes the statement; `T` the task and its citations (`-` for none), with status `.`; `B` the cause and the fix, dated today. The next free id is assigned and a pipe in a cell is escaped. The result is held to `check` and `fmt` before anything is written: a citation that does not resolve, a newline in a cell or a missing section is refused with the reason, exit 1, and the file is untouched. `--check` prints the row it would write and changes nothing.",
+    },
+    Command {
+        name: "amend",
+        synopsis: "amend [--check] <id> <text> [<path>]",
+        blurb: "Replace a row's text, keeping its id and citations: the statement of a `V`, the task of a `T`, the cause of a `B`; status, date and citations stay. The result is validated like `add` before it is written, and a failure leaves the file untouched. `--check` prints the row it would write and changes nothing.",
+    },
+    Command {
         name: "derive",
         synopsis: "derive [--verbose] [<path>]",
         blurb: "Sizes, the citation graph, invariants cited by nothing, and statements said twice. Report-only: exits 0 even with findings, because an orphan is a question for a reader, not a build failure. `--verbose` adds every statement's size, biggest first: what to cut.",
