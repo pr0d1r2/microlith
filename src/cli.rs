@@ -65,6 +65,14 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    Add {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Amend {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     Docs,
     Extensions,
 }
@@ -142,10 +150,20 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "invariants" => one_path(verb, rest, invariants),
         "migrate" => one_path(verb, rest, migrate),
         "archive" => one_path(verb, rest, archive),
-        "docs" => asked(verb, rest, docs_reference),
-        "extensions" => asked(verb, rest, extensions_reference),
+        "docs" | "extensions" | "add" | "amend" => secondary(verb, rest),
         other => unknown(other),
     }
+}
+
+/// The verbs that take no `one_path`: the two that print a reference and the
+/// two that write a row, whose operands are cells rather than paths.
+fn secondary(verb: &str, rest: &[String]) -> Output {
+    asked(verb, rest, || match verb {
+        "docs" => docs_reference(),
+        "extensions" => extensions_reference(),
+        "add" => add(rest),
+        _ => amend(rest),
+    })
 }
 
 /// The two guards every verb passes, in ONE place rather than once each
@@ -449,6 +467,93 @@ fn check_summary(path: &str, text: &str, records: usize) -> String {
     )
 }
 
+/// What a row verb was given, and where it writes.
+struct RowArgs {
+    check: bool,
+    words: Vec<String>,
+    path: String,
+}
+
+const ADD_USAGE: &str = "mth: add [--check] <V|T|B> <cells...> [<path>]\n";
+const AMEND_USAGE: &str = "mth: amend [--check] <id> <text> [<path>]\n";
+
+/// The words a row verb was given, and where it writes.
+///
+/// The cells are taken verbatim -- one may begin with `-`, which is how "no
+/// citations" is written -- so `--check` is the only flag read. After the
+/// selector and its cells, ONE more word is the path (V46).
+fn row_args(
+    rest: &[String],
+    cells: fn(&str) -> usize,
+    usage: &str,
+) -> Result<RowArgs, Output> {
+    let check = rest.iter().any(|a| a == "--check");
+    let mut words: Vec<String> =
+        rest.iter().filter(|a| *a != "--check").cloned().collect();
+    let head = words.first().map_or(0, |w| cells(w)).saturating_add(1);
+    let path = match words.len().checked_sub(head) {
+        Some(0) => DEFAULT_PATH.to_owned(),
+        Some(1) => words.pop().unwrap_or_default(),
+        _ => return Err(Output::usage(usage.to_owned())),
+    };
+    Ok(RowArgs { check, words, path })
+}
+
+/// How many cells `add` takes after the section: a statement, or two.
+fn add_cells(section: &str) -> usize {
+    if section.trim_start_matches('\u{a7}') == "V" {
+        1
+    } else {
+        2
+    }
+}
+
+/// `add [--check] <section> <cells...> [<path>]`: append a row.
+fn add(rest: &[String]) -> Output {
+    let given = match row_args(rest, add_cells, ADD_USAGE) {
+        Ok(given) => given,
+        Err(usage) => return usage,
+    };
+    let Some((section, cells)) = given.words.split_first() else {
+        return Output::usage(ADD_USAGE.to_owned());
+    };
+    write_row(&given.path, given.check, |text| {
+        crate::add_row(text, section, cells, &crate::write::today())
+    })
+}
+
+/// `amend [--check] <id> <text> [<path>]`: replace a row's text, keeping its
+/// id and citations.
+fn amend(rest: &[String]) -> Output {
+    let given = match row_args(rest, |_| 1, AMEND_USAGE) {
+        Ok(given) => given,
+        Err(usage) => return usage,
+    };
+    let [id, text] = given.words.as_slice() else {
+        return Output::usage(AMEND_USAGE.to_owned());
+    };
+    write_row(&given.path, given.check, |t| crate::amend_row(t, id, text))
+}
+
+/// Read, build the new text, and write it only if it was fully validated.
+/// `--check` prints the row it would write and changes nothing.
+fn write_row(
+    path: &str,
+    check: bool,
+    build: impl Fn(&str) -> Result<(String, String), String>,
+) -> Output {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return unreadable(path);
+    };
+    match build(&text) {
+        Err(e) => Output::drift(format!("mth: {path}: {e}\n")),
+        Ok((_, row)) if check => Output::ok(format!("{row}\n")),
+        Ok((out, row)) => match std::fs::write(path, out) {
+            Ok(()) => Output::ok(format!("{row}\n")),
+            Err(e) => Output::usage(format!("mth: cannot write {path}: {e}\n")),
+        },
+    }
+}
 /// The V16 baseline, or none. A `--records` path that cannot be read is a
 /// USAGE error, never a silent pass: a gate that quietly stops checking
 /// because a file moved is the failure mode the flag exists to prevent.
@@ -1805,5 +1910,79 @@ mod tests {
         assert_eq!(loud.code, 0, "{}", loud.err);
         assert!(loud.out.contains("headers canonical"), "{}", loud.out);
         let _ = std::fs::remove_file(&path);
+    }
+
+    const ROWS: &str = "## \u{a7}V INVARIANTS\n\nV1: **a.** x.\n\n\
+        ## \u{a7}T TASKS\n\nT1|.|do it|V1\n\n\
+        ## \u{a7}B BUGS\n\nB1|2026-01-01|c|V1\n";
+
+    fn rows_in(name: &str) -> (std::path::PathBuf, String) {
+        let dir = std::env::temp_dir()
+            .join(format!("microlith-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let spec = dir.join(DEFAULT_PATH);
+        let _ = std::fs::write(&spec, ROWS);
+        (dir, spec.to_string_lossy().into_owned())
+    }
+
+    /// `add` writes the row it printed, with the next id, and the result is
+    /// one `check` accepts.
+    #[test]
+    fn add_appends_a_row_that_check_accepts() {
+        let (dir, path) = rows_in("add");
+        let o = run(&args(&["add", "T", "next", "V1", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert_eq!(o.out, "T2|.|next|V1\n");
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(now.contains("T1|.|do it|V1\nT2|.|next|V1\n"), "{now}");
+        assert_eq!(run(&args(&["check", &path])).code, 0);
+        assert_eq!(run(&args(&["fmt", "--check", &path])).code, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A bug is dated by the tool, and `-` is a cell rather than a flag.
+    #[test]
+    fn add_dates_a_bug_and_takes_a_dash_cell() {
+        let (dir, path) = rows_in("add-bug");
+        let o = run(&args(&["add", "B", "cause", "-", &path]));
+        assert_eq!(o.code, 0, "{}", o.err);
+        assert!(o.out.starts_with("B2|20"), "{}", o.out);
+        assert!(o.out.ends_with("|cause|-\n"), "{}", o.out);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `--check` prints the row and leaves the file; a refusal exits 1 and
+    /// leaves it too (V18: the accepting and the rejecting half).
+    #[test]
+    fn add_check_and_a_refusal_write_nothing() {
+        let (dir, path) = rows_in("add-refused");
+        let o = run(&args(&["add", "--check", "V", "**b.** y.", &path]));
+        assert_eq!((o.code, o.out.as_str()), (0, "V2: **b.** y.\n"));
+        let bad = run(&args(&["add", "T", "x", "V99", &path]));
+        assert_eq!(bad.code, 1, "{}", bad.out);
+        assert!(bad.err.contains("V13"), "{}", bad.err);
+        let wrong = run(&args(&["add", "T", "a", "b", "c", &path]));
+        assert_eq!(wrong.code, 2, "{}", wrong.err);
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert_eq!(now, ROWS, "the file changed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `amend` swaps the text and keeps the rest of the row.
+    #[test]
+    fn amend_replaces_the_text_and_keeps_the_citations() {
+        let (dir, path) = rows_in("amend");
+        let o = run(&args(&["amend", "T1", "changed", &path]));
+        assert_eq!((o.code, o.out.as_str()), (0, "T1|.|changed|V1\n"));
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(now.contains("T1|.|changed|V1\n"), "{now}");
+        let missing = run(&args(&["amend", "T9", "x", &path]));
+        assert_eq!(missing.code, 1, "{}", missing.err);
+        let check = run(&args(&["amend", "--check", "V1", "**z.**", &path]));
+        assert_eq!(check.out, "V1: **z.**\n");
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(now.contains("V1: **a.** x."), "--check wrote: {now}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

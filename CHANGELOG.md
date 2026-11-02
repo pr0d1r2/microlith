@@ -42,6 +42,12 @@ pipeline gets proven before a permanent number is spent.
 
 ### Added
 
+- `mth add [--check] <V|T|B> <cells...> [<path>]` appends a row with the next
+  free id (today's date for `§B`) and `mth amend [--check] <id> <text>
+  [<path>]` replaces a row's text, keeping its id and citations. Both hold
+  the result to `check` and `fmt` before writing and leave the file untouched
+  on failure; `--check` prints the row they would write.
+
 - `mth tasks` now accepts repeatable `--status` filters and `--next`, which
   selects the first started task or, if none is started, the first todo task.
 
