@@ -292,7 +292,7 @@ fn supersede_shape(winner: &str, losers: &[String]) -> Result<(), String> {
     }
     match losers
         .iter()
-        .find(|l| kind_of(&l[..1.min(l.len())]) != Ok(kind))
+        .find(|l| kind_of(l.get(..1).unwrap_or("")) != Ok(kind))
     {
         Some(odd) => Err(format!("{odd} is not the same kind as {winner}")),
         None => Ok(()),
@@ -599,6 +599,12 @@ mod tests {
         assert!(err("V1", &["V2", "V1"]).contains("itself"));
         assert!(err("V1", &["T1"]).contains("same kind"));
         assert!(err("V1", &[]).contains("at least one"));
+    }
+
+    #[test]
+    fn supersede_refuses_a_multibyte_loser() {
+        let err = sup("V1", &["é"], false).err().unwrap_or_default();
+        assert!(err.contains("same kind"));
     }
 
     #[test]
