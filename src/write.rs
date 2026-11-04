@@ -1,5 +1,5 @@
-//! The two verbs that WRITE a row: `add` appends one, `amend` replaces one's
-//! text.
+//! The verbs that WRITE a row: `add` appends one, `amend` replaces one's
+//! text, `supersede` marks rows retired.
 //!
 //! Both are pure functions over `&str`, like every other rule here (V7): the
 //! caller supplies the spec text and gets the new text back, so the same
@@ -174,6 +174,166 @@ pub fn amend_row(text: &str, id: &str, new: &str) -> Written {
     let out = rejoin(text, &lines);
     validated(&out)?;
     Ok((out, row))
+}
+
+/// Whether `s` is exactly one row id, such as `V7` or `T7a`.
+pub(crate) fn is_id(s: &str) -> bool {
+    at_line_start(&format!("{s}:")).is_some_and(|i| i.label() == s)
+}
+
+/// The ids a `[<word> A, B]` mark on `line` already names.
+fn named_by(line: &str, word: &str) -> Vec<String> {
+    if word == crate::check::SUPERSEDED_BY {
+        return crate::check::marked(line);
+    }
+    line.split_once(format!("[{word} ").as_str())
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(inside, _)| inside.split(", ").map(str::to_owned).collect())
+        .unwrap_or_default()
+}
+
+/// `fresh` joined into the existing `[<word> ...]` mark, before its `]`.
+fn merged(line: &str, word: &str, fresh: &[&str]) -> Option<String> {
+    let open = format!("[{word} ");
+    let at = line.find(open.as_str())?.checked_add(open.len())?;
+    let close = line.get(at..)?.find(']')?.checked_add(at)?;
+    let (head, tail) = line.split_at(close);
+    Some(format!("{head}, {}{tail}", fresh.join(", ")))
+}
+
+/// A `V` row with `mark` after its statement, before any `|V7` tail.
+fn marked_statement(line: &str, mark: &str) -> Option<String> {
+    let (id, rest) = line.split_once(':')?;
+    let tail_at = pipe_at(rest).filter(|&a| {
+        cites_only(rest.get(a..).unwrap_or_default().trim_start_matches('|'))
+    });
+    let (body, tail) = rest.split_at(tail_at.unwrap_or(rest.len()));
+    Some(format!("{id}:{} {mark}{tail}", body.trim_end()))
+}
+
+/// A pipe row with `mark` at the end of its text cell.
+fn marked_cell(line: &str, mark: &str) -> Option<String> {
+    let mut parts: Vec<String> =
+        cells(line).into_iter().map(str::to_owned).collect();
+    let cell = parts.get_mut(2)?;
+    cell.push(' ');
+    cell.push_str(mark);
+    Some(parts.join("|"))
+}
+
+/// The `[<word> A, B]` mark put on a row, or merged into the one it has.
+///
+/// `None` when every id is already named: re-running is a no-op.
+fn with_mark(
+    line: &str,
+    kind: char,
+    word: &str,
+    ids: &[&str],
+) -> Option<String> {
+    let named = named_by(line, word);
+    let fresh: Vec<&str> = ids
+        .iter()
+        .copied()
+        .filter(|id| !named.iter().any(|n| n == id))
+        .collect();
+    let mark = format!("[{word} {}]", fresh.join(", "));
+    match (fresh.is_empty(), named.is_empty(), kind) {
+        (true, _, _) => None,
+        (false, false, _) => merged(line, word, &fresh),
+        (false, true, 'V') => marked_statement(line, &mark),
+        (false, true, _) => marked_cell(line, &mark),
+    }
+}
+
+/// The index of row `id`, or the refusal for an id the spec does not hold.
+fn row_of(lines: &[String], id: &str) -> Result<usize, String> {
+    lines
+        .iter()
+        .position(|l| at_line_start(l).is_some_and(|i| i.label() == id))
+        .ok_or_else(|| format!("unknown id: {id} (not in this spec)"))
+}
+
+/// Mark row `id` with `[<word> ids]`; returns the row as it now stands.
+fn mark_row(
+    lines: &mut [String],
+    id: &str,
+    word: &str,
+    ids: &[&str],
+) -> Result<String, String> {
+    let at = row_of(lines, id)?;
+    let line = lines.get_mut(at).ok_or("no such line")?;
+    let kind = kind_of(id.get(..1).unwrap_or(""))?;
+    if let Some(row) = with_mark(line, kind, word, ids) {
+        *line = row;
+    }
+    Ok(line.clone())
+}
+
+/// The refusals that need only the ids, before any row is read.
+fn supersede_shape(winner: &str, losers: &[String]) -> Result<(), String> {
+    let kind = kind_of(winner.get(..1).unwrap_or(""))?;
+    if losers.is_empty() {
+        return Err("supersede needs at least one loser".to_owned());
+    }
+    if losers.iter().any(|l| l == winner) {
+        return Err(format!("{winner} cannot supersede itself"));
+    }
+    match losers
+        .iter()
+        .find(|l| kind_of(&l[..1.min(l.len())]) != Ok(kind))
+    {
+        Some(odd) => Err(format!("{odd} is not the same kind as {winner}")),
+        None => Ok(()),
+    }
+}
+
+/// Retire each of `losers` in favour of `winner`: a `[superseded by W]` mark
+/// on every loser, and with `link` a `[supersedes L, ...]` mark on the
+/// winner. Returns the new text and the rows as written, one per line.
+///
+/// # Errors
+/// An id with no row; the winner among the losers; ids of different kinds; a
+/// winner that is itself superseded (V41 would reject the result); or a
+/// result `check` or `fmt` would reject. Marking what is already marked is a
+/// no-op, not an error.
+pub fn supersede_rows(
+    text: &str,
+    winner: &str,
+    losers: &[String],
+    link: bool,
+) -> Written {
+    supersede_shape(winner, losers)?;
+    let mut lines: Vec<String> = text.lines().map(str::to_owned).collect();
+    let at = row_of(&lines, winner)?;
+    if lines
+        .get(at)
+        .is_some_and(|l| !crate::check::marked(l).is_empty())
+    {
+        return Err(format!("{winner} is itself superseded -- use its winner"));
+    }
+    let rows = retire(&mut lines, winner, losers, link)?;
+    let out = rejoin(text, &lines);
+    validated(&out)?;
+    Ok((out, rows.join("\n")))
+}
+
+/// The marks themselves; returns every row touched, in the order marked.
+fn retire(
+    lines: &mut [String],
+    winner: &str,
+    losers: &[String],
+    link: bool,
+) -> Result<Vec<String>, String> {
+    let by = crate::check::SUPERSEDED_BY;
+    let mut rows = Vec::new();
+    for loser in losers {
+        rows.push(mark_row(lines, loser, by, &[winner])?);
+    }
+    if link {
+        let ids: Vec<&str> = losers.iter().map(String::as_str).collect();
+        rows.push(mark_row(lines, winner, "supersedes", &ids)?);
+    }
+    Ok(rows)
 }
 
 /// The lines back to text, with the original's final newline (or lack).
@@ -367,5 +527,59 @@ mod tests {
         assert_ne!(invalid, SPEC);
         assert!(amend_row(&invalid, "T1", "changed").is_err());
         assert!(amend_row(&invalid, "V1", "**a.** x2.").is_err());
+    }
+
+    const SUP: &str = "## \u{a7}V INVARIANTS\n\nV1: **a.** x.\nV2: **b.** y.|V1\n\
+        V3: **c.** z.\n\n## \u{a7}T TASKS\n\nT1|.|do it|V1\nT2|.|more|V1\n";
+
+    fn sup(w: &str, l: &[&str], link: bool) -> Written {
+        supersede_rows(SUP, w, &s(l), link)
+    }
+
+    #[test]
+    fn supersede_marks_losers_and_keeps_a_citation_tail() {
+        let (t, rows) = sup("V1", &["V2", "V3"], false).unwrap_or_default();
+        assert!(t.contains("V2: **b.** y. [superseded by V1]|V1\n"), "{t}");
+        assert!(t.contains("V3: **c.** z. [superseded by V1]\n"), "{t}");
+        assert!(!rows.contains("supersedes"), "{rows}");
+        assert!(crate::check_spec(&t, &[]).is_empty());
+    }
+
+    #[test]
+    fn supersede_link_tags_the_winner_and_task_rows_work() {
+        let (t, _) = sup("V3", &["V1"], true).unwrap_or_default();
+        assert!(t.contains("V3: **c.** z. [supersedes V1]\n"), "{t}");
+        let (t, _) = sup("T1", &["T2"], false).unwrap_or_default();
+        assert!(t.contains("T2|.|more [superseded by T1]|V1\n"), "{t}");
+    }
+
+    /// Re-running changes nothing; a second winner is merged into the mark.
+    #[test]
+    fn supersede_is_idempotent_and_merges_winners() {
+        let (once, _) = sup("V1", &["V3"], true).unwrap_or_default();
+        let again = supersede_rows(&once, "V1", &s(&["V3"]), true);
+        assert_eq!(again.map(|a| a.0), Ok(once.clone()));
+        let (t, _) =
+            supersede_rows(&once, "V2", &s(&["V3"]), false).unwrap_or_default();
+        assert!(t.contains("[superseded by V1, V2]"), "{t}");
+    }
+
+    /// V18's rejecting half: each refusal names its reason.
+    #[test]
+    fn supersede_refuses_what_it_must() {
+        let err = |w, l: &[&str]| sup(w, l, false).err().unwrap_or_default();
+        assert!(err("V1", &["V9"]).contains("unknown id: V9"));
+        assert!(err("V9", &["V1"]).contains("unknown id: V9"));
+        assert!(err("V1", &["V1"]).contains("itself"));
+        assert!(err("V1", &["V2", "V1"]).contains("itself"));
+        assert!(err("V1", &["T1"]).contains("same kind"));
+        assert!(err("V1", &[]).contains("at least one"));
+    }
+
+    #[test]
+    fn supersede_refuses_a_winner_that_is_itself_superseded() {
+        let (t, _) = sup("V1", &["V3"], false).unwrap_or_default();
+        let dead = supersede_rows(&t, "V3", &s(&["V2"]), false);
+        assert!(dead.err().unwrap_or_default().contains("itself superseded"));
     }
 }

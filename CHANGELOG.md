@@ -42,6 +42,12 @@ pipeline gets proven before a permanent number is spent.
 
 ### Added
 
+- `mth supersede [--link] [--check] <winner> <loser>... [<path>]` tags each
+  loser `[superseded by <winner>]` (and with `--link` the winner
+  `[supersedes <losers>]`) through the same verified write path as `add` and
+  `amend`. An unknown id, `winner == loser`, mixed kinds or a winner that is
+  itself superseded is refused with exit 2 and the file untouched; re-running
+  is a no-op.
 - `mth add [--check] <V|T|B> <cells...> [<path>]` appends a row with the next
   free id (today's date for `§B`) and `mth amend [--check] <id> <text>
   [<path>]` replaces a row's text, keeping its id and citations. Both hold
