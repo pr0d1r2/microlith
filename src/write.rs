@@ -229,7 +229,7 @@ fn with_mark(
     kind: char,
     word: &str,
     ids: &[&str],
-) -> Option<String> {
+) -> Result<Option<String>, String> {
     let named = named_by(line, word);
     let mut fresh = Vec::new();
     for id in ids.iter().copied() {
@@ -239,10 +239,16 @@ fn with_mark(
     }
     let mark = format!("[{word} {}]", fresh.join(", "));
     match (fresh.is_empty(), named.is_empty(), kind) {
-        (true, _, _) => None,
-        (false, false, _) => merged(line, word, &fresh),
-        (false, true, 'V') => marked_statement(line, &mark),
-        (false, true, _) => marked_cell(line, &mark),
+        (true, _, _) => Ok(None),
+        (false, false, _) => merged(line, word, &fresh)
+            .map(Some)
+            .ok_or_else(|| format!("cannot place mark on row: {line}")),
+        (false, true, 'V') => marked_statement(line, &mark)
+            .map(Some)
+            .ok_or_else(|| format!("cannot place mark on row: {line}")),
+        (false, true, _) => marked_cell(line, &mark)
+            .map(Some)
+            .ok_or_else(|| format!("cannot place mark on row: {line}")),
     }
 }
 
@@ -264,7 +270,7 @@ fn mark_row(
     let at = row_of(lines, id)?;
     let line = lines.get_mut(at).ok_or("no such line")?;
     let kind = kind_of(id.get(..1).unwrap_or(""))?;
-    if let Some(row) = with_mark(line, kind, word, ids) {
+    if let Some(row) = with_mark(line, kind, word, ids)? {
         *line = row;
     }
     Ok(line.clone())
@@ -595,5 +601,15 @@ mod tests {
         let (t, _) = sup("V1", &["V3"], false).unwrap_or_default();
         let dead = supersede_rows(&t, "V3", &s(&["V2"]), false);
         assert!(dead.err().unwrap_or_default().contains("itself superseded"));
+    }
+
+    #[test]
+    fn supersede_refuses_a_bulleted_declaration_without_a_colon() {
+        let text =
+            "## \u{a7}V INVARIANTS\n\n- V1 first rule\n- V2 second rule\n";
+        let err = supersede_rows(text, "V1", &s(&["V2"]), false)
+            .err()
+            .unwrap_or_default();
+        assert!(err.contains("cannot place mark on row: - V2 second rule"));
     }
 }
