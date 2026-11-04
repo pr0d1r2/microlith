@@ -563,6 +563,12 @@ fn supersede_operands(rest: &[String]) -> (Vec<String>, String) {
 /// `supersede [--link] [--check] <winner> <loser>... [<path>]`: tag each
 /// loser `[superseded by <winner>]`. A refusal is exit 2, file untouched.
 fn supersede(rest: &[String]) -> Output {
+    if rest.iter().any(|a| {
+        a.starts_with("--")
+            && !matches!(a.as_str(), "--check" | "--link" | "--help")
+    }) {
+        return Output::usage(SUPERSEDE_USAGE.to_owned());
+    }
     let flag = |f: &str| rest.iter().any(|a| a == f);
     let (words, path) = supersede_operands(rest);
     let [winner, losers @ ..] = words.as_slice() else {
@@ -2062,6 +2068,19 @@ mod tests {
             let now = std::fs::read_to_string(&path).unwrap_or_default();
             assert_eq!(now, ROWS);
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// V18's planted flag violation: an unknown flag is a usage error and
+    /// cannot silently turn a requested dry run into a write.
+    #[test]
+    fn supersede_rejects_unknown_flags_before_writing() {
+        let (dir, path) = rows_in("supersede-unknown-flag");
+        let o = run(&args(&["supersede", "--mystery", "V2", "V1", &path]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert!(o.err.contains("supersede"), "{}", o.err);
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert_eq!(now, ROWS);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
