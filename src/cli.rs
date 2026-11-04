@@ -2071,6 +2071,32 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// V18's rejecting half also covers a missing winner and a winner that is
+    /// already retired; neither refusal may reach the write path.
+    #[test]
+    fn supersede_refuses_a_missing_winner_without_writing() {
+        let (dir, path) = rows_in("supersede-missing-winner");
+        let o = run(&args(&["supersede", "V9", "V1", &path]));
+        assert_eq!(o.code, 2, "{}", o.err);
+        assert_eq!(std::fs::read_to_string(&path).unwrap_or_default(), ROWS);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn supersede_refuses_a_retired_winner_without_writing() {
+        let (dir, path) = rows_in("supersede-retired-winner");
+        let retired_rows =
+            ROWS.replace("V1: **a.** x.", "V1: **a.** x. [superseded by V2]");
+        let _ = std::fs::write(&path, &retired_rows);
+        let retired = run(&args(&["supersede", "V1", "T1", &path]));
+        assert_eq!(retired.code, 2, "{}", retired.err);
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap_or_default(),
+            retired_rows
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// V18's planted flag violation: an unknown flag is a usage error and
     /// cannot silently turn a requested dry run into a write.
     #[test]
