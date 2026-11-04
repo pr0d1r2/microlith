@@ -203,12 +203,21 @@ fn merged(line: &str, word: &str, fresh: &[&str]) -> Option<String> {
 
 /// A `V` row with `mark` after its statement, before any `|V7` tail.
 fn marked_statement(line: &str, mark: &str) -> Option<String> {
-    let (id, rest) = line.split_once(':')?;
-    let tail_at = pipe_at(rest).filter(|&a| {
+    let (prefix, id, rest) = if let Some((id, rest)) = line.split_once(':') {
+        ("".to_owned(), id.to_owned(), format!(":{rest}"))
+    } else {
+        let (prefix, body) = ["- ", "* ", "+ "].iter().find_map(|prefix| {
+            line.strip_prefix(prefix).map(|body| (*prefix, body))
+        })?;
+        let id = at_line_start(line)?.label();
+        let rest = body.get(id.len()..)?;
+        (prefix.to_owned(), id, rest.to_owned())
+    };
+    let tail_at = pipe_at(&rest).filter(|&a| {
         cites_only(rest.get(a..).unwrap_or_default().trim_start_matches('|'))
     });
     let (body, tail) = rest.split_at(tail_at.unwrap_or(rest.len()));
-    Some(format!("{id}:{} {mark}{tail}", body.trim_end()))
+    Some(format!("{prefix}{id}{} {mark}{tail}", body.trim_end()))
 }
 
 /// A pipe row with `mark` at the end of its text cell.
@@ -615,12 +624,13 @@ mod tests {
     }
 
     #[test]
-    fn supersede_refuses_a_bulleted_declaration_without_a_colon() {
+    fn supersede_marks_a_bulleted_declaration_without_a_colon() {
         let text =
             "## \u{a7}V INVARIANTS\n\n- V1 first rule\n- V2 second rule\n";
-        let err = supersede_rows(text, "V1", &s(&["V2"]), false)
-            .err()
-            .unwrap_or_default();
-        assert!(err.contains("cannot place mark on row: - V2 second rule"));
+        let result = supersede_rows(text, "V1", &s(&["V2"]), false);
+        assert!(result.is_ok(), "{result:?}");
+        let (out, _) = result.unwrap_or_default();
+        assert!(out.contains("- V1 first rule"));
+        assert!(out.contains("- V2 second rule [superseded by V1]"));
     }
 }
