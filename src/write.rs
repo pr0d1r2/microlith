@@ -221,6 +221,16 @@ fn marked_cell(line: &str, mark: &str) -> Option<String> {
     Some(parts.join("|"))
 }
 
+fn fresh_ids<'a>(named: &[String], ids: &'a [&str]) -> Vec<&'a str> {
+    let mut fresh = Vec::new();
+    for id in ids.iter().copied() {
+        if !named.iter().any(|n| n == id) && !fresh.contains(&id) {
+            fresh.push(id);
+        }
+    }
+    fresh
+}
+
 /// The `[<word> A, B]` mark put on a row, or merged into the one it has.
 ///
 /// `None` when every id is already named: re-running is a no-op.
@@ -231,12 +241,7 @@ fn with_mark(
     ids: &[&str],
 ) -> Result<Option<String>, String> {
     let named = named_by(line, word);
-    let mut fresh = Vec::new();
-    for id in ids.iter().copied() {
-        if !named.iter().any(|n| n == id) && !fresh.contains(&id) {
-            fresh.push(id);
-        }
-    }
+    let fresh = fresh_ids(&named, ids);
     let mark = format!("[{word} {}]", fresh.join(", "));
     match (fresh.is_empty(), named.is_empty(), kind) {
         (true, _, _) => Ok(None),
