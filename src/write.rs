@@ -231,11 +231,12 @@ fn with_mark(
     ids: &[&str],
 ) -> Option<String> {
     let named = named_by(line, word);
-    let fresh: Vec<&str> = ids
-        .iter()
-        .copied()
-        .filter(|id| !named.iter().any(|n| n == id))
-        .collect();
+    let mut fresh = Vec::new();
+    for id in ids.iter().copied() {
+        if !named.iter().any(|n| n == id) && !fresh.contains(&id) {
+            fresh.push(id);
+        }
+    }
     let mark = format!("[{word} {}]", fresh.join(", "));
     match (fresh.is_empty(), named.is_empty(), kind) {
         (true, _, _) => None,
@@ -326,7 +327,12 @@ fn retire(
 ) -> Result<Vec<String>, String> {
     let by = crate::check::SUPERSEDED_BY;
     let mut rows = Vec::new();
+    let mut seen = Vec::new();
     for loser in losers {
+        if seen.contains(&loser) {
+            continue;
+        }
+        seen.push(loser);
         rows.push(mark_row(lines, loser, by, &[winner])?);
     }
     if link {
@@ -562,6 +568,14 @@ mod tests {
         let (t, _) =
             supersede_rows(&once, "V2", &s(&["V3"]), false).unwrap_or_default();
         assert!(t.contains("[superseded by V1, V2]"), "{t}");
+    }
+
+    #[test]
+    fn supersede_deduplicates_repeated_losers() {
+        let (t, rows) = sup("V1", &["V2", "V2"], true).unwrap_or_default();
+        assert!(t.contains("V1: **a.** x. [supersedes V2]\n"), "{t}");
+        assert!(!t.contains("supersedes V2, V2"), "{t}");
+        assert_eq!(rows.matches("superseded by V1").count(), 1);
     }
 
     /// V18's rejecting half: each refusal names its reason.
