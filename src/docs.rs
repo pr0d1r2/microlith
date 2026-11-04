@@ -52,6 +52,11 @@ const COMMANDS: &[Command] = &[
         blurb: "Replace a row's text, keeping its id and citations: the statement of a `V`, the task of a `T`, the cause of a `B`; status, date and citations stay. The result is validated like `add` before it is written, and a failure leaves the file untouched. `--check` prints the row it would write and changes nothing.",
     },
     Command {
+        name: "supersede",
+        synopsis: "supersede [--link] [--check] <winner> <loser>... [<path>]",
+        blurb: "Tag each loser `[superseded by <winner>]`, through the same verified write path as `add` and `amend`. `--link` also tags the winner `[supersedes <losers>]`. Every id must exist, the winner cannot be a loser, winner and losers must be the same kind, and a winner that is itself superseded is refused (V41 would reject the result). Any refusal exits 2 and leaves the file unchanged. Re-running is a no-op; a loser already marked by another winner has this one added to its mark. `--check` prints the rows it would write and changes nothing.",
+    },
+    Command {
         name: "derive",
         synopsis: "derive [--verbose] [<path>]",
         blurb: "Sizes, the citation graph, invariants cited by nothing, and statements said twice. Report-only: exits 0 even with findings, because an orphan is a question for a reader, not a build failure. `--verbose` adds every statement's size, biggest first: what to cut.",

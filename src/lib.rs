@@ -40,7 +40,7 @@ pub use check::Record;
 pub use cli::{DEFAULT_PATH, command, run};
 pub use invariants::Filter as InvariantFilter;
 pub use violation::{Direction, Fix, Violation};
-pub use write::{add_row, amend_row};
+pub use write::{add_row, amend_row, supersede_rows};
 
 // ONE ENTRY POINT PER VERB. `run` is the whole CLI; these are its parts, so
 // a caller can reach any single operation without parsing an argv or reading

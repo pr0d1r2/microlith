@@ -981,7 +981,7 @@ pub(crate) fn supersessions(text: &str) -> Vec<Retirement> {
 /// exactly that, which is the failure its own companion test claims to
 /// prevent: that test used prose with NO `]`, the one prose shape that
 /// happened to be safe.
-fn marked(line: &str) -> Vec<String> {
+pub(crate) fn marked(line: &str) -> Vec<String> {
     let bare = outside_backticks(line);
     let opening = format!("[{SUPERSEDED_BY}");
     let Some((_, rest)) = bare.split_once(opening.as_str()) else {

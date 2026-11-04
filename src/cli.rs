@@ -73,6 +73,10 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    Supersede {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     Docs,
     Extensions,
 }
@@ -138,6 +142,10 @@ pub fn command() -> clap::Command {
     Arguments::command()
 }
 
+/// The verbs whose operands are not just paths: see `secondary`.
+const SECONDARY: [&str; 5] =
+    ["docs", "extensions", "add", "amend", "supersede"];
+
 fn dispatch(verb: &str, rest: &[String]) -> Output {
     match verb {
         "--help" | "-h" => Output::ok(usage()),
@@ -150,7 +158,7 @@ fn dispatch(verb: &str, rest: &[String]) -> Output {
         "invariants" => one_path(verb, rest, invariants),
         "migrate" => one_path(verb, rest, migrate),
         "archive" => one_path(verb, rest, archive),
-        "docs" | "extensions" | "add" | "amend" => secondary(verb, rest),
+        v if SECONDARY.contains(&v) => secondary(verb, rest),
         other => unknown(other),
     }
 }
@@ -162,6 +170,7 @@ fn secondary(verb: &str, rest: &[String]) -> Output {
         "docs" => docs_reference(),
         "extensions" => extensions_reference(),
         "add" => add(rest),
+        "supersede" => supersede(rest),
         _ => amend(rest),
     })
 }
@@ -535,18 +544,57 @@ fn amend(rest: &[String]) -> Output {
     write_row(&given.path, given.check, |t| crate::amend_row(t, id, text))
 }
 
-/// Read, build the new text, and write it only if it was fully validated.
-/// `--check` prints the row it would write and changes nothing.
+const SUPERSEDE_USAGE: &str =
+    "mth: supersede [--link] [--check] <winner> <loser>... [<path>]\n";
+
+/// The words that are not flags, with the path split off the end: the last
+/// word is a path unless it is a row id.
+fn supersede_operands(rest: &[String]) -> (Vec<String>, String) {
+    let mut words: Vec<String> = rest
+        .iter()
+        .filter(|a| !a.starts_with("--"))
+        .cloned()
+        .collect();
+    let has_path = words.last().is_some_and(|w| !crate::write::is_id(w));
+    let path = if has_path { words.pop() } else { None };
+    (words, path.unwrap_or_else(|| DEFAULT_PATH.to_owned()))
+}
+
+/// `supersede [--link] [--check] <winner> <loser>... [<path>]`: tag each
+/// loser `[superseded by <winner>]`. A refusal is exit 2, file untouched.
+fn supersede(rest: &[String]) -> Output {
+    let flag = |f: &str| rest.iter().any(|a| a == f);
+    let (words, path) = supersede_operands(rest);
+    let [winner, losers @ ..] = words.as_slice() else {
+        return Output::usage(SUPERSEDE_USAGE.to_owned());
+    };
+    write_with(&path, flag("--check"), Output::usage, |t| {
+        crate::supersede_rows(t, winner, losers, flag("--link"))
+    })
+}
+
 fn write_row(
     path: &str,
     check: bool,
+    build: impl Fn(&str) -> Result<(String, String), String>,
+) -> Output {
+    write_with(path, check, Output::drift, build)
+}
+
+/// Read, build the new text, and write it only if it was fully validated.
+/// `--check` prints the row it would write and changes nothing. `refuse`
+/// shapes a refusal, since verbs differ on its exit code.
+fn write_with(
+    path: &str,
+    check: bool,
+    refuse: fn(String) -> Output,
     build: impl Fn(&str) -> Result<(String, String), String>,
 ) -> Output {
     let Ok(text) = std::fs::read_to_string(path) else {
         return unreadable(path);
     };
     match build(&text) {
-        Err(e) => Output::drift(format!("mth: {path}: {e}\n")),
+        Err(e) => refuse(format!("mth: {path}: {e}\n")),
         Ok((_, row)) if check => Output::ok(format!("{row}\n")),
         Ok((out, row)) => match std::fs::write(path, out) {
             Ok(()) => Output::ok(format!("{row}\n")),
@@ -1983,6 +2031,37 @@ mod tests {
         assert_eq!(check.out, "V1: **z.**\n");
         let now = std::fs::read_to_string(&path).unwrap_or_default();
         assert!(now.contains("V1: **a.** x."), "--check wrote: {now}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `supersede` marks the losers and the result passes `check`; a second
+    /// run changes nothing.
+    #[test]
+    fn supersede_marks_the_losers_and_is_idempotent() {
+        let (dir, path) = rows_in("supersede");
+        let added = run(&args(&["add", "V", "**b.** y.", &path]));
+        assert_eq!(added.code, 0, "{}", added.err);
+        let go = || run(&args(&["supersede", "--link", "V2", "V1", &path]));
+        assert_eq!((go().code, go().err.as_str()), (0, ""));
+        let now = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(now.contains("V1: **a.** x. [superseded by V2]\n"), "{now}");
+        assert!(now.contains("V2: **b.** y. [supersedes V1]\n"), "{now}");
+        assert_eq!(run(&args(&["check", &path])).code, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// V18's rejecting half: every refusal is exit 2 and the file is
+    /// byte-for-byte what it was.
+    #[test]
+    fn supersede_refuses_with_exit_2_and_leaves_the_file() {
+        let (dir, path) = rows_in("supersede-refuse");
+        let pairs = [["V1", "V9"], ["V1", "V1"], ["V1", "T1"]];
+        for pair in pairs {
+            let o = run(&args(&["supersede", pair[0], pair[1], &path]));
+            assert_eq!(o.code, 2, "{pair:?}: {}", o.err);
+            let now = std::fs::read_to_string(&path).unwrap_or_default();
+            assert_eq!(now, ROWS);
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
