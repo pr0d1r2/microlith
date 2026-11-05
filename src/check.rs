@@ -226,10 +226,11 @@ fn names_a_repo(token: &str) -> bool {
 }
 
 fn is_invariant_ref(token: &str) -> bool {
-    match token.strip_prefix('V') {
-        Some(n) => !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()),
-        None => false,
-    }
+    let Some(rest) = token.strip_prefix('V') else {
+        return false;
+    };
+    let digits = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+    digits > 0 && rest[digits..].chars().all(|c| c.is_ascii_alphabetic())
 }
 
 fn is_row_ref(token: &str) -> bool {
@@ -2122,7 +2123,9 @@ mod tests {
     /// V13's companion: every real shape resolves, suffixed ids included.
     #[test]
     fn v13_accepts_real_c_t_and_i_cites() {
-        let text = format!("{CITES}T1|.|t|V1,C1,C8b,I.cmd\nT2|.|t|T1,`C99`\n");
+        let text = format!(
+            "{CITES}V2a: a suffixed invariant.\nT1|.|t|V1,V2a,C1,C8b,I.cmd\nT2|.|t|T1,`C99`\n"
+        );
         assert_eq!(citations_resolve(&text), Vec::<Violation>::new());
     }
 
