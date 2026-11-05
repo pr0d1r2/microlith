@@ -81,23 +81,64 @@ pub struct Move {
 ///
 /// Pure, and the same answer `archive` acts on -- so `--check` reports what a
 /// run would do rather than a second opinion about it (V7).
+///
+/// The newest `keep` finished rows of each kind stay whole. "Newest" is by
+/// numeric id, and counts finished rows already stubbed as well as those still
+/// whole, so the kept set does not slide forward as rows are archived and a
+/// second run is a no-op. `keep == 0` offers every row that may leave.
 #[must_use]
-pub fn moves(spec: &str, records: &[Record]) -> Vec<Move> {
-    let mut out = Vec::new();
+pub fn moves(spec: &str, records: &[Record], keep: usize) -> Vec<Move> {
+    let kept = newest_finished(spec, keep);
+    outside_fences(spec)
+        .filter_map(|line| movable(line, records))
+        .filter(|m| !kept.contains(&m.id))
+        .collect()
+}
+
+/// The lines of the spec that are not inside a fenced block.
+fn outside_fences(spec: &str) -> impl Iterator<Item = &str> {
     let mut fenced = false;
-    for line in spec.lines() {
+    spec.lines().filter(move |line| {
         if crate::format::is_fence(line) {
             fenced = !fenced;
-            continue;
+            return false;
         }
-        if fenced {
-            continue;
+        !fenced
+    })
+}
+
+/// The labels of the newest `keep` finished `T` rows and `B` rows.
+fn newest_finished(spec: &str, keep: usize) -> Vec<String> {
+    let finished: Vec<Id> = outside_fences(spec)
+        .filter(|line| is_finished(line))
+        .filter_map(at_line_start)
+        .collect();
+    ['T', 'B']
+        .into_iter()
+        .flat_map(|kind| {
+            let mut rows: Vec<&Id> =
+                finished.iter().filter(|i| i.kind == kind).collect();
+            rows.sort_by_key(|i| i.sort_key());
+            let from = rows.len().saturating_sub(keep);
+            rows.split_off(from)
+        })
+        .map(Id::label)
+        .collect()
+}
+
+/// Whether this row is a finished `T` or a fixed `B`, stubbed or not.
+fn is_finished(line: &str) -> bool {
+    let Some(id) = at_line_start(line) else {
+        return false;
+    };
+    let f = cells(line.trim_end());
+    let cell = |n: usize| f.get(n).map_or("", |c| c.trim());
+    f.len() == 4
+        && match id.kind {
+            'T' => cell(1) == "x",
+            'B' => !cell(3).is_empty() && cell(3) != "-",
+            _ => false,
         }
-        if let Some(m) = movable(line, records) {
-            out.push(m);
-        }
-    }
-    out
 }
 
 /// This line's move, if it is a done task row that may leave.
@@ -177,8 +218,9 @@ pub fn archive(
     spec: &str,
     archive: &str,
     records: &[Record],
+    keep: usize,
 ) -> Result<(String, String), String> {
-    let moving = moves(spec, records);
+    let moving = moves(spec, records, keep);
     let folded = stubbed(spec, &moving);
     let stored = merged(archive, &moving)?;
     proven(spec, &moving, (&folded, &stored))?;
@@ -308,8 +350,8 @@ fn ids(text: &str) -> Vec<String> {
 /// whether the file is big enough to fold is the caller's threshold to apply
 /// -- this crate cannot count tokens and says so (§C).
 #[must_use]
-pub fn report(spec: &str, records: &[Record]) -> String {
-    let moving = moves(spec, records);
+pub fn report(spec: &str, records: &[Record], keep: usize) -> String {
+    let moving = moves(spec, records, keep);
     if moving.is_empty() {
         return format!(
             "mth: nothing to archive -- no finished rows to move to {ARCHIVE}\n"
@@ -379,7 +421,8 @@ T3|x|the third thing|-
     /// The whole promise in one assertion: the TEXT moves, the ROW stays.
     #[test]
     fn a_done_row_keeps_its_id_status_and_cites() {
-        let (spec, arch) = archive(SPEC, "", &records(&[])).unwrap_or_default();
+        let (spec, arch) =
+            archive(SPEC, "", &records(&[]), 0).unwrap_or_default();
         assert!(spec.contains(&format!("T1|x|{MOVED}|V1,V2")), "{spec}");
         assert!(spec.contains(&format!("T3|x|{MOVED}|-")), "{spec}");
         assert!(
@@ -393,19 +436,24 @@ T3|x|the third thing|-
     /// an archived row rather than becoming eligible for a second move.
     #[test]
     fn compact_marker_is_written_and_legacy_marker_is_read() {
-        let compact = archive(SPEC, "", &records(&[])).unwrap_or_default().0;
+        let compact = archive(SPEC, "", &records(&[]), 0).unwrap_or_default().0;
         assert!(compact.contains("T1|x|A|V1,V2"), "{compact}");
         let legacy = SPEC.replace(
             "T1|x|the first thing, at length",
             "T1|x|ARCHIVED to SPEC-ARCHIVE.md",
         );
-        assert!(moves(&legacy, &records(&[])).iter().all(|m| m.id != "T1"));
+        assert!(
+            moves(&legacy, &records(&[]), 0)
+                .iter()
+                .all(|m| m.id != "T1")
+        );
     }
 
     /// A row that is not FINISHED is not history, so it is left whole.
     #[test]
     fn an_unfinished_row_is_left_alone() {
-        let (spec, arch) = archive(SPEC, "", &records(&[])).unwrap_or_default();
+        let (spec, arch) =
+            archive(SPEC, "", &records(&[]), 0).unwrap_or_default();
         assert!(spec.contains("T2|.|not done yet|V3"), "{spec}");
         assert!(!arch.contains("not done yet"), "{arch}");
     }
@@ -414,7 +462,7 @@ T3|x|the third thing|-
     fn a_fixed_bug_moves_to_the_bug_section_and_leaves_a_stub() {
         let spec = "## §B BUGS\nid|date|cause|fix\nB2|2026-01-02|a cause|V40\nB3|2026-01-03|open cause|-\n";
         let (folded, arch) =
-            archive(spec, "", &records(&[])).unwrap_or_default();
+            archive(spec, "", &records(&[]), 0).unwrap_or_default();
         assert!(folded.contains("B2|2026-01-02|A|A"), "{folded}");
         assert!(folded.contains("B3|2026-01-03|open cause|-"), "{folded}");
         assert!(arch.contains("## §B BUGS\nid|date|cause|fix"), "{arch}");
@@ -426,7 +474,7 @@ T3|x|the third thing|-
     fn a_bug_whose_fix_is_the_marker_word_is_still_moved() {
         let spec = "## §B BUGS\nid|date|cause|fix\nB2|2026-01-02|a cause|A\n";
         let (folded, arch) =
-            archive(spec, "", &records(&[])).unwrap_or_default();
+            archive(spec, "", &records(&[]), 0).unwrap_or_default();
         assert!(folded.contains("B2|2026-01-02|A|A"), "{folded}");
         assert!(arch.contains("B2|2026-01-02|a cause|A"), "{arch}");
     }
@@ -438,20 +486,24 @@ T3|x|the third thing|-
     #[test]
     fn a_row_carrying_a_record_is_held_back() {
         let recs = records(&[("T1", "at length")]);
-        let (spec, arch) = archive(SPEC, "", &recs).unwrap_or_default();
+        let (spec, arch) = archive(SPEC, "", &recs, 0).unwrap_or_default();
         assert!(spec.contains("T1|x|the first thing, at length|V1,V2"));
         assert!(!arch.contains("the first thing"), "{arch}");
-        assert!(report(SPEC, &recs).contains("held back"), "said out loud");
+        assert!(
+            report(SPEC, &recs, 0).contains("held back"),
+            "said out loud"
+        );
     }
 
     /// Archiving twice is archiving once: the stub is READ as well as
     /// written, so the second run finds nothing to move.
     #[test]
     fn a_second_run_moves_nothing() {
-        let (once, arch) = archive(SPEC, "", &records(&[])).unwrap_or_default();
-        assert!(moves(&once, &records(&[])).is_empty(), "already folded");
+        let (once, arch) =
+            archive(SPEC, "", &records(&[]), 0).unwrap_or_default();
+        assert!(moves(&once, &records(&[]), 0).is_empty(), "already folded");
         let (twice, again) =
-            archive(&once, &arch, &records(&[])).unwrap_or_default();
+            archive(&once, &arch, &records(&[]), 0).unwrap_or_default();
         assert_eq!(twice, once);
         assert_eq!(again, arch);
     }
@@ -462,7 +514,7 @@ T3|x|the third thing|-
     fn a_later_run_sorts_a_lower_id_into_place() {
         let first = "T9|x|ninth|-\n";
         let later = "# SPEC\n\n## \u{a7}T TASKS\n\nT2|x|second|-\n";
-        let (_, arch) = archive(later, &format!("{HEADER}\n{first}"), &[])
+        let (_, arch) = archive(later, &format!("{HEADER}\n{first}"), &[], 0)
             .unwrap_or_default();
         let rows: Vec<&str> = arch
             .lines()
@@ -475,7 +527,7 @@ T3|x|the third thing|-
     /// readable by the same tool that put them there.
     #[test]
     fn the_archive_is_a_spec_the_row_rules_still_read() {
-        let (_, arch) = archive(SPEC, "", &records(&[])).unwrap_or_default();
+        let (_, arch) = archive(SPEC, "", &records(&[]), 0).unwrap_or_default();
         assert!(arch.starts_with("# SPEC ARCHIVE"), "{arch}");
         assert!(arch.contains("## \u{a7}T TASKS"), "{arch}");
         let listed = crate::tasks::json("a", &arch);
@@ -490,7 +542,7 @@ T3|x|the third thing|-
     #[test]
     fn re_archiving_one_id_is_refused_rather_than_duplicated() {
         let held = format!("{HEADER}\nT1|x|the first thing, at length|V1,V2\n");
-        let err = archive(SPEC, &held, &records(&[])).err();
+        let err = archive(SPEC, &held, &records(&[]), 0).err();
         assert_eq!(err.as_deref(), Some("T1 is already archived"));
     }
 
@@ -557,7 +609,7 @@ T3|x|the third thing|-
     #[test]
     fn a_row_inside_a_fence_is_never_moved() {
         let text = "# SPEC\n\n```\nT1|x|an example|-\n```\n";
-        assert_eq!(moves(text, &records(&[])), vec![]);
+        assert_eq!(moves(text, &records(&[]), 0), vec![]);
     }
 
     /// A literal pipe survives the round trip (V42, V43).
@@ -569,7 +621,7 @@ T3|x|the third thing|-
     #[test]
     fn an_escaped_pipe_survives_the_stub() {
         let text = "## \u{a7}T TASKS\n\nT1|x|a task|`a\\|b`\n";
-        let (spec, _) = archive(text, "", &records(&[])).unwrap_or_default();
+        let (spec, _) = archive(text, "", &records(&[]), 0).unwrap_or_default();
         let stub = spec.lines().find(|l| l.starts_with("T1|"));
         let want = format!("T1|x|{MOVED}|`a\\|b`");
         assert_eq!(stub, Some(want.as_str()));
@@ -581,10 +633,11 @@ T3|x|the third thing|-
     #[test]
     fn a_spec_with_no_finished_rows_says_so() {
         let text = "## \u{a7}T TASKS\n\nT1|.|pending|-\nT2|~|started|-\n";
-        assert_eq!(moves(text, &records(&[])), vec![]);
-        let (spec, arch) = archive(text, "", &records(&[])).unwrap_or_default();
+        assert_eq!(moves(text, &records(&[]), 0), vec![]);
+        let (spec, arch) =
+            archive(text, "", &records(&[]), 0).unwrap_or_default();
         assert_eq!(spec, text);
-        assert!(report(text, &records(&[])).contains("nothing to archive"));
+        assert!(report(text, &records(&[]), 0).contains("nothing to archive"));
         assert!(!arch.contains("T1"), "{arch}");
     }
 }
