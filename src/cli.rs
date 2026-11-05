@@ -2048,7 +2048,10 @@ mod tests {
         let added = run(&args(&["add", "V", "**b.** y.", &path]));
         assert_eq!(added.code, 0, "{}", added.err);
         let go = || run(&args(&["supersede", "--link", "V2", "V1", &path]));
-        assert_eq!((go().code, go().err.as_str()), (0, ""));
+        let first = go();
+        let second = go();
+        assert_eq!((first.code, first.err.as_str()), (0, ""));
+        assert_eq!((second.code, second.err.as_str()), (0, ""));
         let now = std::fs::read_to_string(&path).unwrap_or_default();
         assert!(now.contains("V1: **a.** x. [superseded by V2]\n"), "{now}");
         assert!(now.contains("V2: **b.** y. [supersedes V1]\n"), "{now}");
