@@ -182,21 +182,37 @@ pub(crate) fn is_id(s: &str) -> bool {
 }
 
 /// The ids a `[<word> A, B]` mark on `line` already names.
+fn marker_span(line: &str, word: &str) -> Option<(usize, usize)> {
+    let open = format!("[{word} ");
+    let mut offset = 0_usize;
+    for (part, segment) in line.split('`').enumerate() {
+        if part % 2 != 0 {
+            offset = offset.checked_add(segment.len().saturating_add(1))?;
+            continue;
+        }
+        let Some(open_at) = segment.find(open.as_str()) else {
+            continue;
+        };
+        let content = open_at.checked_add(open.len())?.checked_add(offset)?;
+        let close = line.get(content..)?.find(']')?.checked_add(content)?;
+        return Some((content, close));
+    }
+    None
+}
+
 fn named_by(line: &str, word: &str) -> Vec<String> {
     if word == crate::check::SUPERSEDED_BY {
         return crate::check::marked(line);
     }
-    line.split_once(format!("[{word} ").as_str())
-        .and_then(|(_, rest)| rest.split_once(']'))
-        .map(|(inside, _)| inside.split(", ").map(str::to_owned).collect())
+    marker_span(line, word)
+        .and_then(|(at, close)| line.get(at..close))
+        .map(|inside| inside.split(", ").map(str::to_owned).collect())
         .unwrap_or_default()
 }
 
 /// `fresh` joined into the existing `[<word> ...]` mark, before its `]`.
 fn merged(line: &str, word: &str, fresh: &[&str]) -> Option<String> {
-    let open = format!("[{word} ");
-    let at = line.find(open.as_str())?.checked_add(open.len())?;
-    let close = line.get(at..)?.find(']')?.checked_add(at)?;
+    let (_at, close) = marker_span(line, word)?;
     let (head, tail) = line.split_at(close);
     Some(format!("{head}, {}{tail}", fresh.join(", ")))
 }
@@ -605,6 +621,24 @@ mod tests {
         assert!(t.contains("V1: **a.** x. [supersedes V2]\n"), "{t}");
         assert!(!t.contains("supersedes V2, V2"), "{t}");
         assert_eq!(rows.matches("superseded by V1").count(), 1);
+    }
+
+    #[test]
+    fn supersede_ignores_backticked_winner_marks() {
+        let text = "## \u{a7}V INVARIANTS\n\nV1: example `[supersedes V2]`.\n\
+            V2: **b.** y.\nV3: **c.** z. [supersedes V3]\n";
+        let (out, _) =
+            supersede_rows(text, "V1", &s(&["V2"]), true).unwrap_or_default();
+        assert!(
+            out.contains("example `[supersedes V2]`. [supersedes V2]"),
+            "{out}"
+        );
+
+        let text = "## \u{a7}V INVARIANTS\n\nV1: example `[supersedes V2]`. [supersedes V3]\n\
+            V2: **b.** y.\nV3: **c.** z.\n";
+        let (out, _) =
+            supersede_rows(text, "V1", &s(&["V2"]), true).unwrap_or_default();
+        assert!(out.contains("[supersedes V3, V2]"), "{out}");
     }
 
     /// V18's rejecting half: each refusal names its reason.
