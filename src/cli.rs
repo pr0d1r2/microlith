@@ -602,6 +602,7 @@ fn write_with(
     match build(&text) {
         Err(e) => refuse(format!("mth: {path}: {e}\n")),
         Ok((_, row)) if check => Output::ok(format!("{row}\n")),
+        Ok((out, row)) if out == text => Output::ok(format!("{row}\n")),
         Ok((out, row)) => match std::fs::write(path, out) {
             Ok(()) => Output::ok(format!("{row}\n")),
             Err(e) => Output::usage(format!("mth: cannot write {path}: {e}\n")),
