@@ -117,7 +117,23 @@ pub fn archive_spec(
     archive: &str,
     records: &[Record],
 ) -> Result<(String, String), String> {
-    archive::archive(spec, archive, records)
+    archive::archive(spec, archive, records, 0)
+}
+
+/// `archive_spec`, leaving the newest `keep` finished `§T` rows and the
+/// newest `keep` fixed `§B` rows whole, by numeric id. `keep == 0` is
+/// `archive_spec`.
+///
+/// # Errors
+///
+/// As `archive_spec`.
+pub fn archive_spec_keeping(
+    spec: &str,
+    archive: &str,
+    records: &[Record],
+    keep: usize,
+) -> Result<(String, String), String> {
+    archive::archive(spec, archive, records, keep)
 }
 
 /// What `archive_spec` would move, and what it would hold back.
@@ -126,7 +142,7 @@ pub fn archive_spec(
 /// there is no verdict here, only an answer. Whether the file is big enough
 /// to fold is the caller's threshold -- this crate does not count tokens.
 pub fn archive_report(spec: &str, records: &[Record]) -> String {
-    archive::report(spec, records)
+    archive::report(spec, records, 0)
 }
 
 /// `mth derive`: statement sizes, the citation graph, orphans, duplication.

@@ -293,7 +293,8 @@ fn migrate(rest: &[String]) -> Output {
     }
 }
 
-/// `archive [--check] [--records <file>]`: fold finished work out of the way.
+/// `archive [--check] [--records <file>] [--keep-recent <k>]
+/// [--threshold <lines>]`: fold finished work out of the way.
 ///
 /// The THIRD mutation, and the only one that writes TWO files -- so the
 /// proof comes first and neither is written unless both can be. A partial
@@ -310,14 +311,65 @@ fn archive(rest: &[String]) -> Output {
     let Ok(text) = std::fs::read_to_string(&path) else {
         return unreadable(&path);
     };
-    let records = match records_from(rest) {
-        Err(e) => return Output::usage(e),
-        Ok(r) => r,
-    };
-    if rest.iter().any(|a| a == "--check") {
-        return Output::ok(crate::archive::report(&text, &records));
+    match ArchiveFlags::from(rest) {
+        Err(e) => Output::usage(e),
+        Ok(flags) => flags.apply(&path, &text, rest),
     }
-    archived(&path, &text, &records)
+}
+
+/// What `archive` reads from its flags.
+struct ArchiveFlags {
+    records: Vec<Record>,
+    /// `--keep-recent`, 0 when absent.
+    keep: usize,
+    threshold: Option<usize>,
+}
+
+impl ArchiveFlags {
+    /// The flags, or the usage error naming the first one that is wrong.
+    fn from(rest: &[String]) -> Result<Self, String> {
+        Ok(Self {
+            records: records_from(rest)?,
+            keep: count_flag(rest, "--keep-recent")?.unwrap_or(0),
+            threshold: count_flag(rest, "--threshold")?,
+        })
+    }
+
+    /// Do nothing below `--threshold`, report under `--check`, else write.
+    fn apply(&self, path: &str, text: &str, rest: &[String]) -> Output {
+        let (records, keep) = (&self.records, self.keep);
+        if let Some(quiet) = self.below_threshold(path, text) {
+            return Output::ok(quiet);
+        }
+        if rest.iter().any(|a| a == "--check") {
+            return Output::ok(crate::archive::report(text, records, keep));
+        }
+        archived(path, text, records, keep)
+    }
+
+    /// The one line `--threshold` answers with when the spec is small enough.
+    fn below_threshold(&self, path: &str, text: &str) -> Option<String> {
+        let lines = text.lines().count();
+        let limit = self.threshold.filter(|t| lines <= *t)?;
+        Some(format!(
+            "mth: {path} has {lines} lines, at most --threshold {limit} -- \
+             nothing to archive\n"
+        ))
+    }
+}
+
+/// A non-negative integer flag: absent is `None`, malformed is a usage error.
+fn count_flag(rest: &[String], name: &str) -> Result<Option<usize>, String> {
+    single(rest, name)?;
+    if !rest.iter().any(|a| a == name) {
+        return Ok(None);
+    }
+    flag_value(rest, name)
+        .and_then(|v| v.parse::<usize>().ok())
+        .map(Some)
+        .ok_or_else(|| {
+            format!("mth: {name} takes a non-negative whole number\n")
+        })
 }
 
 /// The write half: both files, or neither.
@@ -325,17 +377,18 @@ fn archive(rest: &[String]) -> Output {
 /// The sink is a SIBLING of the spec, so archiving `docs/SPEC.md` writes
 /// `docs/SPEC-ARCHIVE.md` -- the stub names the file beside it, which is the
 /// only name that stays true when the pair is moved.
-fn archived(path: &str, text: &str, records: &[Record]) -> Output {
+fn archived(path: &str, text: &str, records: &[Record], keep: usize) -> Output {
     let sink = beside(path);
     let held = std::fs::read_to_string(&sink).unwrap_or_default();
-    let (folded, stored) = match crate::archive::archive(text, &held, records) {
-        Err(e) => return Output::drift(format!("mth: {path}: {e}\n")),
-        Ok(pair) => pair,
-    };
+    let (folded, stored) =
+        match crate::archive::archive(text, &held, records, keep) {
+            Err(e) => return Output::drift(format!("mth: {path}: {e}\n")),
+            Ok(pair) => pair,
+        };
     if folded == text {
-        return Output::ok(crate::archive::report(text, records));
+        return Output::ok(crate::archive::report(text, records, keep));
     }
-    let moved = crate::archive::moves(text, records).len();
+    let moved = crate::archive::moves(text, records, keep).len();
     match std::fs::write(&sink, &stored) {
         Err(e) => Output::usage(format!("mth: cannot write {sink}: {e}\n")),
         Ok(()) => wrote((path, &folded), &sink, moved),
@@ -684,20 +737,23 @@ fn verbose(rest: &[String]) -> bool {
     rest.iter().any(|a| a == "--verbose" || a == "-v")
 }
 
+/// The flags that take a value, which `positionals` must not read as paths.
+const VALUED: [&str; 5] = [
+    "--records",
+    "--format",
+    "--status",
+    "--keep-recent",
+    "--threshold",
+];
+
 /// Every argument that is neither a flag nor a flag's value, in order.
 fn positionals(rest: &[String]) -> Vec<&String> {
     let mut skip_value = false;
     rest.iter()
-        .filter_map(|arg| {
-            if skip_value {
-                skip_value = false;
-                return (!arg.starts_with('-')).then_some(None).flatten();
-            }
-            if matches!(arg.as_str(), "--records" | "--format" | "--status") {
-                skip_value = true;
-                return None;
-            }
-            (!arg.starts_with('-')).then_some(Some(arg)).flatten()
+        .filter(|arg| {
+            let keep = !skip_value && !arg.starts_with('-');
+            skip_value = !skip_value && VALUED.contains(&arg.as_str());
+            keep
         })
         .collect()
 }
@@ -1176,6 +1232,99 @@ mod tests {
         assert!(folded.contains("T1|x|A|V1"), "{folded}");
         assert!(folded.contains("|V1\n"), "cites stayed: {folded}");
         assert!(stored.contains("T1|x|the long text|V1"), "{stored}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    const KEEP_SPEC: &str = "# SPEC\n\n## \u{a7}T TASKS\n\nT1|x|one|-\n\
+        T2|x|two|-\nT3|x|three|-\n\n## \u{a7}B BUGS\nid|date|cause|fix\n\
+        B1|2026-01-01|c1|f1\nB2|2026-01-02|c2|f2\nB3|2026-01-03|c3|f3\n";
+
+    /// Archive `KEEP_SPEC` with the given extra flags in a fresh directory,
+    /// returning the directory, the spec's path and what the spec became.
+    fn archived_keeping(
+        name: &str,
+        flags: &[&str],
+    ) -> (std::path::PathBuf, String, String) {
+        let (dir, path) = a_spec_in_its_own_directory(name);
+        let _ = std::fs::write(&path, KEEP_SPEC);
+        let mut a = vec!["archive"];
+        a.extend(flags);
+        a.push(&path);
+        assert_eq!(run(&args(&a)).code, 0);
+        let folded = std::fs::read_to_string(&path).unwrap_or_default();
+        (dir, path, folded)
+    }
+
+    /// `--keep-recent 1` stubs all but the newest done `T` and `B`.
+    #[test]
+    fn archive_keep_recent_leaves_the_newest_rows_whole() {
+        let (dir, _, folded) =
+            archived_keeping("keep", &["--keep-recent", "1"]);
+        let rows = ["T1|x|A|-", "T2|x|A|-", "T3|x|three|-"]
+            .into_iter()
+            .chain(["B1|2026-01-01|A|A", "B2|2026-01-02|A|A"])
+            .chain(["B3|2026-01-03|c3|f3"]);
+        assert!(rows.into_iter().all(|r| folded.contains(r)), "{folded}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `check` stays green after a keeping run, and a second run is a no-op.
+    #[test]
+    fn archive_keep_recent_is_idempotent_and_checks_green() {
+        let (dir, path, folded) =
+            archived_keeping("keepagain", &["--keep-recent", "1"]);
+        assert_eq!(run(&args(&["check", &path])).code, 0);
+        let again = run(&args(&["archive", "--keep-recent", "1", &path]));
+        assert!(again.out.contains("nothing to archive"), "{}", again.out);
+        assert_eq!(std::fs::read_to_string(&path).unwrap_or_default(), folded);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `--keep-recent 0` is today's behaviour: every finished row moves.
+    #[test]
+    fn archive_keep_recent_zero_archives_everything() {
+        let (dir, _, folded) =
+            archived_keeping("keepzero", &["--keep-recent", "0"]);
+        assert!(folded.contains("T3|x|A|-"), "{folded}");
+        assert!(folded.contains("B3|2026-01-03|A|A"), "{folded}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `--threshold` stays quiet on a small spec, with `--check` too.
+    #[test]
+    fn archive_threshold_does_nothing_below_the_line_count() {
+        let (dir, path) = a_spec_in_its_own_directory("threshold");
+        let before = std::fs::read_to_string(&path).unwrap_or_default();
+        for flags in [
+            &["--threshold", "99"][..],
+            &["--check", "--threshold", "99"],
+        ] {
+            let o = run(&args(&[&["archive", &path], flags].concat()));
+            assert_eq!(o.code, 0, "{}", o.err);
+            assert_eq!(o.out.lines().count(), 1, "{}", o.out);
+            assert!(o.out.contains("nothing to archive"), "{}", o.out);
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap_or_default(), before);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A spec above `--threshold` is archived as usual.
+    #[test]
+    fn archive_threshold_lets_a_bigger_spec_through() {
+        let (dir, path) = a_spec_in_its_own_directory("over");
+        let over = ["archive", "--check", "--threshold", "2", &path];
+        assert!(run(&args(&over)).out.contains("would move"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A malformed count is a usage error, and the file is untouched.
+    #[test]
+    fn archive_counts_must_be_whole_numbers() {
+        let (dir, path) = a_spec_in_its_own_directory("badcount");
+        for flag in ["--keep-recent", "--threshold"] {
+            assert_eq!(run(&args(&["archive", flag, "x", &path])).code, 2);
+            assert_eq!(run(&args(&["archive", flag, &path])).code, 2);
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
