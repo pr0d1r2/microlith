@@ -232,6 +232,15 @@ fn is_invariant_ref(token: &str) -> bool {
     }
 }
 
+fn is_row_ref(token: &str) -> bool {
+    let mut chars = token.chars();
+    if !matches!(chars.next(), Some('V' | 'T' | 'B')) {
+        return false;
+    }
+    let digits = chars.by_ref().take_while(|c| c.is_ascii_digit()).count();
+    digits > 0 && chars.all(|c| c.is_ascii_alphanumeric())
+}
+
 /// V11: sections are ORDERED, and no item outlives its header.
 ///
 /// ABSENCE IS LEGAL. This demanded all six until the corpus was measured:
@@ -992,7 +1001,7 @@ pub(crate) fn marked(line: &str) -> Vec<String> {
     };
     inside
         .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|t| is_invariant_ref(t))
+        .filter(|t| is_row_ref(t))
         .map(str::to_owned)
         .collect()
 }

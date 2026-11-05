@@ -579,6 +579,15 @@ mod tests {
         assert!(t.contains("T2|.|more [superseded by T1]|V1\n"), "{t}");
     }
 
+    #[test]
+    fn supersede_is_idempotent_for_task_rows_and_rejects_retired_winners() {
+        let (once, _) = sup("T1", &["T2"], false).unwrap_or_default();
+        let again = supersede_rows(&once, "T1", &s(&["T2"]), false);
+        assert_eq!(again.map(|a| a.0), Ok(once.clone()));
+        let dead = supersede_rows(&once, "T2", &s(&["T1"]), false);
+        assert!(dead.err().unwrap_or_default().contains("itself superseded"));
+    }
+
     /// Re-running changes nothing; a second winner is merged into the mark.
     #[test]
     fn supersede_is_idempotent_and_merges_winners() {
