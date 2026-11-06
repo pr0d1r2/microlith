@@ -254,7 +254,6 @@
             # implementation of one rule set is the defect this crate exists
             # to end (V7, V37), and it does not stop being one because we are
             # the ones who wrote it.
-            pkgs.cargo-release
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
