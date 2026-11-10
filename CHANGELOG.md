@@ -40,6 +40,24 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+## [0.7.6] — 2026-11-10
+
+This release adds four verbs to `mth`. `add`, `amend` and `supersede` write
+`SPEC.md` rows through one verified write path. `invariants` lists every `§V`
+id with its state. `mth tasks` also gains `--status` and `--next`. A caller
+can also see two fixes to verbs that `0.7.5` already had. `check` now reads a
+suffixed invariant citation such as `V2a`. A repeated `--records` or
+`--format` is now refused, where before only the first one was read.
+
+It is a patch release because nothing a consumer relies on is removed or
+changed incompatibly. `cargo semver-checks` against `v0.7.5` reports no semver
+update required. It is not `0.8.0`, because `0.8` is M9's rung (the public gate
+is trustworthy) and M9 still has two tasks pending, T26 and T35. An even minor promises
+stability (V34), and a rung whose done-when is unmet would promise more than
+this tag can deliver (V30). The new writing verbs come early for the `0.9` rung
+(M5). They work, but M5's done-when (every skill that edits a spec calls them,
+plus `check --fix` and `mth init`) is not met.
+
 ### Added
 
 - `mth supersede [--link] [--check] <winner> <loser>... [<path>]` tags each
@@ -66,6 +84,14 @@ pipeline gets proven before a permanent number is spent.
   reports the dialect (`unread`) instead of an empty list, as `tasks` does.
   The library entry points are `invariants_report` and `invariants_json`,
   taking an `InvariantFilter`.
+
+### Fixed
+
+- V13 reads a suffixed invariant id such as `V2a` as a citation, so it is
+  resolved against the declarations like `V2` is.
+- `--records` (on `check` and `archive`) and `--format` given more than once
+  is a usage error. Before, only the first was read, so a second `--records`
+  file was silently left unchecked (V16).
 
 ## [0.7.5] — 2026-10-25
 
@@ -763,7 +789,8 @@ partial. Depend on it for a trial; `0.6` is where the surface settles.
 - **Every guard is proven by a planted violation**, with a companion proving it
   accepts every real shape — so no check can pass by rejecting everything.
 
-[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/pr0d1r2/microlith/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.6
 [0.7.5]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.5
 [0.7.4]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.4
 [0.7.3]: https://github.com/pr0d1r2/microlith/releases/tag/v0.7.3
