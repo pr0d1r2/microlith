@@ -259,6 +259,16 @@ pub fn format_extensions() -> String {
     extensions::markdown()
 }
 
+/// The vendored cavekit format, byte-for-byte as shipped in `FORMAT.md`.
+pub fn format_markdown() -> &'static str {
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/FORMAT.md"))
+}
+
+/// The provenance record for the vendored format.
+pub fn format_upstream() -> &'static str {
+    "rev = c322f0bb6db82163041930467f3ce32754d42827\nsha256 = 1eda122882902861e912d3775c8b45e7fbb51ca4f587f37854bfd4d470f6a601\nsource = https://github.com/JuliusBrussee/cavekit\n"
+}
+
 /// What a run produced: streams and an exit code. No I/O, so the whole
 /// command surface is testable without spawning the binary.
 #[derive(Debug, PartialEq, Eq)]
@@ -453,6 +463,20 @@ mod tests {
         let out = format_extensions();
         assert!(out.contains("## SECTION ORDER"), "{out}");
         assert!(out.contains("\u{a7}F FEDERATION"), "{out}");
+    }
+
+    #[test]
+    fn the_vendored_format_and_its_provenance_are_reachable() {
+        assert_eq!(format_markdown(), include_str!("../FORMAT.md"));
+        assert!(
+            format_upstream()
+                .contains("rev = c322f0bb6db82163041930467f3ce32754d42827")
+        );
+        assert!(format_upstream().contains("sha256 = 1eda122882902861e912d3775c8b45e7fbb51ca4f587f37854bfd4d470f6a601"));
+        assert!(
+            format_upstream()
+                .contains("source = https://github.com/JuliusBrussee/cavekit")
+        );
     }
 
     /// The enumeration is reachable in one call, in both renderings -- and
