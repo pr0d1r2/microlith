@@ -235,6 +235,14 @@ extensions
 
 Print the sections this build adds to the vendored `FORMAT.md`, as markdown -- the source for `FORMAT-EXTENSIONS.md`, kept in sync by a test. The document is written for someone with no copy of this tool: it marks which letters are cavekit's and which are added, gives each addition its canonical word, what it holds and an example, so the extensions can be adopted by reading. Report-only: it writes to stdout, never to the file.
 
+### `format`
+
+```text
+format [--upstream]
+```
+
+Print the vendored cavekit `FORMAT.md` byte-for-byte. With `--upstream`, print the `rev`, `sha256` and `source` provenance lines for that copy instead. Report-only: it writes to stdout, never to a file.
+
 ## Exit codes
 
 | code | meaning |

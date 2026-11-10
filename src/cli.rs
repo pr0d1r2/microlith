@@ -79,6 +79,10 @@ enum Command {
     },
     Docs,
     Extensions,
+    Format {
+        #[arg(long)]
+        upstream: bool,
+    },
 }
 
 /// Everything the `mth` command does, as one call.
@@ -143,8 +147,8 @@ pub fn command() -> clap::Command {
 }
 
 /// The verbs whose operands are not just paths: see `secondary`.
-const SECONDARY: [&str; 5] =
-    ["docs", "extensions", "add", "amend", "supersede"];
+const SECONDARY: [&str; 6] =
+    ["docs", "extensions", "format", "add", "amend", "supersede"];
 
 fn dispatch(verb: &str, rest: &[String]) -> Output {
     match verb {
@@ -169,6 +173,7 @@ fn secondary(verb: &str, rest: &[String]) -> Output {
     asked(verb, rest, || match verb {
         "docs" => docs_reference(),
         "extensions" => extensions_reference(),
+        "format" => format_reference(rest),
         "add" => add(rest),
         "supersede" => supersede(rest),
         _ => amend(rest),
@@ -953,6 +958,14 @@ fn extensions_reference() -> Output {
     Output::ok(crate::extensions::markdown())
 }
 
+fn format_reference(rest: &[String]) -> Output {
+    if rest.iter().any(|arg| arg == "--upstream") {
+        Output::ok(crate::format_upstream().to_owned())
+    } else {
+        Output::ok(crate::format_markdown().to_owned())
+    }
+}
+
 /// The report-only verbs, which differ only in WHICH rendering they run.
 ///
 /// Chosen from the verb name here rather than at the call site, so the two
@@ -1031,6 +1044,7 @@ mod tests {
             "invariants",
             "docs",
             "extensions",
+            "format",
         ] {
             assert!(rendered.contains(verb), "missing {verb} in {rendered}");
         }
@@ -1572,6 +1586,17 @@ mod tests {
         assert_eq!(o.code, 0, "{}", o.err);
         assert!(o.out.starts_with("# SPEC.md FORMAT"), "{}", o.out);
         assert_eq!(std::fs::read_to_string(&doc).ok(), Some(before));
+    }
+
+    #[test]
+    fn format_prints_the_vendored_bytes_or_provenance() {
+        let bytes = run(&args(&["format"]));
+        assert_eq!(bytes.code, 0, "{}", bytes.err);
+        assert_eq!(bytes.out, crate::format_markdown());
+
+        let upstream = run(&args(&["format", "--upstream"]));
+        assert_eq!(upstream.code, 0, "{}", upstream.err);
+        assert_eq!(upstream.out, crate::format_upstream());
     }
 
     /// `migrate` writes once, then is a no-op -- V2, at the process level.

@@ -249,10 +249,13 @@ project may add on top of it, and nothing here needs a particular tool to be
 true: a spec that follows it is still a cavekit spec, read by hand or by
 whatever you already run.
 
-The vendored `FORMAT.md` beside this file is upstream's, unmodified. See
-`.format-upstream` for the exact revision it matches. This file never edits
-it -- it says what is ADDED, so the difference between the two is a thing a
-reader can find rather than a thing they have to notice.
+The vendored `FORMAT.md` beside this file is upstream's, unmodified. It
+matches cavekit revision `c322f0bb6db82163041930467f3ce32754d42827`, SHA-256
+`1eda122882902861e912d3775c8b45e7fbb51ca4f587f37854bfd4d470f6a601`, from
+`https://github.com/JuliusBrussee/cavekit`. This file never edits it -- it
+says what is ADDED, so the difference between the two is a thing a reader
+can find rather than a thing they have to notice. `mth format --upstream`
+prints the same provenance lines for consumers recording their own copy.
 
 **Every extension here is OPTIONAL.** A spec carrying none of them is
 unchanged, and must stay that way: an extension that makes existing specs
