@@ -74,7 +74,7 @@ fn channel_refuses_what_it_cannot_read() {
 
 #[test]
 fn platforms_come_from_the_ci_matrix() {
-    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest', macos-14]\n";
+    let flow = "jobs:\n  t:\n    strategy:\n      matrix:\n        os: [ubuntu-latest, ubuntu-24.04-arm, 'macos-latest', macos-15-intel]\n";
     let block = "matrix:\n  os:\n    - macos-latest\n    - \"ubuntu-24.04-arm\"\nsteps:\n  - run: x\n";
     assert_eq!(
         platforms(flow),
@@ -87,6 +87,14 @@ fn platforms_come_from_the_ci_matrix() {
         ])
     );
     assert_eq!(platforms(block), Ok(vec!["arm macos", "arm linux"]));
+}
+
+/// `macos-14` is an Apple Silicon runner. It once stood in for x86_64-darwin
+/// here and put an `intel macos` badge on a matrix with no Intel runner.
+#[test]
+fn macos_14_is_not_an_intel_runner() {
+    let flow = "matrix:\n  os: [macos-14]\n";
+    assert!(platforms(flow).is_err());
 }
 
 #[test]

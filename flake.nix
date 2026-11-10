@@ -110,7 +110,7 @@
           # run zero times, and promised the change the moment it had -- so
           # here it is: run 30763172352, green on ubuntu-latest,
           # ubuntu-24.04-arm and macos-latest, the first execution ever. The
-          # matrix now also includes macos-14 for x86_64-darwin. It is also
+          # matrix now also includes macos-15-intel for x86_64-darwin. It is also
           # now REQUIRED: all four jobs are branch-protection status
           # checks on main, enforced for admins, so nothing merges without
           # them (B19).
