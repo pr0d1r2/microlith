@@ -1237,7 +1237,7 @@ mod tests {
 
     const KEEP_SPEC: &str = "# SPEC\n\n## \u{a7}T TASKS\n\nT1|x|one|-\n\
         T2|x|two|-\nT3|x|three|-\n\n## \u{a7}B BUGS\nid|date|cause|fix\n\
-        B1|2026-01-01|c1|f1\nB2|2026-01-02|c2|f2\nB3|2026-01-03|c3|f3\n";
+        B10|2026-01-01|c1|f1\nB20|2026-01-02|c2|f2\nB30|2026-01-03|c3|f3\n";
 
     /// Archive `KEEP_SPEC` with the given extra flags in a fresh directory,
     /// returning the directory, the spec's path and what the spec became.
@@ -1262,8 +1262,8 @@ mod tests {
             archived_keeping("keep", &["--keep-recent", "1"]);
         let rows = ["T1|x|A|-", "T2|x|A|-", "T3|x|three|-"]
             .into_iter()
-            .chain(["B1|2026-01-01|A|A", "B2|2026-01-02|A|A"])
-            .chain(["B3|2026-01-03|c3|f3"]);
+            .chain(["B10|2026-01-01|A|A", "B20|2026-01-02|A|A"])
+            .chain(["B30|2026-01-03|c3|f3"]);
         assert!(rows.into_iter().all(|r| folded.contains(r)), "{folded}");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1286,7 +1286,7 @@ mod tests {
         let (dir, _, folded) =
             archived_keeping("keepzero", &["--keep-recent", "0"]);
         assert!(folded.contains("T3|x|A|-"), "{folded}");
-        assert!(folded.contains("B3|2026-01-03|A|A"), "{folded}");
+        assert!(folded.contains("B30|2026-01-03|A|A"), "{folded}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
