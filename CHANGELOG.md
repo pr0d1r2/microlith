@@ -40,6 +40,14 @@ pipeline gets proven before a permanent number is spent.
 
 ## [Unreleased]
 
+### Added
+
+- `mth archive` takes `--keep-recent <k>`, leaving the newest `k` done `§T` rows
+  and `k` fixed `§B` rows whole by numeric id, and `--threshold <lines>`, which
+  does nothing and says so when the spec has at most that many lines. Both work
+  with `--check`; the defaults leave existing runs unchanged. The library gains
+  `archive_spec_keeping`.
+
 ## [0.7.6] — 2026-11-10
 
 This release adds four verbs to `mth`. `add`, `amend` and `supersede` write
@@ -60,11 +68,6 @@ plus `check --fix` and `mth init`) is not met.
 
 ### Added
 
-- `mth archive` takes `--keep-recent <k>`, leaving the newest `k` done `§T` rows
-  and `k` fixed `§B` rows whole by numeric id, and `--threshold <lines>`, which
-  does nothing and says so when the spec has at most that many lines. Both work
-  with `--check`; the defaults leave existing runs unchanged. The library gains
-  `archive_spec_keeping`.
 - `mth supersede [--link] [--check] <winner> <loser>... [<path>]` tags each
   loser `[superseded by <winner>]` (and with `--link` the winner
   `[supersedes <losers>]`) through the same verified write path as `add` and
