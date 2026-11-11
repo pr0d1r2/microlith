@@ -254,7 +254,7 @@ fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
     if archive.trim().is_empty() {
         return Ok(fresh_archive(&kinds));
     }
-    if !archive.lines().any(|l| is_section_heading(l, 'T')) {
+    if !has_section_heading(archive.lines(), 'T') {
         return Err(unreadable_archive());
     }
     Ok(kinds
@@ -393,7 +393,9 @@ fn insert_surplus(
 
 /// The heading a `kind` section needs when it has no rows and no heading yet.
 fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
-    if !slots.is_empty() || lines.iter().any(|l| is_section_heading(l, kind)) {
+    if !slots.is_empty()
+        || has_section_heading(lines.iter().map(String::as_str), kind)
+    {
         return Vec::new();
     }
     vec![
@@ -405,8 +407,7 @@ fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
 /// The index just past the last non-blank line of the `## §<kind>` section,
 /// or of the file when there is no such section.
 fn section_end(lines: &[String], kind: char) -> usize {
-    let Some(start) = lines.iter().position(|l| is_section_heading(l, kind))
-    else {
+    let Some(start) = section_heading(lines, kind) else {
         return lines.len();
     };
     let first = start.saturating_add(1);
@@ -430,12 +431,40 @@ fn is_section_heading(line: &str, kind: char) -> bool {
 }
 
 /// The index of the first `## ` heading at or after `from`, or the file's end.
+fn section_heading(lines: &[String], kind: char) -> Option<usize> {
+    let mut fenced = false;
+    lines.iter().enumerate().find_map(|(index, line)| {
+        if crate::format::is_fence(line) {
+            fenced = !fenced;
+        }
+        (!fenced && is_section_heading(line, kind)).then_some(index)
+    })
+}
+
+fn has_section_heading<'a>(
+    lines: impl IntoIterator<Item = &'a str>,
+    kind: char,
+) -> bool {
+    let mut fenced = false;
+    lines.into_iter().any(|line| {
+        if crate::format::is_fence(line) {
+            fenced = !fenced;
+        }
+        !fenced && is_section_heading(line, kind)
+    })
+}
+
 fn next_heading(lines: &[String], from: usize) -> usize {
+    let mut fenced = false;
     lines
         .iter()
         .enumerate()
-        .skip(from)
-        .find(|(_, l)| l.starts_with("## "))
+        .find(|(index, line)| {
+            if crate::format::is_fence(line) {
+                fenced = !fenced;
+            }
+            *index >= from && !fenced && line.starts_with("## ")
+        })
         .map_or(lines.len(), |(i, _)| i)
 }
 
@@ -787,6 +816,17 @@ kept
             "# A\n\n## \u{a7}T TASKS\nT1|x|the first thing, at length|V1,V2\n\
              T3|x|the third thing|-\n\n## \u{a7}B BUGS\nB1|d|c|f\n"
         );
+    }
+
+    #[test]
+    fn a_heading_inside_a_fenced_empty_task_section_does_not_bound_insertion() {
+        let held = "# A\n\n## §T TASKS\n\n```\n## Notes\n```\n";
+        let (_, arch) =
+            archive(SPEC, held, &records(&[]), 0).unwrap_or_default();
+        assert!(arch.contains(
+            "```\n## Notes\n```\nT1|x|the first thing, at length|V1,V2\n"
+        ));
+        assert!(arch.contains("T3|x|the third thing|-\n"));
     }
 
     /// PLANTED (V18): the proof refuses a move that would lose a row.
