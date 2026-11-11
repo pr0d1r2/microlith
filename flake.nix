@@ -23,23 +23,30 @@
     ];
   };
 
-  # TWO declared inputs, ONE nixpkgs. `nixpkgs-lock` is the fleet's sole
+  # THREE declared inputs, ONE nixpkgs. `nixpkgs-lock` is the fleet's sole
   # nixpkgs authority (today: nixos-26.05, rustc 1.95.0) and `nixpkgs`
-  # follows it, so this repo names no revision of its own. `nix-hk` follows
-  # the SAME lock rather than its own copy -- if it resolved a second rev,
-  # the cached hk would be built against a nixpkgs this shell does not have
-  # and every substitution would miss.
+  # follows it, so this repo names no revision of its own. `nix-hk` and
+  # `nix-cargo-release` follow the SAME lock rather than their own copy --
+  # if one resolved a second rev, its cached build would be built against a
+  # nixpkgs this shell does not have and every substitution would miss.
   inputs = {
     nixpkgs-lock.url = "github:pr0d1r2/nixpkgs-lock";
     nixpkgs.follows = "nixpkgs-lock/nixpkgs";
     nix-hk.url = "github:pr0d1r2/nix-hk";
     nix-hk.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
+    # A HOLD (#141): cargo-release 1.1.6. nixos-26.05 ships 1.1.7, which
+    # needs rustc 1.97 against the channel's 1.95, so `pkgs.cargo-release`
+    # stopped building. Drop this input once the channel's own
+    # cargo-release builds (`nix-cargo-release/T2`).
+    nix-cargo-release.url = "github:pr0d1r2/nix-cargo-release";
+    nix-cargo-release.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
   };
 
   outputs =
     {
       nixpkgs,
       nix-hk,
+      nix-cargo-release,
       ...
     }:
     let
@@ -54,9 +61,17 @@
       # nixpkgs'. Applied as an OVERLAY rather than referenced as
       # `nix-hk.packages.${s}.hk` so there is exactly one `pkgs` in this
       # file: a second lookup path would be a second place to forget, and
-      # the package list stays a list of names.
+      # the package list stays a list of names. nix-cargo-release's overlay
+      # does the same for `pkgs.cargo-release`.
       forAll =
-        f: nixpkgs.lib.genAttrs systems (s: f (nixpkgs.legacyPackages.${s}.extend nix-hk.overlays.default));
+        f:
+        nixpkgs.lib.genAttrs systems (
+          s:
+          f (
+            (nixpkgs.legacyPackages.${s}.extend nix-hk.overlays.default).extend
+              nix-cargo-release.overlays.default
+          )
+        );
 
       # microlith formats its own SPEC.md (V24), so the dev shell must PROVIDE
       # `microlith`, not merely the toolchain to build it.
@@ -246,6 +261,15 @@
             # It cannot run before there IS a published release, and it says
             # so rather than passing quietly -- see the step in hk.pkl.
             pkgs.cargo-semver-checks
+            # THE RELEASE, which is a tool and not a script. Everything T8
+            # described -- clean tree, allowed branch, tag scheme, dry-run
+            # first, confirm, verify, publish, push -- this already does, and
+            # `release.toml` configures it. A hand-written release script was
+            # started here and DELETED once that was checked: a second
+            # implementation of one rule set is the defect this crate exists
+            # to end (V7, V37), and it does not stop being one because we are
+            # the ones who wrote it. Held at 1.1.6 by the overlay (#141).
+            pkgs.cargo-release
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";
