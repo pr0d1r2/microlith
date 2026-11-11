@@ -373,4 +373,6 @@
 # so the next time this file is over, the first question is whether
 # `mth archive --check` has work to do -- and only then whether the law
 # itself grew.
-SPEC.md    34100
+# RAISED 34,100 -> 34,200 for B47's required bug-history row; compacting
+# existing law is deferred because no V<n> statement is being changed.
+SPEC.md    34200
