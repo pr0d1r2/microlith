@@ -255,12 +255,82 @@ fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
     add_moves(&mut tasks, &mut bugs, moving)?;
     tasks.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
     bugs.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
-    let bug_section = if bugs.is_empty() {
-        String::new()
-    } else {
-        format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
+    if archive.trim().is_empty() {
+        let bug_section = if bugs.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
+        };
+        return Ok(format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section));
+    }
+    if !archive.lines().any(|l| l.starts_with("## §T")) {
+        return Err(format!(
+            "{ARCHIVE} has no `## §T` section, so it cannot be read as an \
+             archive; refusing to rewrite it"
+        ));
+    }
+    let mut out = archive.to_owned();
+    for (kind, rows) in [('T', tasks), ('B', bugs)] {
+        if moving.iter().any(|m| m.id.starts_with(kind)) {
+            out = splice(&out, kind, &rows);
+        }
+    }
+    Ok(out)
+}
+
+/// The archive with `rows` (one kind, sorted) written over the rows of that
+/// kind already there, and any surplus placed after the last of them.
+///
+/// Every other line is carried through untouched: the header paragraph, a
+/// `§B` table nobody asked to change. With no row of the kind to anchor on,
+/// the rows go at the end of that kind's section, or in a new one.
+fn splice(text: &str, kind: char, rows: &[String]) -> String {
+    let mut lines: Vec<String> =
+        text.split_inclusive('\n').map(str::to_owned).collect();
+    let slots: Vec<usize> = (0..lines.len())
+        .filter(|&i| at_line_start(&lines[i]).is_some_and(|d| d.kind == kind))
+        .collect();
+    for (&slot, row) in slots.iter().zip(rows) {
+        let body = lines[slot].trim_end_matches(['\r', '\n']).len();
+        let eol = lines[slot][body..].to_owned();
+        lines[slot] = format!("{row}{eol}");
+    }
+    let surplus = rows.get(slots.len()..).unwrap_or_default();
+    if surplus.is_empty() {
+        return lines.concat();
+    }
+    let at = match slots.last() {
+        Some(&last) => last + 1,
+        None => section_end(&lines, kind),
     };
-    Ok(format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section))
+    if at > 0 && !lines[at - 1].ends_with('\n') {
+        lines[at - 1].push('\n');
+    }
+    let head = format!("## §{kind}");
+    let mut fresh: Vec<String> = Vec::new();
+    if slots.is_empty() && !lines.iter().any(|l| l.starts_with(&head)) {
+        fresh.push("\n## §B BUGS\n".to_owned());
+        fresh.push("id|date|cause|fix\n".to_owned());
+    }
+    fresh.extend(surplus.iter().map(|r| format!("{r}\n")));
+    lines.splice(at..at, fresh);
+    lines.concat()
+}
+
+/// The index just past the last non-blank line of the `## §<kind>` section,
+/// or of the file when there is no such section.
+fn section_end(lines: &[String], kind: char) -> usize {
+    let head = format!("## §{kind}");
+    let Some(start) = lines.iter().position(|l| l.starts_with(&head)) else {
+        return lines.len();
+    };
+    let stop = (start + 1..lines.len())
+        .find(|&i| lines[i].starts_with("## "))
+        .unwrap_or(lines.len());
+    (start + 1..stop)
+        .rev()
+        .find(|&i| !lines[i].trim().is_empty())
+        .map_or(start + 1, |i| i + 1)
 }
 
 fn add_moves(
@@ -533,6 +603,60 @@ T3|x|the third thing|-
         let listed = crate::tasks::json("a", &arch);
         assert!(listed.contains("\"T1\""), "{listed}");
         assert!(listed.contains("\"T3\""), "{listed}");
+    }
+
+    const HAND_ARCHIVE: &str = "\
+# SPEC ARCHIVE
+
+My own words about this file.
+
+## \u{a7}T TASKS
+
+T2|x|older|-
+
+## \u{a7}B BUGS
+
+id|date|cause|fix
+B1|2026-01-01|x|y
+B2|2026-01-02|x|y
+
+## Notes
+
+kept
+";
+
+    /// Issue #109: a hand-kept `§B` table, header text and trailing section
+    /// survive; only the `§T` table gains its rows.
+    #[test]
+    fn archiving_leaves_every_other_byte_of_the_archive() {
+        let (_, arch) =
+            archive(SPEC, HAND_ARCHIVE, &records(&[]), 0).unwrap_or_default();
+        let want = HAND_ARCHIVE.replace(
+            "T2|x|older|-\n",
+            "T1|x|the first thing, at length|V1,V2\nT2|x|older|-\n\
+             T3|x|the third thing|-\n",
+        );
+        assert_eq!(arch, want);
+    }
+
+    /// Companion (V18): an archive that is not one is refused, by name.
+    #[test]
+    fn an_archive_without_a_task_section_is_refused() {
+        let err = archive(SPEC, "# notes\nB1|d|c|f\n", &records(&[]), 0).err();
+        assert!(err.is_some_and(|e| e.contains(ARCHIVE)));
+    }
+
+    /// Rows arriving where the archive has none yet land in its `§T` section.
+    #[test]
+    fn a_task_section_with_no_rows_receives_them_in_place() {
+        let held = "# A\n\n## \u{a7}T TASKS\n\n## \u{a7}B BUGS\nB1|d|c|f\n";
+        let (_, arch) =
+            archive(SPEC, held, &records(&[]), 0).unwrap_or_default();
+        assert_eq!(
+            arch,
+            "# A\n\n## \u{a7}T TASKS\nT1|x|the first thing, at length|V1,V2\n\
+             T3|x|the third thing|-\n\n## \u{a7}B BUGS\nB1|d|c|f\n"
+        );
     }
 
     /// PLANTED (V18): the proof refuses a move that would lose a row.
