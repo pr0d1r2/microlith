@@ -162,6 +162,10 @@
               ./src
               ./Cargo.toml
               ./Cargo.lock
+              # The library embeds the vendored format at compile time.
+              # Keep it in the isolated package source alongside src/ so the
+              # reproducible build sees the same input as Cargo does here.
+              ./FORMAT.md
               # Cargo loads EVERY workspace member manifest before it builds
               # anything, so the unpublished `dev/` crate must exist here even
               # though only the root package is built (V54).
