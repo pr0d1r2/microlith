@@ -166,6 +166,7 @@
               # Keep it in the isolated package source alongside src/ so the
               # reproducible build sees the same input as Cargo does here.
               ./FORMAT.md
+              ./docs/THIRD-PARTY-NOTICES.md
               # Cargo loads EVERY workspace member manifest before it builds
               # anything, so the unpublished `dev/` crate must exist here even
               # though only the root package is built (V54).
@@ -174,6 +175,10 @@
             ];
           };
           cargoLock.lockFile = ./Cargo.lock;
+          postInstall = ''
+            install -Dm644 docs/THIRD-PARTY-NOTICES.md \
+              $out/share/doc/microlith/THIRD-PARTY-NOTICES.md
+          '';
           # `tests/dogfood.rs` reads SPEC.md, which is deliberately NOT in
           # the fileset above. So the dogfood cannot run here; it runs in the
           # dev shell and in CI, where the whole tree exists. Excluding the
