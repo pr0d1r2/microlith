@@ -230,11 +230,11 @@ pub fn archive(
 fn stubbed(spec: &str, moving: &[Move]) -> String {
     let mut out = String::new();
     for line in spec.split_inclusive('\n') {
-        let trimmed = line.trim_end_matches(['\r', '\n']);
-        match moving.iter().find(|m| m.row == trimmed) {
+        let body = line.trim_end_matches(['\r', '\n']);
+        match moving.iter().find(|m| m.row == body.trim_end()) {
             Some(m) => {
                 out.push_str(&m.stub);
-                out.push_str(line.strip_prefix(trimmed).unwrap_or("\n"));
+                out.push_str(&line[body.len()..]);
             }
             None => out.push_str(line),
         }
@@ -732,6 +732,20 @@ T3|x|the third thing|-
         let (once, arch) =
             archive(SPEC, "", &records(&[]), 0).unwrap_or_default();
         assert!(moves(&once, &records(&[]), 0).is_empty(), "already folded");
+        let (twice, again) =
+            archive(&once, &arch, &records(&[]), 0).unwrap_or_default();
+        assert_eq!(twice, once);
+        assert_eq!(again, arch);
+    }
+
+    #[test]
+    fn a_finished_row_with_trailing_spaces_is_stubbed_and_idempotent() {
+        let text = "## §T TASKS\n\nT1|x|done|-   \n";
+        let (once, arch) =
+            archive(text, "", &records(&[]), 0).unwrap_or_default();
+        assert!(once.contains("T1|x|A|-\n"), "{once}");
+        assert!(!once.contains("T1|x|done|-"), "{once}");
+
         let (twice, again) =
             archive(&once, &arch, &records(&[]), 0).unwrap_or_default();
         assert_eq!(twice, once);
