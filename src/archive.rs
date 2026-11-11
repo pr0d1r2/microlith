@@ -254,7 +254,7 @@ fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
     if archive.trim().is_empty() {
         return Ok(fresh_archive(&kinds));
     }
-    if !archive.lines().any(|l| l.starts_with("## §T")) {
+    if !archive.lines().any(|l| is_section_heading(l, 'T')) {
         return Err(unreadable_archive());
     }
     Ok(kinds
@@ -360,8 +360,7 @@ fn insert_surplus(
 
 /// The heading a `kind` section needs when it has no rows and no heading yet.
 fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
-    let head = format!("## §{kind}");
-    if !slots.is_empty() || lines.iter().any(|l| l.starts_with(&head)) {
+    if !slots.is_empty() || lines.iter().any(|l| is_section_heading(l, kind)) {
         return Vec::new();
     }
     vec![
@@ -373,8 +372,8 @@ fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
 /// The index just past the last non-blank line of the `## §<kind>` section,
 /// or of the file when there is no such section.
 fn section_end(lines: &[String], kind: char) -> usize {
-    let head = format!("## §{kind}");
-    let Some(start) = lines.iter().position(|l| l.starts_with(&head)) else {
+    let Some(start) = lines.iter().position(|l| is_section_heading(l, kind))
+    else {
         return lines.len();
     };
     let first = start.saturating_add(1);
@@ -387,6 +386,14 @@ fn section_end(lines: &[String], kind: char) -> usize {
         .rev()
         .find(|(_, l)| !l.trim().is_empty())
         .map_or(first, |(i, _)| i.saturating_add(1))
+}
+
+/// A section marker ends at whitespace or the end of the heading line.
+fn is_section_heading(line: &str, kind: char) -> bool {
+    let prefix = format!("## §{kind}");
+    line.strip_prefix(&prefix).is_some_and(|rest| {
+        rest.chars().next().is_none_or(|c| c.is_whitespace())
+    })
 }
 
 /// The index of the first `## ` heading at or after `from`, or the file's end.
@@ -709,6 +716,15 @@ kept
     #[test]
     fn an_archive_without_a_task_section_is_refused() {
         let err = archive(SPEC, "# notes\nB1|d|c|f\n", &records(&[]), 0).err();
+        assert!(err.is_some_and(|e| e.contains(ARCHIVE)));
+    }
+
+    /// A heading that only shares the task prefix is not a task section.
+    #[test]
+    fn an_archive_with_a_task_prefix_heading_is_refused() {
+        let err =
+            archive(SPEC, "# notes\n\n## §TODO\nB1|d|c|f\n", &records(&[]), 0)
+                .err();
         assert!(err.is_some_and(|e| e.contains(ARCHIVE)));
     }
 
