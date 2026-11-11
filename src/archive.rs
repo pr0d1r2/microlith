@@ -250,32 +250,49 @@ fn stubbed(spec: &str, moving: &[Move]) -> String {
 /// in between, puts a lower id after a higher one and the file the tool
 /// produced would fail the tool's own sort rule.
 fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
+    let kinds = sorted_rows(archive, moving)?;
+    if archive.trim().is_empty() {
+        return Ok(fresh_archive(&kinds));
+    }
+    if !archive.lines().any(|l| l.starts_with("## §T")) {
+        return Err(unreadable_archive());
+    }
+    Ok(kinds
+        .into_iter()
+        .filter(|(kind, _)| moving.iter().any(|m| m.id.starts_with(*kind)))
+        .fold(archive.to_owned(), |out, (kind, rows)| {
+            splice(&out, kind, &rows)
+        }))
+}
+
+/// The rows of each kind, the moving ones included, in id order.
+type Kinds = [(char, Vec<String>); 2];
+
+fn sorted_rows(archive: &str, moving: &[Move]) -> Result<Kinds, String> {
     let mut tasks = archived_rows(archive, 'T');
     let mut bugs = archived_rows(archive, 'B');
     add_moves(&mut tasks, &mut bugs, moving)?;
     tasks.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
     bugs.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
-    if archive.trim().is_empty() {
-        let bug_section = if bugs.is_empty() {
-            String::new()
-        } else {
-            format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
-        };
-        return Ok(format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section));
-    }
-    if !archive.lines().any(|l| l.starts_with("## §T")) {
-        return Err(format!(
-            "{ARCHIVE} has no `## §T` section, so it cannot be read as an \
-             archive; refusing to rewrite it"
-        ));
-    }
-    let mut out = archive.to_owned();
-    for (kind, rows) in [('T', tasks), ('B', bugs)] {
-        if moving.iter().any(|m| m.id.starts_with(kind)) {
-            out = splice(&out, kind, &rows);
-        }
-    }
-    Ok(out)
+    Ok([('T', tasks), ('B', bugs)])
+}
+
+/// An archive written from nothing, for an empty file.
+fn fresh_archive(kinds: &Kinds) -> String {
+    let [(_, tasks), (_, bugs)] = kinds;
+    let bug_section = if bugs.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
+    };
+    format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section)
+}
+
+fn unreadable_archive() -> String {
+    format!(
+        "{ARCHIVE} has no `## §T` section, so it cannot be read as an \
+         archive; refusing to rewrite it"
+    )
 }
 
 /// The archive with `rows` (one kind, sorted) written over the rows of that
@@ -287,34 +304,70 @@ fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
 fn splice(text: &str, kind: char, rows: &[String]) -> String {
     let mut lines: Vec<String> =
         text.split_inclusive('\n').map(str::to_owned).collect();
-    let slots: Vec<usize> = (0..lines.len())
-        .filter(|&i| at_line_start(&lines[i]).is_some_and(|d| d.kind == kind))
-        .collect();
+    let slots = slots_of(&lines, kind);
+    rewrite_slots(&mut lines, &slots, rows);
+    match rows.get(slots.len()..) {
+        Some(surplus) if !surplus.is_empty() => {
+            insert_surplus(lines, kind, &slots, surplus).concat()
+        }
+        _ => lines.concat(),
+    }
+}
+
+/// The line indexes already holding a row of `kind`, in file order.
+fn slots_of(lines: &[String], kind: char) -> Vec<usize> {
+    lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| at_line_start(l).is_some_and(|d| d.kind == kind))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Writes each row over its slot, keeping the line ending the old one had.
+fn rewrite_slots(lines: &mut [String], slots: &[usize], rows: &[String]) {
     for (&slot, row) in slots.iter().zip(rows) {
-        let body = lines[slot].trim_end_matches(['\r', '\n']).len();
-        let eol = lines[slot][body..].to_owned();
-        lines[slot] = format!("{row}{eol}");
+        if let Some(line) = lines.get_mut(slot) {
+            let body = line.trim_end_matches(['\r', '\n']).len();
+            let eol = line.split_off(body);
+            *line = format!("{row}{eol}");
+        }
     }
-    let surplus = rows.get(slots.len()..).unwrap_or_default();
-    if surplus.is_empty() {
-        return lines.concat();
+}
+
+/// Places the rows that found no slot after the last slot, or at the end of
+/// the `kind` section, creating that section when it is missing.
+fn insert_surplus(
+    mut lines: Vec<String>,
+    kind: char,
+    slots: &[usize],
+    surplus: &[String],
+) -> Vec<String> {
+    let at = slots.last().map_or_else(
+        || section_end(&lines, kind),
+        |&last| last.saturating_add(1),
+    );
+    if let Some(prev) = at.checked_sub(1).and_then(|p| lines.get_mut(p))
+        && !prev.ends_with('\n')
+    {
+        prev.push('\n');
     }
-    let at = match slots.last() {
-        Some(&last) => last + 1,
-        None => section_end(&lines, kind),
-    };
-    if at > 0 && !lines[at - 1].ends_with('\n') {
-        lines[at - 1].push('\n');
-    }
-    let head = format!("## §{kind}");
-    let mut fresh: Vec<String> = Vec::new();
-    if slots.is_empty() && !lines.iter().any(|l| l.starts_with(&head)) {
-        fresh.push("\n## §B BUGS\n".to_owned());
-        fresh.push("id|date|cause|fix\n".to_owned());
-    }
+    let mut fresh = new_section(&lines, kind, slots);
     fresh.extend(surplus.iter().map(|r| format!("{r}\n")));
     lines.splice(at..at, fresh);
-    lines.concat()
+    lines
+}
+
+/// The heading a `kind` section needs when it has no rows and no heading yet.
+fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
+    let head = format!("## §{kind}");
+    if !slots.is_empty() || lines.iter().any(|l| l.starts_with(&head)) {
+        return Vec::new();
+    }
+    vec![
+        "\n## §B BUGS\n".to_owned(),
+        "id|date|cause|fix\n".to_owned(),
+    ]
 }
 
 /// The index just past the last non-blank line of the `## §<kind>` section,
@@ -324,13 +377,26 @@ fn section_end(lines: &[String], kind: char) -> usize {
     let Some(start) = lines.iter().position(|l| l.starts_with(&head)) else {
         return lines.len();
     };
-    let stop = (start + 1..lines.len())
-        .find(|&i| lines[i].starts_with("## "))
-        .unwrap_or(lines.len());
-    (start + 1..stop)
+    let first = start.saturating_add(1);
+    let stop = next_heading(lines, first);
+    lines
+        .iter()
+        .enumerate()
+        .take(stop)
+        .skip(first)
         .rev()
-        .find(|&i| !lines[i].trim().is_empty())
-        .map_or(start + 1, |i| i + 1)
+        .find(|(_, l)| !l.trim().is_empty())
+        .map_or(first, |(i, _)| i.saturating_add(1))
+}
+
+/// The index of the first `## ` heading at or after `from`, or the file's end.
+fn next_heading(lines: &[String], from: usize) -> usize {
+    lines
+        .iter()
+        .enumerate()
+        .skip(from)
+        .find(|(_, l)| l.starts_with("## "))
+        .map_or(lines.len(), |(i, _)| i)
 }
 
 fn add_moves(
