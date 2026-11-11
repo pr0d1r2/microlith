@@ -97,13 +97,12 @@ pub fn moves(spec: &str, records: &[Record], keep: usize) -> Vec<Move> {
 
 /// The lines of the spec that are not inside a fenced block.
 fn outside_fences(spec: &str) -> impl Iterator<Item = &str> {
-    let mut fenced = false;
+    let mut fence = None;
     spec.lines().filter(move |line| {
-        if crate::format::is_fence(line) {
-            fenced = !fenced;
+        if advance_fence(line, &mut fence) {
             return false;
         }
-        !fenced
+        fence.is_none()
     })
 }
 
@@ -325,26 +324,57 @@ fn table_slots<'a>(
     kind: char,
 ) -> Vec<usize> {
     let mut section = None;
-    let mut fenced = false;
+    let mut fence = None;
     lines
         .into_iter()
         .enumerate()
         .filter_map(|(index, line)| {
-            table_slot(line, index, kind, (&mut section, &mut fenced))
+            table_slot(line, index, kind, (&mut section, &mut fence))
         })
         .collect()
+}
+
+#[derive(Clone, Copy)]
+struct Fence {
+    marker: char,
+    length: usize,
+}
+
+fn fence_marker(line: &str) -> Option<(char, usize)> {
+    let trimmed = line.trim_start();
+    let marker = trimmed.chars().next()?;
+    if marker != '`' && marker != '~' {
+        return None;
+    }
+    let length = trimmed.chars().take_while(|&c| c == marker).count();
+    (length >= 3).then_some((marker, length))
+}
+
+fn advance_fence(line: &str, fence: &mut Option<Fence>) -> bool {
+    let Some((marker, length)) = fence_marker(line) else {
+        return false;
+    };
+    match *fence {
+        Some(open) if marker == open.marker && length >= open.length => {
+            *fence = None;
+        }
+        None => {
+            *fence = Some(Fence { marker, length });
+        }
+        Some(_) => {}
+    }
+    true
 }
 
 fn table_slot(
     line: &str,
     index: usize,
     kind: char,
-    state: (&mut Option<char>, &mut bool),
+    state: (&mut Option<char>, &mut Option<Fence>),
 ) -> Option<usize> {
-    let (section, fenced) = state;
-    if crate::format::is_fence(line) {
-        *fenced = !*fenced;
-    } else if !*fenced {
+    let (section, fence) = state;
+    if advance_fence(line, fence) {
+    } else if fence.is_none() {
         if line.starts_with("## ") {
             *section = ['T', 'B']
                 .into_iter()
@@ -432,12 +462,10 @@ fn is_section_heading(line: &str, kind: char) -> bool {
 
 /// The index of the first `## ` heading at or after `from`, or the file's end.
 fn section_heading(lines: &[String], kind: char) -> Option<usize> {
-    let mut fenced = false;
+    let mut fence = None;
     lines.iter().enumerate().find_map(|(index, line)| {
-        if crate::format::is_fence(line) {
-            fenced = !fenced;
-        }
-        (!fenced && is_section_heading(line, kind)).then_some(index)
+        advance_fence(line, &mut fence);
+        (fence.is_none() && is_section_heading(line, kind)).then_some(index)
     })
 }
 
@@ -445,25 +473,21 @@ fn has_section_heading<'a>(
     lines: impl IntoIterator<Item = &'a str>,
     kind: char,
 ) -> bool {
-    let mut fenced = false;
+    let mut fence = None;
     lines.into_iter().any(|line| {
-        if crate::format::is_fence(line) {
-            fenced = !fenced;
-        }
-        !fenced && is_section_heading(line, kind)
+        advance_fence(line, &mut fence);
+        fence.is_none() && is_section_heading(line, kind)
     })
 }
 
 fn next_heading(lines: &[String], from: usize) -> usize {
-    let mut fenced = false;
+    let mut fence = None;
     lines
         .iter()
         .enumerate()
         .find(|(index, line)| {
-            if crate::format::is_fence(line) {
-                fenced = !fenced;
-            }
-            *index >= from && !fenced && line.starts_with("## ")
+            advance_fence(line, &mut fence);
+            *index >= from && fence.is_none() && line.starts_with("## ")
         })
         .map_or(lines.len(), |(i, _)| i)
 }
