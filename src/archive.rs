@@ -316,12 +316,45 @@ fn splice(text: &str, kind: char, rows: &[String]) -> String {
 
 /// The line indexes already holding a row of `kind`, in file order.
 fn slots_of(lines: &[String], kind: char) -> Vec<usize> {
+    table_slots(lines.iter().map(String::as_str), kind)
+}
+
+/// The rows in the requested table, ignoring prose and fenced examples.
+fn table_slots<'a>(
+    lines: impl IntoIterator<Item = &'a str>,
+    kind: char,
+) -> Vec<usize> {
+    let mut section = None;
+    let mut fenced = false;
     lines
-        .iter()
+        .into_iter()
         .enumerate()
-        .filter(|(_, l)| at_line_start(l).is_some_and(|d| d.kind == kind))
-        .map(|(i, _)| i)
+        .filter_map(|(index, line)| {
+            table_slot(line, index, kind, (&mut section, &mut fenced))
+        })
         .collect()
+}
+
+fn table_slot(
+    line: &str,
+    index: usize,
+    kind: char,
+    state: (&mut Option<char>, &mut bool),
+) -> Option<usize> {
+    let (section, fenced) = state;
+    if crate::format::is_fence(line) {
+        *fenced = !*fenced;
+    } else if !*fenced {
+        if line.starts_with("## ") {
+            *section = ['T', 'B']
+                .into_iter()
+                .find(|&candidate| is_section_heading(line, candidate));
+        }
+        return (*section == Some(kind)
+            && at_line_start(line).is_some_and(|id| id.kind == kind))
+        .then_some(index);
+    }
+    None
 }
 
 /// Writes each row over its slot, keeping the line ending the old one had.
@@ -426,9 +459,10 @@ fn add_moves(
 }
 
 fn archived_rows(archive: &str, kind: char) -> Vec<String> {
-    archive
-        .lines()
-        .filter(|l| at_line_start(l).is_some_and(|i| i.kind == kind))
+    let lines: Vec<&str> = archive.lines().collect();
+    table_slots(lines.iter().copied(), kind)
+        .into_iter()
+        .filter_map(|index| lines.get(index).copied())
         .map(str::to_owned)
         .collect()
 }
@@ -710,6 +744,20 @@ kept
              T3|x|the third thing|-\n",
         );
         assert_eq!(arch, want);
+    }
+
+    #[test]
+    fn row_like_text_in_notes_and_fences_is_not_an_archive_slot() {
+        let held =
+            "# A\n\n## §T TASKS\n\n## Notes\n\n```\nT9|x|example|-\n```\n";
+        let (_, arch) =
+            archive(SPEC, held, &records(&[]), 0).unwrap_or_default();
+        assert!(
+            arch.contains(
+                "## §T TASKS\nT1|x|the first thing, at length|V1,V2\n"
+            )
+        );
+        assert!(arch.contains("```\nT9|x|example|-\n```"));
     }
 
     /// Companion (V18): an archive that is not one is refused, by name.
