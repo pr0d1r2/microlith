@@ -22,6 +22,7 @@
 //! carry one.
 
 use crate::check::Record;
+use crate::format::continuation;
 use crate::id::{Id, at_line_start, cells};
 
 /// The file rows are moved to, beside the spec they came from.
@@ -89,10 +90,54 @@ pub struct Move {
 #[must_use]
 pub fn moves(spec: &str, records: &[Record], keep: usize) -> Vec<Move> {
     let kept = newest_finished(spec, keep);
-    outside_fences(spec)
-        .filter_map(|line| movable(line, records))
-        .filter(|m| !kept.contains(&m.id))
-        .collect()
+    let lines: Vec<&str> = outside_fences(spec).collect();
+    let mut moving = Vec::new();
+    let mut rest = lines.as_slice();
+    while let Some((line, tail)) = rest.split_first() {
+        rest = tail;
+        let (m, after) = move_with_continuations(line, rest, records);
+        rest = after;
+        if let Some(m) = m.filter(|m| !kept.contains(&m.id)) {
+            moving.push(m);
+        }
+    }
+    moving
+}
+
+fn move_with_continuations<'a>(
+    line: &'a str,
+    rest: &'a [&'a str],
+    records: &[Record],
+) -> (Option<Move>, &'a [&'a str]) {
+    let Some(mut m) = movable(line, records) else {
+        return (None, rest);
+    };
+    if m.id.starts_with('V') {
+        let (lines, after) = continuations(line, rest);
+        m.row = std::iter::once(m.row.as_str())
+            .chain(lines)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim_end()
+            .to_owned();
+        return (Some(m), after);
+    }
+    (Some(m), rest)
+}
+
+fn continuations<'a>(
+    mut previous: &'a str,
+    mut rest: &'a [&'a str],
+) -> (Vec<&'a str>, &'a [&'a str]) {
+    let mut lines = Vec::new();
+    while let Some((next, after)) = rest.split_first()
+        && continuation(previous, next)
+    {
+        lines.push(*next);
+        previous = next;
+        rest = after;
+    }
+    (lines, rest)
 }
 
 /// The lines of the spec that are not inside a fenced block.
@@ -267,17 +312,38 @@ pub fn archive(
 /// The spec with each moved row replaced by its stub.
 fn stubbed(spec: &str, moving: &[Move]) -> String {
     let mut out = String::new();
+    let mut skip: Option<usize> = None;
     for line in spec.split_inclusive('\n') {
-        let body = line.trim_end_matches(['\r', '\n']);
-        match moving.iter().find(|m| m.row == body.trim_end()) {
-            Some(m) => {
-                out.push_str(&m.stub);
-                out.push_str(&line[body.len()..]);
-            }
-            None => out.push_str(line),
+        if let Some(remaining) = skip.filter(|remaining| *remaining != 0) {
+            skip = remaining.checked_sub(1);
+            continue;
         }
+        skip = None;
+        stub_line(&mut out, line, moving, &mut skip);
     }
     out
+}
+
+fn stub_line(o: &mut String, l: &str, ms: &[Move], s: &mut Option<usize>) {
+    let body = l.trim_end_matches(['\r', '\n']);
+    let Some(m) = ms
+        .iter()
+        .find(|m| m.row.lines().next() == Some(body.trim_end()))
+    else {
+        o.push_str(l);
+        return;
+    };
+    o.push_str(&m.stub);
+    o.push_str(&l[body.len()..]);
+    *s = continuation_count(m);
+}
+
+fn continuation_count(m: &Move) -> Option<usize> {
+    m.row
+        .lines()
+        .count()
+        .checked_sub(1)
+        .filter(|remaining| *remaining != 0)
 }
 
 /// The archive with the new rows folded in, in id order (V14).
@@ -1051,6 +1117,20 @@ V9: the replacement.
             "{spec}"
         );
         assert!(crate::check::citations_resolve(&spec).is_empty(), "{spec}");
+    }
+
+    #[test]
+    fn a_wrapped_superseded_statement_moves_all_continuation_lines() {
+        let text = "## §V INVARIANTS\n\nV3: old rule with words. [superseded by V9]\n\
+continued evidence for the old rule.\nV9: the replacement.\n";
+        let (spec, arch) =
+            archive(text, "", &records(&[]), 0).unwrap_or_default();
+        assert!(spec.contains("V3: A [superseded by V9]\n"), "{spec}");
+        assert!(!spec.contains("continued evidence"), "{spec}");
+        assert!(
+            arch.contains("V3: old rule with words. [superseded by V9]\ncontinued evidence for the old rule."),
+            "{arch}"
+        );
     }
 
     /// Companion (V18): live rules, and marks only in backticks or prose, stay.
