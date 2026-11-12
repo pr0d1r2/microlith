@@ -47,6 +47,12 @@ pipeline gets proven before a permanent number is spent.
   does nothing and says so when the spec has at most that many lines. Both work
   with `--check`; the defaults leave existing runs unchanged. The library gains
   `archive_spec_keeping`.
+- `mth archive` now also moves the TEXT of a superseded `§V` statement to
+  `SPEC-ARCHIVE.md`, under a new `## §V INVARIANTS` section, and leaves a stub
+  such as `V3: A [superseded by V9]`. The id stays so citations still resolve,
+  and the mark stays so V41 still checks the chain. A live statement, or one
+  whose `[superseded by ...]` sits only inside backticks or prose, is never
+  moved, and a second run is a no-op. Existing archive content is untouched.
 
 ## [0.7.6] — 2026-11-10
 
