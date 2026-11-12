@@ -90,11 +90,23 @@ pub struct Move {
 #[must_use]
 pub fn moves(spec: &str, records: &[Record], keep: usize) -> Vec<Move> {
     let kept = newest_finished(spec, keep);
-    let lines: Vec<&str> = outside_fences(spec).collect();
+    let lines: Vec<&str> = spec.lines().collect();
+    movable_lines(&lines, records, &kept)
+}
+
+fn movable_lines<'a>(
+    lines: &'a [&'a str],
+    records: &[Record],
+    kept: &[String],
+) -> Vec<Move> {
     let mut moving = Vec::new();
-    let mut rest = lines.as_slice();
+    let mut rest = lines;
+    let mut fence = None;
     while let Some((line, tail)) = rest.split_first() {
         rest = tail;
+        if advance_fence(line, &mut fence) || fence.is_some() {
+            continue;
+        }
         let (m, after) = move_with_continuations(line, rest, records);
         rest = after;
         if let Some(m) = m.filter(|m| !kept.contains(&m.id)) {
@@ -131,6 +143,7 @@ fn continuations<'a>(
 ) -> (Vec<&'a str>, &'a [&'a str]) {
     let mut lines = Vec::new();
     while let Some((next, after)) = rest.split_first()
+        && fence_marker(next).is_none()
         && continuation(previous, next)
     {
         lines.push(*next);
@@ -1131,6 +1144,19 @@ continued evidence for the old rule.\nV9: the replacement.\n";
             arch.contains("V3: old rule with words. [superseded by V9]\ncontinued evidence for the old rule."),
             "{arch}"
         );
+    }
+
+    #[test]
+    fn a_fence_between_a_rule_and_prose_is_not_consumed_as_a_continuation() {
+        let text = "## §V INVARIANTS\n\nV3: old rule. [superseded by V9]\n```\ncontinued example\n```\ncontinued evidence\nV9: the replacement.\n";
+        let (spec, arch) =
+            archive(text, "", &records(&[]), 0).unwrap_or_default();
+        assert!(spec.contains("V3: A [superseded by V9]\n```\ncontinued example\n```\ncontinued evidence\n"), "{spec}");
+        assert!(
+            arch.contains("V3: old rule. [superseded by V9]\n"),
+            "{arch}"
+        );
+        assert!(!arch.contains("continued evidence"), "{arch}");
     }
 
     /// Companion (V18): live rules, and marks only in backticks or prose, stay.
