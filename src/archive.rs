@@ -725,9 +725,7 @@ fn ids(text: &str) -> Vec<String> {
 pub fn report(spec: &str, records: &[Record], keep: usize) -> String {
     let moving = moves(spec, records, keep);
     if moving.is_empty() {
-        return format!(
-            "mth: nothing to archive -- no finished rows to move to {ARCHIVE}\n"
-        );
+        return nothing_to_archive(spec, records);
     }
     let held = held_back(spec, records);
     let ids: Vec<&str> = moving.iter().map(|m| m.id.as_str()).collect();
@@ -737,6 +735,13 @@ pub fn report(spec: &str, records: &[Record], keep: usize) -> String {
         moving.len(),
         if moving.len() == 1 { "row" } else { "rows" },
         ids.join(", ")
+    )
+}
+
+fn nothing_to_archive(spec: &str, records: &[Record]) -> String {
+    format!(
+        "mth: nothing to archive -- no finished rows to move to {ARCHIVE}\n{}",
+        held_back(spec, records)
     )
 }
 
@@ -1208,7 +1213,7 @@ continued evidence for the old rule.\nV9: the replacement.\n";
         assert!(spec.contains("V3: old rule with words."), "{spec}");
         assert!(!arch.contains("V3:"), "{arch}");
         assert!(
-            held_back(RULES, &recs).contains("V3 carry"),
+            report(RULES, &recs, 0).contains("V3 carry"),
             "said out loud"
         );
     }
