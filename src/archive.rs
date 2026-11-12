@@ -147,7 +147,11 @@ fn is_finished(line: &str) -> bool {
 /// than live work · it has not already been archived, which is what makes a
 /// second run a no-op · and no V16 record is named on it.
 fn movable(line: &str, records: &[Record]) -> Option<Move> {
-    let id = at_line_start(line).filter(|i| i.kind == 'T' || i.kind == 'B')?;
+    let id =
+        at_line_start(line).filter(|i| matches!(i.kind, 'T' | 'B' | 'V'))?;
+    if id.kind == 'V' {
+        return movable_invariant(line, &id);
+    }
     let f = cells(line.trim_end());
     if f.len() != 4 || holds_a_record(&id, records) {
         return None;
@@ -188,6 +192,38 @@ fn movable_bug(line: &str, id: &Id, f: &[&str]) -> Option<Move> {
         row: line.trim_end().to_owned(),
         stub: format!("{}|{}|{MOVED}|{MOVED}", id.label(), f.get(1)?),
     })
+}
+
+/// A `§V` statement that is retired and not yet a stub.
+///
+/// Retired is `check::marked`'s reading, the one V41 gates on (V7): a mark
+/// inside backticks or after prose is no mark, so that statement is live and
+/// stays. The stub keeps the id and the mark -- the id so citations resolve,
+/// the mark so V41 still checks the chain.
+fn movable_invariant(line: &str, id: &Id) -> Option<Move> {
+    let row = line.trim_end();
+    let stub = invariant_stub(row, id)?;
+    (stub != row).then(|| Move {
+        id: id.label(),
+        row: row.to_owned(),
+        stub,
+    })
+}
+
+/// The id as written, the marker word, and the mark -- for a marked line.
+fn invariant_stub(row: &str, id: &Id) -> Option<String> {
+    let winners = crate::check::marked(row);
+    if winners.is_empty() {
+        return None;
+    }
+    let from = row.find(id.kind)?;
+    let to = from.saturating_add(row.get(from..)?.find(id.terminator)?);
+    Some(format!(
+        "{} {MOVED} [{} {}]",
+        row.get(..=to)?,
+        crate::check::SUPERSEDED_BY,
+        winners.join(", ")
+    ))
 }
 
 fn is_archived_marker(text: &str) -> bool {
@@ -265,27 +301,38 @@ fn merged(archive: &str, moving: &[Move]) -> Result<String, String> {
 }
 
 /// The rows of each kind, the moving ones included, in id order.
-type Kinds = [(char, Vec<String>); 2];
+type Kinds = [(char, Vec<String>); 3];
 
 fn sorted_rows(archive: &str, moving: &[Move]) -> Result<Kinds, String> {
-    let mut tasks = archived_rows(archive, 'T');
-    let mut bugs = archived_rows(archive, 'B');
-    add_moves(&mut tasks, &mut bugs, moving)?;
-    tasks.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
-    bugs.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
-    Ok([('T', tasks), ('B', bugs)])
+    let mut kinds = ['T', 'B', 'V'].map(|k| (k, archived_rows(archive, k)));
+    add_moves(&mut kinds, moving)?;
+    for (_, rows) in &mut kinds {
+        rows.sort_by_key(|r| at_line_start(r).map(|i| i.sort_key()));
+    }
+    Ok(kinds)
 }
 
 /// An archive written from nothing, for an empty file.
 fn fresh_archive(kinds: &Kinds) -> String {
-    let [(_, tasks), (_, bugs)] = kinds;
+    let [(_, tasks), (_, bugs), (_, rules)] = kinds;
     let bug_section = if bugs.is_empty() {
         String::new()
     } else {
         format!("\n\n## §B BUGS\nid|date|cause|fix\n{}", bugs.join("\n"))
     };
-    format!("{HEADER}\n{}{}\n", tasks.join("\n"), bug_section)
+    let rule_section = if rules.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n{INVARIANTS_HEADING}\n{}", rules.join("\n"))
+    };
+    format!(
+        "{HEADER}\n{}{bug_section}{rule_section}\n",
+        tasks.join("\n")
+    )
 }
+
+/// The heading of the archive's section for retired `§V` statements.
+const INVARIANTS_HEADING: &str = "## §V INVARIANTS";
 
 fn unreadable_archive() -> String {
     format!(
@@ -376,7 +423,7 @@ fn table_slot(
     if advance_fence(line, fence) {
     } else if fence.is_none() {
         if line.starts_with("## ") {
-            *section = ['T', 'B']
+            *section = ['T', 'B', 'V']
                 .into_iter()
                 .find(|&candidate| is_section_heading(line, candidate));
         }
@@ -427,6 +474,9 @@ fn new_section(lines: &[String], kind: char, slots: &[usize]) -> Vec<String> {
         || has_section_heading(lines.iter().map(String::as_str), kind)
     {
         return Vec::new();
+    }
+    if kind == 'V' {
+        return vec![format!("\n{INVARIANTS_HEADING}\n")];
     }
     vec![
         "\n## §B BUGS\n".to_owned(),
@@ -492,16 +542,12 @@ fn next_heading(lines: &[String], from: usize) -> usize {
         .map_or(lines.len(), |(i, _)| i)
 }
 
-fn add_moves(
-    tasks: &mut Vec<String>,
-    bugs: &mut Vec<String>,
-    moving: &[Move],
-) -> Result<(), String> {
+fn add_moves(kinds: &mut Kinds, moving: &[Move]) -> Result<(), String> {
     for m in moving {
-        let rows = if m.id.starts_with('T') {
-            &mut *tasks
-        } else {
-            &mut *bugs
+        let Some((_, rows)) =
+            kinds.iter_mut().find(|(k, _)| m.id.starts_with(*k))
+        else {
+            continue;
         };
         if rows.iter().any(|r| label_of(r) == m.id) {
             return Err(format!("{} is already archived", m.id));
@@ -561,6 +607,9 @@ fn proven(
 fn carries_its_cites(m: &Move) -> bool {
     if m.id.starts_with('B') {
         return true;
+    }
+    if m.id.starts_with('V') {
+        return crate::check::marked(&m.stub) == crate::check::marked(&m.row);
     }
     cells(&m.stub).get(3) == cells(&m.row).get(3)
 }
@@ -971,5 +1020,86 @@ kept
         assert_eq!(spec, text);
         assert!(report(text, &records(&[]), 0).contains("nothing to archive"));
         assert!(!arch.contains("T1"), "{arch}");
+    }
+
+    const RULES: &str = "\
+## \u{a7}V INVARIANTS
+
+V1: live rule.
+V3: old rule with words. [superseded by V9]
+V4: quoted `[superseded by V9]` only.
+V5: was superseded by V9 [B1].
+V9: the replacement.
+";
+
+    /// The text moves; the id and the mark stay, so V41 still checks the chain.
+    #[test]
+    fn a_superseded_statement_leaves_a_stub_with_id_and_mark() {
+        let (spec, arch) =
+            archive(RULES, "", &records(&[]), 0).unwrap_or_default();
+        assert!(spec.contains("\nV3: A [superseded by V9]\n"), "{spec}");
+        assert!(!spec.contains("old rule with words"), "{spec}");
+        assert!(arch.contains("## \u{a7}V INVARIANTS\n"), "{arch}");
+        assert!(
+            arch.contains("V3: old rule with words. [superseded by V9]"),
+            "{arch}"
+        );
+        assert!(
+            crate::check::supersessions_resolve(&spec).is_empty(),
+            "{spec}"
+        );
+        assert!(crate::check::citations_resolve(&spec).is_empty(), "{spec}");
+    }
+
+    /// Companion (V18): live rules, and marks only in backticks or prose, stay.
+    #[test]
+    fn live_and_prose_marked_statements_are_never_moved() {
+        let (spec, arch) =
+            archive(RULES, "", &records(&[]), 0).unwrap_or_default();
+        for keep in ["V1: live rule.", "V4: quoted `[superseded by V9]` only."]
+        {
+            assert!(spec.contains(keep), "{spec}");
+        }
+        assert!(spec.contains("V5: was superseded by V9 [B1]."), "{spec}");
+        assert!(spec.contains("V9: the replacement."), "{spec}");
+        assert!(!arch.contains("V1:") && !arch.contains("V4:"), "{arch}");
+        assert!(!arch.contains("V5:") && !arch.contains("V9:"), "{arch}");
+    }
+
+    #[test]
+    fn a_second_run_over_stubbed_rules_moves_nothing() {
+        let (once, arch) =
+            archive(RULES, "", &records(&[]), 0).unwrap_or_default();
+        assert!(moves(&once, &records(&[]), 0).is_empty());
+        let (twice, again) =
+            archive(&once, &arch, &records(&[]), 0).unwrap_or_default();
+        assert_eq!((twice, again), (once, arch));
+    }
+
+    /// Existing archive content survives and the `§V` section is added.
+    #[test]
+    fn rules_join_an_existing_archive_without_disturbing_it() {
+        let (_, arch) =
+            archive(RULES, HAND_ARCHIVE, &records(&[]), 0).unwrap_or_default();
+        assert!(arch.starts_with(HAND_ARCHIVE.trim_end_matches("kept\n")));
+        assert!(arch.contains("\n## \u{a7}V INVARIANTS\n"), "{arch}");
+        assert!(arch.contains("T2|x|older|-\n"), "{arch}");
+        assert!(arch.ends_with("[superseded by V9]\n"), "{arch}");
+    }
+
+    /// Archived rules keep V14 order across runs.
+    #[test]
+    fn a_later_rule_sorts_into_an_existing_invariants_section() {
+        let held = format!(
+            "{HEADER}\n## \u{a7}V INVARIANTS\nV7: seven. [superseded by V9]\n"
+        );
+        let (_, arch) =
+            archive(RULES, &held, &records(&[]), 0).unwrap_or_default();
+        let ids: Vec<String> = arch
+            .lines()
+            .filter_map(at_line_start)
+            .map(|i| i.label())
+            .collect();
+        assert_eq!(ids, vec!["V3", "V7"], "{arch}");
     }
 }
