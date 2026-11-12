@@ -326,18 +326,30 @@ pub fn archive(
 fn stubbed(spec: &str, moving: &[Move]) -> String {
     let mut out = String::new();
     let mut skip: Option<usize> = None;
+    let mut fence = None;
     for line in spec.split_inclusive('\n') {
         if let Some(remaining) = skip.filter(|remaining| *remaining != 0) {
             skip = remaining.checked_sub(1);
             continue;
         }
         skip = None;
-        stub_line(&mut out, line, moving, &mut skip);
+        stub_line(&mut out, line, moving, (&mut skip, &mut fence));
     }
     out
 }
 
-fn stub_line(o: &mut String, l: &str, ms: &[Move], s: &mut Option<usize>) {
+/// One line of the spec. A fenced example is not a declaration (B14), so an
+/// identical row inside a fence is left as written, as `movable_lines` does.
+fn stub_line(
+    o: &mut String,
+    l: &str,
+    ms: &[Move],
+    (s, fence): (&mut Option<usize>, &mut Option<Fence>),
+) {
+    if advance_fence(l, fence) || fence.is_some() {
+        o.push_str(l);
+        return;
+    }
     let body = l.trim_end_matches(['\r', '\n']);
     let Some(m) = ms
         .iter()
@@ -1072,6 +1084,19 @@ kept
     fn a_row_inside_a_fence_is_never_moved() {
         let text = "# SPEC\n\n```\nT1|x|an example|-\n```\n";
         assert_eq!(moves(text, &records(&[]), 0), vec![]);
+    }
+
+    /// A declaration and an identical fenced example: only the declaration is
+    /// stubbed, and the example keeps its text (the proof does not see it).
+    #[test]
+    fn a_fenced_copy_of_a_retired_invariant_keeps_its_text() {
+        let row = "V1: a rule [superseded by V2]";
+        let text =
+            format!("# SPEC\n\n## §V INVARIANTS\n\n{row}\n\n```\n{row}\n```\n");
+        let (spec, _) =
+            archive(&text, "", &records(&[]), 0).unwrap_or_default();
+        assert!(spec.contains(&format!("\n```\n{row}\n```\n")), "{spec}");
+        assert_eq!(spec.matches(row).count(), 1, "{spec}");
     }
 
     /// A literal pipe survives the round trip (V42, V43).

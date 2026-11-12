@@ -52,7 +52,8 @@ pipeline gets proven before a permanent number is spent.
   such as `V3: A [superseded by V9]`. The id stays so citations still resolve,
   and the mark stays so V41 still checks the chain. A live statement, or one
   whose `[superseded by ...]` sits only inside backticks or prose, is never
-  moved, and a second run is a no-op. Existing archive content is untouched.
+  moved, and a fenced example of the same row keeps its text. A second run is
+  a no-op. Existing archive content is untouched.
   A statement carrying a V16 record is held back and named, as a row is.
 
 ## [0.7.6] — 2026-11-10
