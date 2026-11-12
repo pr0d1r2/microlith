@@ -147,13 +147,15 @@ fn is_finished(line: &str) -> bool {
 /// than live work · it has not already been archived, which is what makes a
 /// second run a no-op · and no V16 record is named on it.
 fn movable(line: &str, records: &[Record]) -> Option<Move> {
-    let id =
-        at_line_start(line).filter(|i| matches!(i.kind, 'T' | 'B' | 'V'))?;
+    // The record check comes first, so it binds every kind, `V` included.
+    let id = at_line_start(line)
+        .filter(|i| matches!(i.kind, 'T' | 'B' | 'V'))
+        .filter(|i| !holds_a_record(i, records))?;
     if id.kind == 'V' {
         return movable_invariant(line, &id);
     }
     let f = cells(line.trim_end());
-    if f.len() != 4 || holds_a_record(&id, records) {
+    if f.len() != 4 {
         return None;
     }
     match id.kind {
@@ -1064,6 +1066,20 @@ V9: the replacement.
         assert!(spec.contains("V9: the replacement."), "{spec}");
         assert!(!arch.contains("V1:") && !arch.contains("V4:"), "{arch}");
         assert!(!arch.contains("V5:") && !arch.contains("V9:"), "{arch}");
+    }
+
+    /// PLANTED (V16): a superseded statement carrying a record stays whole,
+    /// and is named, exactly as a row carrying one is.
+    #[test]
+    fn a_superseded_statement_carrying_a_record_is_held_back() {
+        let recs = records(&[("V3", "with words")]);
+        let (spec, arch) = archive(RULES, "", &recs, 0).unwrap_or_default();
+        assert!(spec.contains("V3: old rule with words."), "{spec}");
+        assert!(!arch.contains("V3:"), "{arch}");
+        assert!(
+            held_back(RULES, &recs).contains("V3 carry"),
+            "said out loud"
+        );
     }
 
     #[test]

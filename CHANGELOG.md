@@ -53,6 +53,7 @@ pipeline gets proven before a permanent number is spent.
   and the mark stays so V41 still checks the chain. A live statement, or one
   whose `[superseded by ...]` sits only inside backticks or prose, is never
   moved, and a second run is a no-op. Existing archive content is untouched.
+  A statement carrying a V16 record is held back and named, as a row is.
 
 ## [0.7.6] — 2026-11-10
 
