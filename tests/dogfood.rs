@@ -25,6 +25,10 @@ fn spec() -> String {
 
 #[test]
 fn dev_shell_contains_cargo_release() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    if !root.join(".git").exists() {
+        return;
+    }
     assert!(dev_shell_has_package(
         &at_root("flake.nix"),
         "cargo-release"
