@@ -5,6 +5,7 @@
 //! apart without the gate noticing.
 
 use microlith::ARCHIVE;
+use microlith::dev_shell_has_package;
 use microlith::migrate_declined;
 use microlith::parse_records;
 use microlith::tasks_json;
@@ -20,6 +21,14 @@ fn at_root(name: &str) -> String {
 
 fn spec() -> String {
     at_root("SPEC.md")
+}
+
+#[test]
+fn dev_shell_contains_cargo_release() {
+    assert!(dev_shell_has_package(
+        &at_root("flake.nix"),
+        "cargo-release"
+    ));
 }
 
 /// The spec is already formatted: `fmt` is a no-op on it.

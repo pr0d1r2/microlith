@@ -31,6 +31,7 @@ src/cli.rs
 src/derive.rs
 src/docs.rs
 src/extensions.rs
+src/flake.rs
 src/format.rs
 src/id.rs
 src/invariants.rs
