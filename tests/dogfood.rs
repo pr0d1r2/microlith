@@ -122,7 +122,7 @@ fn every_stub_in_our_own_spec_points_at_text_the_archive_holds() {
         .filter_map(|l| l.split('|').next().map(str::to_owned))
     {
         assert!(
-            stored.contains(&format!("\n{id}|x|")),
+            stored.lines().any(|line| line.starts_with(&format!("{id}|"))),
             "{id} is not in {ARCHIVE}"
         );
     }
