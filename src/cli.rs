@@ -1227,7 +1227,7 @@ mod tests {
             "SPEC.md",
         ]));
         assert_eq!(held.code, 0, "{}", held.err);
-        assert!(held.out.contains("T26b"), "{}", held.out);
+        assert!(held.out.contains("B48"), "{}", held.out);
         assert!(std::fs::read_to_string("SPEC.md").is_ok(), "unwritten");
     }
 

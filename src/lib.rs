@@ -25,6 +25,7 @@ pub(crate) mod cli;
 pub(crate) mod derive;
 pub(crate) mod docs;
 pub(crate) mod extensions;
+pub mod flake;
 pub(crate) mod format;
 pub(crate) mod id;
 pub(crate) mod invariants;
@@ -47,6 +48,7 @@ pub use write::{add_row, amend_row, supersede_rows};
 // an exit code. Between them they are everything `mth` can do -- which is the
 // contract V32 freezes at 1.0, and the reason the modules above are not it.
 pub use check::parse_records;
+pub use flake::dev_shell_has_package;
 pub use format::{MAX_LINE, over_cap};
 
 // THE ROW CODEC, exported as a set. A pipe row is the one construct in this

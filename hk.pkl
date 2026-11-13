@@ -56,7 +56,7 @@ local fast = new Mapping<String, Step> {
   // language it is written in. `hk.pkl` is one: microlith-dev ties its
   // input list to the `readme-badges` glob below.
   ["test"] {
-    glob = List("**/*.rs", "SPEC.md", ".spec-records", "hk.pkl")
+    glob = List("**/*.rs", "SPEC.md", ".spec-records", "flake.nix", "hk.pkl")
     depends = List("clippy")
     check = "cargo nextest run --workspace"
   }
