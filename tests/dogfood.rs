@@ -24,6 +24,17 @@ fn spec() -> String {
 }
 
 #[test]
+fn release_ladder_allows_patch_behaviour_before_the_next_rung() {
+    let manifest = at_root("Cargo.toml");
+    let changelog = at_root("CHANGELOG.md");
+    assert!(manifest.contains("may carry new behaviour while the next"));
+    assert!(manifest.contains("rung's done-when is unmet"));
+    assert!(changelog.contains("A patch may therefore carry new behaviour"));
+    assert!(spec().contains("a patch may carry new behaviour while the next"));
+    assert!(!manifest.contains("It carries fixes and metadata only"));
+}
+
+#[test]
 fn dev_shell_contains_cargo_release() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     if !root.join(".git").exists() {

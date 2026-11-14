@@ -27,9 +27,9 @@ name = "microlith"
 # mark effort. Read CHANGELOG.md's table for which rung this is.
 #
 # A PATCH sits OFF that ladder, which is why the ladder has no row for one:
-# a rung is a MINOR, and a patch is what happens when the answer to "what
-# can you rely on" does not change. It carries fixes and metadata only --
-# never a new guarantee, because a new guarantee is a rung by definition.
+# a rung is a MINOR, and a patch may carry new behaviour while the next
+# rung's done-when is unmet. The rung still moves only when its done-when is
+# met; a patch does not claim that guarantee early.
 version = "0.7.6"
 edition = "2024"
 # The floor is the PINNED toolchain, and the pin is now the fleet's one
