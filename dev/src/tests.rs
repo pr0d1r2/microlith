@@ -98,6 +98,18 @@ fn macos_14_is_not_an_intel_runner() {
 }
 
 #[test]
+fn spec_t26_names_the_intel_macos_runner() {
+    let spec = include_str!("../../SPEC.md");
+    assert!(spec.lines().any(|line| line.starts_with("T26|")
+        && line.contains("macos-latest · macos-15-intel")));
+    assert!(
+        !spec
+            .lines()
+            .any(|line| line.starts_with("T26|") && line.contains("macos-14"))
+    );
+}
+
+#[test]
 fn flake_declares_the_intel_macos_package_system() {
     let flake = include_str!("../../flake.nix");
     let systems = flake
