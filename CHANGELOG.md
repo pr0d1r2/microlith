@@ -32,8 +32,10 @@ arriving from crates.io can read the number without opening our spec.
 `0.1` through `0.4` were never published to crates.io. They are recorded because
 the guarantee was earned, not because there is an artifact to download.
 
-Pre-1.0 SemVer permits a minor to break, and here each rung *is* a behaviour
-change, so that permission is used honestly rather than worked around. crates.io
+Pre-1.0 SemVer permits a minor to break, and here each rung *is* a guarantee,
+not a feature cutoff. A patch may therefore carry new behaviour while the next
+rung's done-when is unmet; it does not move the rung or claim that guarantee
+early. crates.io
 is immutable — yanking hides a version, it does not delete it — so the first
 public artifact is `0.5.0-rc.1`, which cargo does not select by default. The
 pipeline gets proven before a permanent number is spent.
@@ -65,10 +67,11 @@ can also see two fixes to verbs that `0.7.5` already had. `check` now reads a
 suffixed invariant citation such as `V2a`. A repeated `--records` or
 `--format` is now refused, where before only the first one was read.
 
-It is a patch release because nothing a consumer relies on is removed or
-changed incompatibly. `cargo semver-checks` against `v0.7.5` reports no semver
-update required. It is not `0.8.0`, because `0.8` is M9's rung (the public gate
-is trustworthy) and M9 still has two tasks pending, T26 and T35. An even minor promises
+It is a patch release because `0.8` is M9's rung (the public gate is
+trustworthy), and M9's done-when is unmet. A patch may carry this new behaviour
+without moving that rung or claiming its guarantee early. `cargo semver-checks`
+against `v0.7.5` reports no semver update required. It is not `0.8.0`, because
+M9 still has two tasks pending, T26 and T35. An even minor promises
 stability (V34), and a rung whose done-when is unmet would promise more than
 this tag can deliver (V30). The new writing verbs come early for the `0.9` rung
 (M5). They work, but M5's done-when (every skill that edits a spec calls them,
